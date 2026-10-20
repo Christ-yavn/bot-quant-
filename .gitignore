@@ -29,18 +29,12 @@ desktop.ini
 *.tst
 *.tmp
 
-# Raw local storage folders (raw tick streams and terminal dumps kept locally)
-DONNER  TRADE V6/
-DONNER  TRADE V7/
-DOSSIER_COMPLET_BOT_HFT_DERIV_V6/
-PROJET DERIV/
-reclamer par argon/
-RESOURCE COLLAB/
+# Large archives and uncompressed data dumps
 *.zip
 *.tar.gz
 *.7z
 
-# Keep all structured code, summaries, models, and documentation
+# Retain all structured models, source code, summaries, and documentation
 !*.md
 !*.mq5
 !*.ex5
