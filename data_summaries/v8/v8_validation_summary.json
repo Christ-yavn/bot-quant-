@@ -1,0 +1,25 @@
+{
+  "model_version": "v8.00 Spike Hunter Convexe",
+  "sample_size_trades": 1242,
+  "baseline": {
+    "net_pnl_usd": 340.73,
+    "win_rate_pct": 14.09,
+    "avg_win_usd": 3.48,
+    "avg_loss_usd": 0.25,
+    "payoff_ratio": 13.83,
+    "profit_factor": 2.27,
+    "trade_sharpe": 0.1685,
+    "max_drawdown_usd": 19.86
+  },
+  "bootstrap_10000": {
+    "mean_block_length": 15.0,
+    "probability_positive_pnl": 100.0,
+    "ci_95_pnl_usd": [
+      236.51,
+      446.52
+    ],
+    "median_pnl_usd": 340.85,
+    "median_profit_factor": 2.27,
+    "median_max_dd_usd": 13.64
+  }
+}

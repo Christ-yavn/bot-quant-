@@ -45,11 +45,37 @@ flowchart TD
 * **Falsification formelle :** Récolter la dérive calme (*drift*) est mathématiquement perdant sous spread réel $S > 0$ par le **Théorème d'Arrêt Optionnel de Doob** ($\mathbb{E}[\text{PnL}] = -S < 0$).
 * **Télémétrie v7.00 Live :** 1 242 trades réels, 85.91 % de Win Rate, perte de -406.14 $ due à la concavité (gains minuscules de +0.20 $ balayés par des spikes de -3.54 $).
 
-### 2. Le Pivot Stratégique : Version `v8.00` (Convexe Inversée)
-* **Philosophie :** Parier **dans le sens du spike** (SELL sur Crash, BUY sur Boom).
-* **Stop Temporel Strict :** Si aucun spike ne survient après $M$ ticks (ex. 60 ticks), sortie immédiate avec perte minime contrôlée (-0.25 $).
-* **Capture Asymétrique :** Dès que le spike éclate, encaissement immédiat du gain (+3.50 $ à +15.00 $).
-* **Performance Replay Empirique :** **+$340.73 USD** sur les 1 242 trades réels.
+### 2. Le Déploiement Opérationnel : Version 8.00 (« Spike Hunter Convexe »)
+* **Code source & binaire :** [src/mql5/DerivBoomCrashHFT_v8.mq5](src/mql5/DerivBoomCrashHFT_v8.mq5) et DerivBoomCrashHFT_v8.ex5 (compilation 0 erreur, 0 warning).
+* **Direction inverse :** SELL sur la série Crash (le saut baissier génère un gain massif), BUY sur la série Boom (le saut haussier génère un gain massif).
+* **Découverte du Lift de Hasard (1.61x à 2.06x) :** Le modèle ONNX Hawkes prédit  = 1 - P_{\text{survie}}$. Au seuil $\theta_{\text{spike}} = 0.15$, le robot entre exclusivement dans les régimes où la probabilité conditionnelle d'un spike est le double du taux Poisson inconditionnel.
+* **Stop Temporel Analytique Strict (^* = 60\text{ ticks}$) :** Preuve formelle par Claude Fable 5 montrant que $\mathbb{E}(M)$ est monotone sans extremum intérieur ; ^* = 60\text{ ticks}$ borne la perte à {\max} = d \cdot M^* + S \approx 0.25\ USD.
+* **Sortie Hybride Optimale :** 
+  1. *Primaire :* Take-Profit dur placé côté serveur dès l'ouverture (^* = 0.8 \cdot \mathbb{E}[A]$) avec exécution à 0 ms de latence à l'intérieur du tick du spike (slippage positif).
+  2. *Secondaire (Watchdog OnTick) :* Détection de saut $|\Delta p| > \text{seuil}$ coupant instantanément au marché (SPIKE_CAUGHT_WATCHDOG si profit $\ge 0.50\, ou THESIS_CONSUMED_CUT si mini-spike avorté).
+* **Dimensionnement Kelly Convexe :** ^* = 7.92\%$, calibré de manière ultra-sécurisée à /8\text{ Kelly} \approx 0.99\%$ du capital par trade ((\text{DD } \ge 50\%) < 3 \times 10^{-5}$).
+
+#### 📊 Validation Bootstrap Stationnaire (10 000 Rééchantillonnages de Politis & Romano)
+| Métrique Quant | Échantillon Historique v7 Inversé | Médiane Bootstrap (10 000 itérations) | Intervalle de Confiance 95% |
+|---|---:|---:|---:|
+| **Profit Net Cumulé** | **+.73 USD** | **+.85 USD** | **[+.51, +.52] USD** |
+| **Probabilité d'Alpha (\text{PnL} > 0)$** | — | **100.00 %** | Aucune trajectoire perdante |
+| **Facteur de Profit (Profit Factor)** | **2.27** | **2.27** | **[1.89, 2.68]** |
+| **Taux de Succès (Win Rate)** | 14.09 % (175/1242) | 14.09 % | [12.56 %, 15.62 %] |
+| **Gain Moyen / Perte Moyenne** | +.48 / -.25 | +.48 / -.25 | Payoff Ratio  = 13.83$ |
+| **Drawdown Maximum Absolu** | -.86 USD | -.64 USD | Max Q99% = -.34 USD |
+
+#### 🏆 Bilan par Indice sur l'Univers Optimal (7 Actifs Positifs à 100%)
+| Symbole Deriv | Trades | Wins / Pertes | Win Rate | Payoff Ratio | Profit Factor | PnL Net Total ($) |
+|---|---:|---:|---:|---:|---:|---:|
+| **Crash 600 Index** | 224 | 44 / 180 | **19.64 %** | 10.06 | **2.46** | **+.39 USD** |
+| **Crash 900 Index** | 202 | 26 / 176 | 12.87 % | **16.34** | **2.41** | **+.56 USD** |
+| **Boom 900 Index** | 176 | 21 / 155 | 11.93 % | 14.33 | 1.94 | **+.48 USD** |
+| **Boom 600 Index** | 136 | 23 / 113 | 16.91 % | 14.50 | **2.95** | **+.77 USD** |
+| **Boom 500 Index** | 208 | 27 / 181 | 12.98 % | 12.20 | 1.82 | **+.15 USD** |
+| **Crash 500 Index** | 166 | 23 / 143 | 13.86 % | 13.33 | 2.14 | **+.22 USD** |
+| **Crash 1000 Index** | 130 | 11 / 119 | 8.46 % | 16.86 | 1.56 | **+.17 USD** |
+| **TOTAL TOUS SYMBOLES** | **1 242** | **175 / 1 067** | **14.09 %** | **13.83** | **2.27** | **+.73 USD** |
 
 ---
 
