@@ -9,6 +9,16 @@
 
 ---
 
+
+---
+
+### 🌐 Liens et Archives Permanentes de Recherche
+* **Dépôt GitHub Officiel :** [https://github.com/Christ-yavn/bot-quant-](https://github.com/Christ-yavn/bot-quant-)
+* **Session de Recherche Claude Fable 5 (Ashna AI) :** [https://app.ashna.ai/chat/6ad691c5a83de54d569d8c5a?agent=claude-fable-5](https://app.ashna.ai/chat/6ad691c5a83de54d569d8c5a?agent=claude-fable-5)
+* **Grand Manuel Tome I (Fondations v1.00 à v6.00) :** [docs/ENCYCLOPEDIE_COMPLETE_BOT_HFT_DERIV_V1_A_V6.md](docs/ENCYCLOPEDIE_COMPLETE_BOT_HFT_DERIV_V1_A_V6.md)
+* **Grand Manuel Tome II (Système Dual, Théorie L1, ONNX & Déploiement) :** [docs/ENCYCLOPEDIE_TOME_2_SYSTEME_DUAL_HFT_ET_ONNX_VOLATILITE.md](docs/ENCYCLOPEDIE_TOME_2_SYSTEME_DUAL_HFT_ET_ONNX_VOLATILITE.md)
+* **Moteur de Suivi Temps Réel Dual-Bot :** [src/python/analytics/monitor_dual_bots.py](src/python/analytics/monitor_dual_bots.py)
+
 ## 🏛️ Architecture Produit : Deux Gammes Quantitatives Distinctes
 
 Pour répondre aux microstructures fondamentalement opposées des marchés de Deriv, le projet est officiellement scindé en **deux gammes algorithmiques spécialisées et indépendantes** :
@@ -107,7 +117,8 @@ bot-quant-/
 │   ├── PROMPT_CLAUDE_FABLE_5_RECHERCHE_MATH.md<- Cahier des charges mathématique Claude Fable 5
 │   ├── PROMPT_CLAUDE_FABLE_5_ROUND_2_DEEP_SPEC.md <- Approfondissement doctoral L99
 │   ├── PROMPT_GEMINI_4_ARGON_EXECUTION_CALCUL.md <- Mission d'exécution empirique Gemini 4 Argon
-│   ├── ENCYCLOPEDIE_COMPLETE_BOT_HFT.md       <- Cours complet (56 Ko) de la v1 à la v6
+│   ├── ENCYCLOPEDIE_COMPLETE_BOT_HFT.md       <- Tome I : Cours complet (56 Ko) de la v1 à la v6
+│   ├── ENCYCLOPEDIE_TOME_2_SYSTEME_DUAL.md    <- Tome II : Théorie L1, Inversion v8 & Filtre ONNX (78 Ko)
 │   ├── MATHEMATICAL_PROOFS_AND_THEORY.md      <- Preuves Doob, Martingales, Hawkes, Taleb
 │   ├── MICROSTRUCTURE_DERIV_SPEC.md           <- Spreads réels et TP virtuel
 │   └── RAPPORT_COMPLET_SESSION_V7.md          <- Audit de la session v7.00

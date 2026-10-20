@@ -291,3 +291,17 @@ L'exécution stricte de `PH2_C1_Sentinel_Validation_S1.py` a scellé le fichier 
 * Intègre le moteur d'inférence ONNX en temps réel (`OnnxCreate`, `OnnxRun`).
 * Compilé avec MetaEditor 64 : **0 erreur, 0 avertissement** (49 936 octets).
 * Déployé dans le terminal MetaTrader 5 (`MQL5/Experts/` et `MQL5/Files/`).
+
+### 13.4 Rsolution des 4 Bugs Critiques en Production MetaTrader 5
+1. **Incompatibilit ZipMap dans OnnxRun :** Par dfaut skl2onnx exportait des maps de probabilits incompatibles avec MT5. Rxport avec options={'zipmap': False} fournissant un tenseur dense [1, 2] de type loat.
+2. **Division par Zro au Dmarrage de l'EA v3 :** _Point et mid_price temporairement nuls avant le premier tick du broker. Scurisation complte par gardes d'initialisation dans Deriv_VolSqueeze_Breakout_EA_v3.mq5.
+3. **Configuration Stricte des Dimensions ONNX :** Dclaration prcise via OnnxSetInputShape({1, 7}) et OnnxSetOutputShape({1, 2}).
+4. **Moteur de Tlmtrie Spare (monitor_dual_bots.py) :** Classification automatique par Magic Number (20261020 pour Boom/Crash v8.20 et 20261022 pour Volatility v3.00), distinction des PnL et suivi en temps rel.
+
+### 13.5 Dploiement en Direct & Rdaction du Tome II de l'Encyclopdie
+* **Premier Trade Rel ONNX :** Ticket #8804827667 sur Volatility 25 (1s) Index (H1), BUY 0.014 lot, commentaire 3_S1_BUY_P100 (valid  100% de probabilit par l'IA).
+* **Publication du Tome II :** Rdaction complte de [docs/ENCYCLOPEDIE_TOME_2_SYSTEME_DUAL_HFT_ET_ONNX_VOLATILITE.md](docs/ENCYCLOPEDIE_TOME_2_SYSTEME_DUAL_HFT_ET_ONNX_VOLATILITE.md) (78 Ko, 1 070 lignes) vulgarisant 100% des concepts statistiques pour un niveau L1 et consignant l'intgralit des dbats et dcouvertes de la journe.
+* **Archivage des Liens Permanents :**
+  - Session Claude Fable 5 sur Ashna AI : https://app.ashna.ai/chat/6ad691c5a83de54d569d8c5a?agent=claude-fable-5
+  - Dpt GitHub : https://github.com/Christ-yavn/bot-quant-
+* **Assainissement Git :** Branche temporaire supprime sur GitHub, dpt unifi sur main.
