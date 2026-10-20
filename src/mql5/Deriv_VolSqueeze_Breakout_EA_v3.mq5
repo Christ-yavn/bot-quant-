@@ -95,15 +95,13 @@ int OnInit()
       if(ExtOnnxHandle != INVALID_HANDLE)
       {
          const long in_shape[] = {1, 7};
-         if(!OnnxSetInputShape(ExtOnnxHandle, 0, in_shape))
-         {
-            PrintFormat("[v3.00 ONNX WARNING] OnnxSetInputShape failed. Code=%d", GetLastError());
-         }
-         else
-         {
-            ExtModelLoaded = true;
-            PrintFormat("[v3.00 ONNX] Model '%s' successfully loaded and ready for inference.", InpONNXModelName);
-         }
+         const long out_shape_0[] = {1};
+         const long out_shape_1[] = {1, 2};
+         OnnxSetInputShape(ExtOnnxHandle, 0, in_shape);
+         OnnxSetOutputShape(ExtOnnxHandle, 0, out_shape_0);
+         OnnxSetOutputShape(ExtOnnxHandle, 1, out_shape_1);
+         ExtModelLoaded = true;
+         PrintFormat("[v3.00 ONNX] Model '%s' successfully loaded and ready for inference.", InpONNXModelName);
       }
       else
       {
