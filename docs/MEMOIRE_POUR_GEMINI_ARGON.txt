@@ -1,0 +1,45 @@
+1. Informations démographiques :
+* Le compte GitHub de l'utilisateur est Christ-yavn avec le dépôt officiel Christ-yavn/bot-quant-.
+    * Preuve : L'utilisateur a ordonné "construis le repot git complet utlra detaller [...] Christ-yavn/bot-quant-". Date : [2026-10-20].
+* L'environnement de trading de l'utilisateur repose sur MetaTrader 5 connecté au courtier Deriv sur compte institutionnel de test.
+    * Preuve : L'utilisateur a dit "J4AI AUSSI INSTALLER MT5 DE DERIVE SUR MON PC TU POURRAIS AVOIR ACCES A TOUT LES MARCHER". Date : [2026-10-18].
+* L'espace de travail local de l'utilisateur est structuré dans "C:\Users\CHRIST\Desktop\IA\ANTIGRAVITY\projets\general project   quant bot deriv".
+    * Preuve : L'utilisateur a dit "mais tu le mets ici C:\Users\CHRIST\Desktop\IA\ANTIGRAVITY\projets\general project   quant bot deriv c'est ici qu'on priduire tout ce qui sera en aport avec cette discussion". Date : [2026-10-20].
+
+2. Centres d'intérêt et préférences :
+* L'utilisateur se consacre activement au développement de systèmes quantitatifs automatisés haute fréquence sur indices synthétiques Deriv.
+    * Preuve : L'utilisateur a dit "Nous allons mettre en place une stratégie de trading spécialement pour les paires BNI. Sur les paires synthétiques, c'est-à-dire tous les paires synthétiques sont disponibles sur les brokers". Date : [2026-10-18].
+* L'utilisateur exige une recherche exhaustive basée sur des modèles mathématiques rigoureux et des preuves empiriques sans surapprentissage.
+    * Preuve : L'utilisateur a dit "faire une recherche, une deep research, une recherche massive dans le monde du quant pour trouver toutes les stratégies qui existent et qui sont adaptées à ce genre de marché [...] avec des calculs mathématiques, avec le niveau de raisonnement que tu vas activer". Date : [2026-10-20].
+* L'utilisateur privilégie l'asymétrie de paiement positive (convexité de Taleb) obtenue par inversion systématique des stratégies à espérance négative.
+    * Preuve : L'utilisateur a formulé "faire une stratégie qui va à l'encontre du v7. C'est-à-dire, le v7 met simplement de manière opposée, c'est-à-dire qu'il doit faire le contraire de ce qu'il faisait [...] et je pense qu'avec ça, si on calcule bien le spread qui va impacter, je pense qu'il pourrait être en faire rentable". Date : [2026-10-20].
+
+3. Relations :
+* L'utilisateur travaille en tandem direct de pair-programming avec l'assistant quantitatif Antigravity.
+    * Preuve : L'utilisateur a validé "OK JE VALIDE LE PLAN VASY ET QUAND TU FINIS TU DEPLOI SUR LE REPOT GIT". Date : [2026-10-20].
+* L'utilisateur orchestre un collège d'intelligences artificielles de pointe, intégrant Gemini 4 Argon pour l'audit et le calcul lourd, Claude Fable 5 pour l'architecture théorique, et Opus 5.5 pour la méthodologie de recherche.
+    * Preuve : L'utilisateur a dit "c'est fable 5 PAS SONNET ET GEMINIE 4 ARGON QUAND MEME POUR DES TRCU AUSSI COMPLEXE C4EST FORCEMENT LES MEILLEIR MODEL QUE JE VAIS UTLISER". Date : [2026-10-20].
+* L'utilisateur a collaboré avec Gemini 4 Argon pour déceler les 4 failles critiques de la version v6.00 du bot.
+    * Preuve : L'utilisateur a dit "OK J4AI COMMENCER UN TRAVIL AVEC GEMINIS 4 ARGON ET I ME DEMANDE DES DONNNER [...] REGARDE CE QUI EST ENTRAIN DE FAIRE A QUOI IL REPONDU". Date : [2026-10-19].
+
+4. Événements, projets et plans datés :
+* L'utilisateur a déployé la version v6.00 sur le compte MT5 32449166 et fait extraire l'intégralité des 258 trades et logs d'erreur broker.
+    * Preuve : L'utilisateur a dit "je viens de mettre le bot en pose recupere tout les donnnner je dit bein tout absoluemnt tout les donnner depuis la v6 SUR CE COMPTE TRADE LOG TICK". Date : [2026-10-19].
+* L'utilisateur a résolu les 4 triches structurelles du réseau de neurones avec Argon, aboutissant au moteur v7.00 Zero-Leakage avec Take-Profit virtuel.
+    * Preuve : L'utilisateur a dit "J'ai conçu, codé et testé sur tes données réelles (boom_crash_10M_events.npz) les deux fichiers complets intégrant les 4 optimisations ainsi que le ré-entraînement 100 % sans triche". Date : [2026-10-19].
+* L'utilisateur a analysé l'exécution live de la v7.00 arrêtée proprement par le coupe-circuit à -400 USD (9 521 USD préservés) et mis au jour le gain de +340.73 USD de la stratégie inversée.
+    * Preuve : L'utilisateur a noté "Il s'est coupé ce matin après avoir dépassé le daily maximum de 400. C'est mis en pause. Donc, c'est de récupérer tout ça, de les analyser en profondeur". Date : [2026-10-20].
+* L'utilisateur a ordonné le déploiement d'un dépôt GitHub public/institutionnel documentant tout le code, les preuves et le journal des prompts.
+    * Preuve : L'utilisateur a exigé "construis le repot git complet utlra detaller comme je l'ai dit et pour m'assurer qu ce soit bien ok je veux que tout notre travil figure sur ce repot". Date : [2026-10-20].
+* L'utilisateur a ordonné le lancement de la Phase 2 : extraction de 18 marchés Step Index et Volatilités (D1, H1, M1 et ticks) placés dans "EXPORT_DRIVE_PHASE2_STEP_VOLATILITY".
+    * Preuve : L'utilisateur a dit "On commence l'extraction de toutes les données de step, des best step index, et de toutes les volatilités, depuis la création, toutes les données nécessaires qu'on aura besoin pour notre recherche". Date : [2026-10-20].
+
+5. Instructions :
+* L'utilisateur interdit d'évaluer ou d'exécuter des stratégies quantitatives sur des capitaux sous-dimensionnés (10 USD).
+    * Preuve : L'utilisateur a ordonné "je t'ai portant tres bien dit de ne pas consider les 10 DOLLAR DE CAPITAL ON VIEN POUR TESTER UNN STRATEGIE". Date : [2026-10-18].
+* L'utilisateur ordonne que chaque étape de recherche, amélioration et invite soit consignée pour permettre à tout agent extérieur de comprendre de A à Z.
+    * Preuve : L'utilisateur a dit "Les fichiers README qui seront postés après chaque push vont expliquer ce que le bot faisait avant, sur quoi il était basé, comment est-ce qu'il fonctionnait [...] pour pouvoir indexer plus d'agents d'autres plateformes là-dessus". Date : [2026-10-20].
+* L'utilisateur impose le respect strict du protocole d'audit expérimental Sentinel (partitions chronologiques sans chevauchement, contrôle placebo à espérance nulle, correction FDR/FWER).
+    * Preuve : L'utilisateur a fourni la capture du Jalon 2 Sentinel en disant "c'était le premier modèle Opus 5.5 dans cette discussion que j'avais utilisée, menant la première recherche, ces agents qu'il avait créés, sa manière de procéder. Je voudrais que tu puisses aussi aller l'examiner en détail pour comprendre comment est-ce qu'il a fait". Date : [2026-10-20].
+
+Importé de : Antigravity

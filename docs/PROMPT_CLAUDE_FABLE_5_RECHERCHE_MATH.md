@@ -1,5 +1,5 @@
 # MISSION DIRECTEUR DE RECHERCHE QUANTITATIVE (PHD / HEAD OF QUANT)
-## Destinataire : Claude 3.5 Sonnet (Mode Haute Rigueur Mathématique & R&D Systémique)
+## Destinataire : Claude Fable 5 (Mode Haute Rigueur Mathématique & R&D Systémique)
 
 ---
 
@@ -55,8 +55,8 @@ En tant que Directeur de Recherche Quant, vous devez produire un **Rapport d'Ori
   3. Classification des régimes stochastiques par l'Exposant de Hurst $H$ (analyse R/S et DFA) : seuils stricts pour $H < 0.45$ (Mean-reversion), $0.45 \le H \le 0.55$ (Random Walk pur), et $H > 0.55$ (Momentum / Persistance).
   4. Filtrage d'état de Kalman : formulation pour extraire la dérive locale instantanée $\mu_t$ et la volatilité sous-jacente en temps réel.
 
-#### D. Cahier des Charges & Prompt d'Exécution Détaillé pour l'Équipe de Calcul (Gemini 1.5 Pro)
-* Formulez les étapes algorithmiques exactes, les fonctions de perte, les métriques d'évaluation hors échantillon (Sharpe, Sortino, ratio de Calmar, Max Drawdown sous embargo), et le protocole de rejet d'hypothèse nulle par Benjamini-Hochberg que l'équipe d'exécution (Gemini 1.5 Pro) devra implémenter sur les jeux de données CSV extraits.
+#### D. Cahier des Charges & Prompt d'Exécution Détaillé pour l'Équipe de Calcul (Gemini 4 Argon)
+* Formulez les étapes algorithmiques exactes, les fonctions de perte, les métriques d'évaluation hors échantillon (Sharpe, Sortino, ratio de Calmar, Max Drawdown sous embargo), et le protocole de rejet d'hypothèse nulle par Benjamini-Hochberg que l'équipe d'exécution (Gemini 4 Argon) devra implémenter sur les jeux de données CSV extraits.
 
 ---
 

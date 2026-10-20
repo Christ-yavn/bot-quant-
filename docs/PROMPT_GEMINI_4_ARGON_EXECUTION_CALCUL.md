@@ -1,5 +1,5 @@
 # MISSION INGÉNIEUR DE CALCUL QUANTITATIF & EXPÉRIMENTATION EMPIRIQUE (LEAD QUANT EXECUTION)
-## Destinataire : Gemini 1.5 Pro (Mode Deep Research, Code & Calculs Massifs)
+## Destinataire : Gemini 4 Argon (Mode Deep Research, Code & Calculs Massifs)
 
 ---
 
@@ -22,7 +22,7 @@
 #### 3. Relations
 * La relation principale de conception et d'exécution est un partenariat de pair-programming quantitatif direct entre l'utilisateur et l'assistant de recherche Antigravity.
     * Preuve : L'utilisateur a validé "OK JE VALIDE LE PLAN VASY ET QUAND TU FINIS TU DEPLOI SUR LE REPOT GIT". Date : [2026-10-20].
-* Des audits critiques de second regard ont été conduits de manière collaborative avec d'autres intelligences artificielles de pointe, notamment Argon (Gemini 4) pour la détection des failles du modèle v6.00 et Claude 3.5 Sonnet pour l'orientation théorique.
+* Des audits critiques de second regard ont été conduits de manière collaborative avec d'autres intelligences artificielles de pointe, notamment Argon (Gemini 4) pour la détection des failles du modèle v6.00 et Claude Fable 5 pour l'orientation théorique.
     * Preuve : L'utilisateur a transmis "OK J4AI COMMENCER UN TRAVIL AVEC GEMINIS 4 ARGON ET I ME DEMANDE DES DONNNER [...] REGARDE CE QUE ARGON VIENT DE DIRE". Date : [2026-10-19].
 
 #### 4. Événements, projets et plans datés
@@ -57,7 +57,7 @@ Importé de : Antigravity
    * **Step Indices :** `Step_Index`, `Step_Index_200`, `Step_Index_300`, `Step_Index_500`, `Multi_Step_2_Index`, `Multi_Step_4_Index` (D1 inception, 15 000 H1, 50 000 M1, 100 000 ticks).
    * **Indices de Volatilité :** `Volatility 10`, `Volatility 10 (1s)`, `Volatility 25`, `Volatility 25 (1s)`, `Volatility 50`, `Volatility 50 (1s)`, `Volatility 75`, `Volatility 75 (1s)`, `Volatility 100`, `Volatility 100 (1s)`, `Volatility 150 (1s)`, `Volatility 250 (1s)` (15 000 H1, 50 000 M1, et ticks récents pour V75 et V100 1s).
 3. **Cahier des Charges Mathématique :**  
-   Consultez les orientations théoriques formulées par Claude 3.5 Sonnet dans `docs/PROMPT_CLAUDE_3_5_SONNET_RECHERCHE_MATH.md`.
+   Consultez les orientations théoriques formulées par Claude Fable 5 dans `docs/PROMPT_CLAUDE_3_5_SONNET_RECHERCHE_MATH.md`.
 
 ---
 
