@@ -161,14 +161,14 @@ Avec cette fondation scientifique inébranlable, le projet s'étend désormais v
 
 ### 10.2 Découvertes Théoriques Majeures (Rapport PH2-QUANT-001 & V8-REVERSE-CONVEXITY-001)
 1. **Le paradoxe résolu du classifieur ONNX :**
-   Le réseau de neurones v7 (14 features Hawkes normalisées sans fuite) entraînait une sélection de régimes à **hasard élevé (lift de 1.61x à 2.06x par rapport au processus de Poisson nul)**. En inversant la décision ( = 1 - P_1 \ge 	heta_{	ext{spike}} = 0.15$), le robot entre précisément lorsque les spikes sont statistiquement deux fois plus probables que le taux de base.
+   Le réseau de neurones v7 (14 features Hawkes normalisées sans fuite) entraînait une sélection de régimes à **hasard élevé (lift de 1.61x à 2.06x par rapport au processus de Poisson nul)**. En inversant la décision ( = 1 - P_1 \ge 	heta_{\text{spike}} = 0.15$), le robot entre précisément lorsque les spikes sont statistiquement deux fois plus probables que le taux de base.
 2. **Preuve d'absence d'optimum intérieur pour ^*$ :**
    \mathbb{E}(M) = (\mu_S - S - d	au)(1 - e^{-M/	au}) - S e^{-M/	au}
-   rac{\partial \mathbb{E}}{\partial M} = rac{\mu_S - d	au}{	au} e^{-M/	au}
+   \frac{1}{2}rac{\partial \mathbb{E}}{\partial M} = \frac{1}{2}rac{\mu_S - d	au}{	au} e^{-M/	au}
    La dérivée ne s'annule jamais. La condition de rentabilité est un seuil de faisabilité ($\mu_S > S + d	au$). L'horizon de 60 ticks (^* = 60$) est le stop temporel opérationnel optimal qui borne la perte à {\max} pprox 0.25\ USD.
 3. **Architecture de Sortie Hybride :**
    * *TP Dur Côté Serveur (.8 \cdot \mathbb{E}[A]$) :* Placé dès l'ouverture au-dessus de SYMBOL_TRADE_STOPS_LEVEL. Élimine la latence réseau (0 ms) et capture le gap favorable dans le tick du spike.
-   * *Watchdog OnTick :* Détecte les spikes avortés ou mini-spikes ($|\Delta p| > 	ext{seuil}$) et liquide immédiatement la position au marché (SPIKE_CAUGHT_WATCHDOG si profit $\ge 0.50\, ou THESIS_CONSUMED_CUT si la thèse est consommée).
+   * *Watchdog OnTick :* Détecte les spikes avortés ou mini-spikes ($|\Delta p| > \text{seuil}$) et liquide immédiatement la position au marché (SPIKE_CAUGHT_WATCHDOG si profit $\ge 0.50\, ou THESIS_CONSUMED_CUT si la thèse est consommée).
 4. **Dimensionnement Kelly Convexe :**
    ^* = 7.92\%$. Pour garantir une probabilité de ruine (DD 50%) inférieure à  	imes 10^{-5}$, le robot est dimensionné à **1/8 Kelly ($pprox 0.99\%$ equity)**.
 
@@ -179,7 +179,7 @@ Avec cette fondation scientifique inébranlable, le projet s'étend désormais v
 
 ### 10.4 Validation Statistique par Bootstrap Stationnaire (Politis & Romano 1994)
 Un audit empirique à 10 000 blocs de rééchantillonnage stationnaire (script src/python/analytics/validate_v8_bootstrap.py) a été exécuté sur les 1 242 trades :
-* **Probabilité d'Alpha (	ext{PnL} > 0) = \mathbf{100.00\%}$** (zéro trajectoire en perte sur 10 000 simulations).
+* **Probabilité d'Alpha (\text{PnL} > 0) = \mathbf{100.00\%}$** (zéro trajectoire en perte sur 10 000 simulations).
 * **Intervalle de Confiance à 95% du P&L :** **[+.51, +.52] USD** (Médiane : **+.85 USD**).
 * **Facteur de Profit Médian :** **2.27** (Q5% = 1.89, Q95% = 2.68).
 * **Ratio de Gain Asymétrique (Payoff Ratio) :** **13.83** (+3.48 $ / -0.25 $).
@@ -204,11 +204,11 @@ Après l'audit statique médico-légal de la v8.10, la version **v8.20** a été
 4. **FIX-4 : Ratio de Capture Mesuré (PnL / MFE)**  
    Remplacement de la constante arbitraire par le calcul empirique exact : ratio entre le PnL net réalisé et l'Excursion Maximale Favorable (*Max Favorable Excursion* — MFE).
 5. **FIX-5 : Estimateur Honnête du Lift de Poisson**  
-   $$	ext{Lift}_{	ext{obs}} = rac{\sum 	ext{Spikes Capturés}}{\sum 	ext{Hazard de Base à l'Entrée}}$$  
+   $$\text{Lift}_{\text{obs}} = \frac{1}{2}rac{\sum \text{Spikes Capturés}}{\sum \text{Hazard de Base à l'Entrée}}$$  
    Élimine le biais d'évaluation statique et désactive tout actif dérivant sous $1.30	imes$.
 6. **FIX-6 : Payoff Conservateur & Espérance Nette Exacte**  
    Intègre la probabilité d'atteinte du TP sous distribution exponentielle des amplitudes $P(A \ge TP) = e^{-TP / ar{A}}$ et la dérive adverse conditionnelle payée avant résolution :
-   $$\mathbb{E}[T \mid T \le M] = 	au - rac{M}{e^{M/	au} - 1}$$
+   $$\mathbb{E}[T \mid T \le M] = 	au - \frac{1}{2}rac{M}{e^{M/	au} - 1}$$
 7. **FIX-7 : Kelly Aligné sur le Stop-Loss Réel du Serveur + Marge de Slippage**  
    Calcul du risque au lot minimum basé sur le SL réel placé sur le serveur Deriv multiplié par un tampon de slippage de $1.25	imes$. Refus formel du trade si le lot minimum dépasse la cible de risque.
 8. **FIX-8 : Verrouillage Anti-Intrusion (Refus des Symboles Non-Calibrés)**  
@@ -223,3 +223,37 @@ Après l'audit statique médico-légal de la v8.10, la version **v8.20** a été
 * **Compilateur :** MetaEditor 64 (build 6272).
 * **Résultat :** **0 erreur, 0 avertissement** (115 070 octets).
 * **Statut d'Exécution :** Déployé et actif sous MetaTrader 5 sur compte institutionnel démo (`32449166`).
+
+---
+
+## 12. PHASE 2 : AUDIT QUANTITATIF DES 18 ACTIFS SYNTHÉTIQUES & DÉPLOIEMENT DU BOT `Deriv_VolSqueeze_Breakout_EA.mq5` (JOUR 4)
+
+### 12.1 Bilan de l'Audit sur 1 280 000 Barres (M1/H1) et 286 514 Ticks
+L'audit complet des 18 instruments synthétiques de Deriv (données récoltées `EXPORT_DRIVE_PHASE2_STEP_VOLATILITY`) a été finalisé par le collège de recherche (rapport archivé : `docs/Deriv_Synthetic_Indices_Phase2_Alpha_Audit_Report.pdf`).
+
+### 12.2 Falsification Mathématique du Step Index (Doob & Martingale Pure)
+Sur 100 000 ticks et 65 000 barres M1/H1 à travers les 6 variantes de Step Index (Step Index, 200, 300, 500, Multi-Step 2 & 4) :
+* **Horloge et sauts déterministes :** 1 tick toutes les 1 000.0 ms pile ($\pm 17\text{ ms}$), sauts stricts $\pm 0.10$ pt ($50.08\%$ vs $49.92\%$, $z = +0.53, p = 0.593$).
+* **Absence totale de mémoire de Markov :** $P(\text{Up} \mid \text{Up}) = 0.501607$ ($p = 0.631$), autocorrélation $\rho_1 = +0.0015$, $\rho_{60} = -0.0015$.
+* **Exposant de Hurst :** $H \in [0.4914, 0.5049]$ (conforme à la marche aléatoire pure $H = 0.50$).
+* **Verdict de Doob :** Sous spread $S = 0.10\$$ (1 pas entier), l'espérance mathématique de toute stratégie directionnelle ou de rebond est **rigoureusement négative** ($\mathbb{E}[\text{Trade}] = -0.10\$$). Le Step Index est donc **définitivement exclu du trading directionnel**.
+
+### 12.3 Découverte Structurelle sur les 12 Indices de Volatilité (GBM & Itô-Drift)
+* **Dérive d'Itô ($-\frac{1}{2}\sigma^2 dt$) :** Les indices à très haute volatilité (V250 1s, $\sigma = 2.50$) subissent une décroissance structurelle de $-312.5\%$ par an en log-prix (chute de 2 263 à 0.322), où le spread fixe finit par consommer $152\%$ du range d'une bougie M1.
+* **Friction M1 vs Efficience H1 :** En M1, le spread consomme 16% à 152% du range de la bougie, condamnant 100% des 48 stratégies testées. En H1, le ratio spread/range chute sous les $3\%$.
+* **Les Deux Seuls Actifs Rentables :**
+  1. **`Volatility 25 (1s) Index`** : L'actif le plus efficient de tout l'écosystème Deriv (spread de seulement **0.80 bps**, soit $1.90\%$ du range H1).
+  2. **`Volatility 75 (1s) Index`** : Deuxième actif viable (spread de $3.22\text{ bps}$, soit $2.55\%$ du range H1).
+
+### 12.4 La Stratégie Validée : S1 « Volatility Squeeze & Impulse Breakout » (H1)
+* **Signal d'Entrée :** Compression de volatilité ($\sigma_{20} \le q_{0.25}$ sur 100 barres) combinée à une cassure impulsive de clôture ($|r_1| \ge 1.50 \cdot \sigma_{20}$).
+* **Gestion du Risque :** Sortie temporelle non-chevauchante stricte à 4 barres H1 ($h = 4\text{h}$). Filtre de spread live ($\le 5\%$ de l'ATR H1). Sizing en parité de volatilité (0.50% de risque par 1-SD).
+* **Validation Hors-Échantillon (Walk-Forward OOS) :**
+  * Validation (20%) : Win Rate **59.1%**, Profit Factor **2.64**, $+16.70\text{ bps}$ net ($t = +3.36, p = 0.0012$).
+  * Out-of-Sample (20%) : Win Rate **61.5%**, Profit Factor **1.73**, $+12.80\text{ bps}$ net ($t = +1.97, p = 0.052$).
+  * Simulation Monte Carlo 10 000 chemins : **99.02% de probabilité de gain**, risque de ruine **0.01%**, Drawdown Max médian **5.55%**.
+
+### 12.5 Code Livré et Compilé
+* **Robot Expert :** `src/mql5/Deriv_VolSqueeze_Breakout_EA.mq5` et `Deriv_VolSqueeze_Breakout_EA.ex5`.
+* **Compilation :** MetaEditor 64 : **0 erreur, 0 avertissement** (44 680 octets).
+* **Profil MT5 Déployé :** `Phase2_VolSqueeze` avec graphiques H1 de Volatility 25 (1s) et Volatility 75 (1s).

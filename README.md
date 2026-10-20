@@ -25,10 +25,11 @@ flowchart TD
         T1 --> T1_B["v8.20 : Chasseur de Sauts Convexe Inversé (Positive Skewness +340.73$)"]
     end
 
-    subgraph TRACK 2: Gamme Step & Volatilités [Processus Continus & Pas Discrets]
-        T2["Gamme 2 : Step Index & Volatility Series"]
-        T2 --> T2_A["Step Index : Chaînes de Markov (B=1 pas) & Temps de Premier Passage (FPT)"]
-        T2 --> T2_B["Volatilités (V10-V100 1s) : GARCH(1,1), Hurst (H), Kalman & Chemins Rugueux"]
+    subgraph TRACK 2: Gamme Volatilité H1 [Efficience Microstructurelle & Squeeze Breakout]
+        T2["Gamme 2 : Volatility Squeeze Breakout (H1)"]
+        T2 --> T2_A["Step Index : Falsification par Doob (Martingale Pure, Alpha Directionnel Impossible)"]
+        T2 --> T2_B["Volatilité 25 (1s) & 75 (1s) : S1 Squeeze & Impulse Breakout (WR 61.5%, PF 1.73 OOS)"]
+        T2 --> T2_C["Robot EA : Deriv_VolSqueeze_Breakout_EA.mq5 (Compilé 0 err, 0 warn)"]
     end
 
     ROOT --> T1
