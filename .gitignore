@@ -29,10 +29,12 @@ desktop.ini
 *.tst
 *.tmp
 
-# Large archives and uncompressed data dumps
+# Large archives and uncompressed raw data dumps (>50MB)
 *.zip
 *.tar.gz
 *.7z
+phase2_research/data_harvested/*.csv
+!phase2_research/data_harvested/HARVEST_MANIFEST.csv
 
 # Retain all structured models, source code, summaries, and documentation
 !*.md
@@ -42,4 +44,4 @@ desktop.ini
 !*.npz
 !*.json
 !*.py
-!*.csv
+!data_summaries/**/*.csv
