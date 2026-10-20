@@ -56,6 +56,7 @@ input double InpMaxHawkesFast               = 1.50;   // Intensite Hawkes rapide
 
 input group "=== 2. Univers & Filtres d'Entree Inversee ==="
 input ENUM_SYMBOL_UNIVERSE InpSymbolUniverse = UNIVERSE_AUDITED_TOP_LIFT; // Univers d'indices (5 audites lift >= 1.4 par defaut)
+input bool   InpAutoOpenAuditedCharts       = true;   // Ouvrir automatiquement tous les graphiques de l'univers dans MT5
 input int    InpCooldownPostSpike           = 15;     // Cooldown post-spike obligatoire (15 ticks anti-double-spike)
 input double InpMaxSpreadDriftMult          = 80.0;   // Plafond de spread (80 multiples de derive)
 input int    InpMaxActiveSymbols            = 3;      // Max positions simultanees (3)
@@ -1443,6 +1444,47 @@ void OnTradeTransaction(const MqlTradeTransaction &trans,
 //+------------------------------------------------------------------+
 //| Initialisation du Bot EA v8.10                                   |
 //+------------------------------------------------------------------+
+//+------------------------------------------------------------------+
+//| Ouverture automatique des graphiques de l'univers surveille     |
+//+------------------------------------------------------------------+
+void OpenUniverseChartsIfClosed()
+{
+   for(int i = 0; i < g_num_trackers; i++)
+   {
+      string sym = g_trackers[i].name;
+      SymbolSelect(sym, true);
+
+      bool already_open = false;
+      long c_id = ChartFirst();
+      while(c_id >= 0)
+      {
+         if(ChartSymbol(c_id) == sym)
+         {
+            already_open = true;
+            break;
+         }
+         c_id = ChartNext(c_id);
+      }
+
+      if(!already_open)
+      {
+         long new_cid = ChartOpen(sym, PERIOD_M1);
+         if(new_cid > 0)
+         {
+            PrintFormat("[DerivBoomCrashHFT v8.10] Graphique M1 ouvert avec succes pour %s (Chart ID: %I64d)", sym, new_cid);
+         }
+         else
+         {
+            PrintFormat("[DerivBoomCrashHFT v8.10] Impossible d'ouvrir le graphique pour %s (Erreur: %d)", sym, GetLastError());
+         }
+      }
+      else
+      {
+         PrintFormat("[DerivBoomCrashHFT v8.10] Graphique %s deja ouvert dans le terminal.", sym);
+      }
+   }
+}
+
 int OnInit()
 {
    if(InpDemoAccountOnly && AccountInfoInteger(ACCOUNT_TRADE_MODE) != ACCOUNT_TRADE_MODE_DEMO)
@@ -1471,6 +1513,8 @@ int OnInit()
 
    InitColabOnnxBrain();
    BuildSymbolUniverse();
+   if(InpAutoOpenAuditedCharts)
+      OpenUniverseChartsIfClosed();
 
    PrintFormat("[DerivBoomCrashHFT v8.10] Univers pret : %d symboles audites sous surveillance directe.", g_num_trackers);
 
