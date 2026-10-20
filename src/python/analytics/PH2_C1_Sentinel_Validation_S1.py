@@ -268,32 +268,27 @@ def gbm_placebo_h1(n, sigma_ann, spread_bps, rng, cfg, q=None, z=None):
 # BH / HOLM / BONFERRONI
 # ============================================================================
 def bh_adjust(pvals):
+    """Benjamini-Hochberg step-up FDR adjustment (exact Repair Brief specification)."""
     p = np.asarray(pvals, dtype=float)
-    m = p.size
-    o = np.argsort(p)
-    thr = np.arange(1, m + 1) / m * 0.05
-    passed = p[o] <= thr
-    k = int(np.max(np.nonzero(passed)[0]) + 1) if passed.any() else 0
-    out = np.zeros(m, dtype=bool)
-    if k > 0:
-        cut = p[o][k - 1]
-        out = np.where(p <= cut, True, False)
-    return out.astype(bool), np.minimum(p * m, 1.0)
+    n = p.size
+    order = np.argsort(p)
+    ranked = p[order] * n / np.arange(1, n + 1)
+    ranked = np.minimum.accumulate(ranked[::-1])[::-1]
+    adj = np.empty(n)
+    adj[order] = np.minimum(ranked, 1.0)
+    return adj
 
 
 def holm_adjust(pvals):
-    """Holm-Bonferroni: reject H_(i) iff p_(j) <= 0.01/(m-j+1) for all j <= i."""
+    """Holm step-down adjustment (family-wise error rate, exact Repair Brief specification)."""
     p = np.asarray(pvals, dtype=float)
-    m = p.size
-    o = np.argsort(p)
-    rej = np.zeros(m, dtype=bool)
-    run = True
-    for i in range(m):
-        if run and p[o][i] <= 0.01 / (m - i):
-            rej[o[i]] = True
-        else:
-            run = False
-    return rej
+    n = p.size
+    order = np.argsort(p)
+    ranked = p[order] * (n - np.arange(n))
+    ranked = np.maximum.accumulate(ranked)
+    adj = np.empty(n)
+    adj[order] = np.minimum(ranked, 1.0)
+    return adj
 
 
 # ============================================================================
@@ -445,12 +440,16 @@ def main():
         if np.isfinite(r["t_stat"]):
             fam.append(float(1.0 - stats.t.cdf(r["t_stat"], r["n_trades"] - 1)))
             fam_labels.append(f"{sym}_baseline")
-    rej_bh, padj = bh_adjust(np.asarray(fam))
-    rej_holm = holm_adjust(np.asarray(fam))
+    padj_bh = bh_adjust(np.asarray(fam))
+    padj_holm = holm_adjust(np.asarray(fam))
+    rej_bh = padj_bh <= 0.05
+    rej_holm = padj_holm <= 0.01
+
     results["multiple_testing"] = {
         "family": fam_labels,
         "pvals": fam,
-        "p_adj_BH": padj.tolist(),
+        "p_adj_BH": padj_bh.tolist(),
+        "p_adj_Holm": padj_holm.tolist(),
         "rejected_BH": rej_bh.tolist(),
         "rejected_Holm": rej_holm.tolist(),
         "bonferroni48_note": "Best raw t=+3.28 -> p=0.0011; Bonferroni-48 alpha=0.00104 => NOT significant; BH rank-1 equals Bonferroni => p_adj=0.0528 > 0.05 => NOT significant.",
