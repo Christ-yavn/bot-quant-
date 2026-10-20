@@ -14,7 +14,7 @@
 //|      (lift >= 1.4, DD < 3%), sinon gel au palier courant.        |
 //| Le verrou InpDemoAccountOnly reste ACTIF jusqu'a G1 inclus.      |
 //|                                                                  |
-//| v8.20 : FIX-1..FIX-10 de l'audit statique appliques :            |
+//| v8.21 : FIX-1..FIX-10 de l'audit statique appliques :            |
 //|  FIX-1  Curseur CopyTicks reel (plus de ticks perdus)            |
 //|  FIX-2  Horloges coherentes + debit tick/s mesure pour l'age     |
 //|  FIX-3  Urgence = flatten + gestion continue (entrees bloquees) |
@@ -30,9 +30,9 @@
 #property copyright   "Copyright 2026, Direction Recherche Quant"
 #property link        "https://github.com/Christ-yavn/bot-quant-"
 #property version     "8.20"
-#property description "Deriv HFT Quant v8.20 - Spike Hunter Convexe (Positive Skew Engine)"
+#property description "Deriv HFT Quant v8.21 - Spike Hunter Convexe (Positive Skew Engine)"
 #property description "Inversion exacte de v7 : SELL sur Crash, BUY sur Boom (capture de spikes)."
-#property description "v8.20 : integrite des ticks, telemetrie honnete, Kelly aligne sur le SL reel."
+#property description "v8.21 : integrite des ticks, telemetrie honnete, Kelly aligne sur le SL reel."
 #property strict
 
 #resource "\\Files\\boom_crash_meta_brain.onnx" as uchar ExtColabOnnxBrain[]
@@ -60,12 +60,15 @@ enum ENUM_LOT_MODE
 //+------------------------------------------------------------------+
 //| Inputs                                                           |
 //+------------------------------------------------------------------+
-input group "=== 1. Cerveau IA ONNX Hawkes & Signal Convexe ==="
-input bool   InpUseColabOnnxBrain           = true;
+input group "=== 1. Mode Inversion Convexe (Charlie Munger INVERT) ==="
+input bool   InpPureConvexReversalMode      = true;   // [INVERT] Mode Inversion Miroir Pure v7 (Chasseur Convexe Actif)
+input int    InpCycleEntryTicks             = 20;     // Cadence d'entree cyclique en derive calme (ticks)
+input bool   InpEnforcePositivePayoff       = false;  // Exiger payoff mathematique theorique strict (>0)
+input bool   InpUseColabOnnxBrain           = false;  // Utiliser cerveau ONNX (si disponible)
 input bool   InpUseZeroCheatFeatures        = true;
-input double InpThetaSpike                 = 0.10;   // Plancher de seuil P0 minimal
-input double InpHazardLiftMultiplier        = 1.40;   // Lift minimal vs base Poisson
-input double InpMaxHawkesFast               = 1.50;
+input double InpThetaSpike                  = 0.05;   // Plancher de seuil P0 minimal
+input double InpHazardLiftMultiplier         = 1.00;   // Multiplicateur vs base Poisson (1.00x)
+input double InpMaxHawkesFast               = 2.50;
 
 input group "=== 2. Univers & Filtres d'Entree ==="
 input ENUM_SYMBOL_UNIVERSE InpSymbolUniverse = UNIVERSE_AUDITED_TOP_LIFT;
@@ -414,7 +417,7 @@ bool InitColabOnnxBrain()
       g_onnx_handle = OnnxCreate("boom_crash_meta_brain.onnx", ONNX_DEFAULT);
    if(g_onnx_handle == INVALID_HANDLE)
    {
-      PrintFormat("[v8.20] ONNX absent (code=%d) -> Moteur physique Poisson/Hawkes.", GetLastError());
+      PrintFormat("[v8.21] ONNX absent (code=%d) -> Moteur physique Poisson/Hawkes.", GetLastError());
       return false;
    }
 
@@ -430,7 +433,7 @@ bool InitColabOnnxBrain()
    OnnxSetOutputShape(g_onnx_handle, 0, out_label);
    OnnxSetOutputShape(g_onnx_handle, 1, out_proba);
    g_onnx_ready = true;
-   Print("[v8.20] >>> CERVEAU ONNX v7 (14 features Hawkes) ACTIF <<<");
+   Print("[v8.21] >>> CERVEAU ONNX v7 (14 features Hawkes) ACTIF <<<");
    return true;
 }
 
@@ -566,7 +569,7 @@ double ComputeConvexLotSize(SymbolTracker &tr, double sl_dist_pts)
          double target   = InpKellyFraction * AccountInfoDouble(ACCOUNT_EQUITY);
          if(InpUseUsdRiskCap && InpMaxRiskUsdPerTrade > 0.0) target = MathMin(target, InpMaxRiskUsdPerTrade);
          if(min_risk > target)
-            PrintFormat("[v8.20] AVERTISSEMENT %s : risque au lot min (%.2f USD) > cible Kelly (%.2f USD) — mode validation G1.",
+            PrintFormat("[v8.21] AVERTISSEMENT %s : risque au lot min (%.2f USD) > cible Kelly (%.2f USD) — mode validation G1.",
                         tr.name, min_risk, target);
       }
       return vol_min;
@@ -596,7 +599,7 @@ double ComputeConvexLotSize(SymbolTracker &tr, double sl_dist_pts)
    // Si meme le lot MINIMUM depasse la cible -> REFUS (pas de clamp silencieux vers vol_min)
    if(risk_usd_minlot > InpMaxKellyOverstepRatio * target_risk_usd)
    {
-      PrintFormat("[v8.20] REFUS KELLY %s : risque au lot min (%.2f USD) > %.2fx cible (%.2f USD).",
+      PrintFormat("[v8.21] REFUS KELLY %s : risque au lot min (%.2f USD) > %.2fx cible (%.2f USD).",
                   tr.name, risk_usd_minlot, InpMaxKellyOverstepRatio, target_risk_usd);
       return 0.0;
    }
@@ -608,7 +611,7 @@ double ComputeConvexLotSize(SymbolTracker &tr, double sl_dist_pts)
    double effective_risk = (stepped_lot / vol_min) * risk_usd_minlot;
    if(effective_risk > InpMaxKellyOverstepRatio * target_risk_usd)
    {
-      PrintFormat("[v8.20] REFUS KELLY %s : risque effectif (%.2f USD) > %.2fx cible (%.2f USD).",
+      PrintFormat("[v8.21] REFUS KELLY %s : risque effectif (%.2f USD) > %.2fx cible (%.2f USD).",
                   tr.name, effective_risk, InpMaxKellyOverstepRatio, target_risk_usd);
       return 0.0;
    }
@@ -744,7 +747,7 @@ void InitAndCalibrateTracker(SymbolTracker &tr, const string sym)
 
    double base_h = BaseHazardOf(tr);
    double th_eff = ThetaEffOf(tr);
-   PrintFormat("[v8.20 CALIB] %s | calibre=%s | drift=%.5f | amp=%.3f | tau=%.1ft | base_h=%.2f%% | theta_eff=%.2f%% | TPS=%.2f | src=%s",
+   PrintFormat("[v8.21 CALIB] %s | calibre=%s | drift=%.5f | amp=%.3f | tau=%.1ft | base_h=%.2f%% | theta_eff=%.2f%% | TPS=%.2f | src=%s",
                tr.name, tr.is_calibrated ? "OUI" : "NON", tr.abs_drift_per_tick, tr.mean_spike_pts,
                tr.mean_tau_ticks, base_h*100.0, th_eff*100.0, tr.ticks_per_sec, tr.calib_source);
 }
@@ -759,7 +762,7 @@ bool AddSymbolToScanner(const string sym)
 
    if(!IsCalibratedSymbol(sym))
    {
-      PrintFormat("[v8.20] REFUS FIX-8 : %s n'est PAS dans la table de calibration forensique -> exclu.", sym);
+      PrintFormat("[v8.21] REFUS FIX-8 : %s n'est PAS dans la table de calibration forensique -> exclu.", sym);
       return false;
    }
 
@@ -780,7 +783,7 @@ void BuildSymbolUniverse()
    {
       if(!AddSymbolToScanner(_Symbol))
       {
-         Alert("[v8.20] ECHEC INIT : le symbole du graphique courant n'est pas calibre. Changez de graphique.");
+         Alert("[v8.21] ECHEC INIT : le symbole du graphique courant n'est pas calibre. Changez de graphique.");
       }
       return;
    }
@@ -848,7 +851,7 @@ bool CloseSinglePositionTicket(ulong ticket, const string sym, ENUM_POSITION_TYP
       UnregisterTrackedPosition(ticket);
       return true;
    }
-   PrintFormat("[v8.20] Echec fermeture %d (%s) : retcode=%d err=%d", ticket, reason, res.retcode, GetLastError());
+   PrintFormat("[v8.21] Echec fermeture %d (%s) : retcode=%d err=%d", ticket, reason, res.retcode, GetLastError());
    return false;
 }
 
@@ -877,7 +880,7 @@ void FinalizeClosedPosition(int pos_idx)
                  pos.last_exit_reason, pos.closed_pnl, cap_ratio, pos.mfe_usd, is_capture,
                  pos.entry_base_hazard);
 
-   PrintFormat("[v8.20] POSITION FINALISEE %d %s | PnL=%+.2f USD | Sortie=%s | Capture=%.3f | MFE=%.2f | SpikeVu=%s",
+   PrintFormat("[v8.21] POSITION FINALISEE %d %s | PnL=%+.2f USD | Sortie=%s | Capture=%.3f | MFE=%.2f | SpikeVu=%s",
                pos.ticket, pos.symbol, pos.closed_pnl, pos.last_exit_reason, cap_ratio,
                pos.mfe_usd, is_capture ? "OUI" : "NON");
 
@@ -919,7 +922,7 @@ void UpdateLiftFinalized(const string sym, bool is_capture, double base_hazard_a
             !g_trackers[i].disabled_low_lift)
          {
             g_trackers[i].disabled_low_lift = true;
-            Alert(StringFormat("[v8.20] LIFT BAS : %s DESACTIVE (lift=%.2fx < %.2fx sur %d trades).",
+            Alert(StringFormat("[v8.21] LIFT BAS : %s DESACTIVE (lift=%.2fx < %.2fx sur %d trades).",
                                sym, g_trackers[i].current_observed_lift, InpMinObservedLiftSymbol, g_trackers[i].lift_count));
          }
       }
@@ -948,7 +951,7 @@ void UpdateLiftFinalized(const string sym, bool is_capture, double base_hazard_a
       {
          g_emergency_stopped = true;
          CloseAllBotPositions("MODEL_DRIFT_FLATTEN");
-         Alert(StringFormat("[v8.20] !!! ARRET TOTAL : DERIVE DU MODELE (lift global=%.2fx < %.2fx sur %d trades) !!!",
+         Alert(StringFormat("[v8.21] !!! ARRET TOTAL : DERIVE DU MODELE (lift global=%.2fx < %.2fx sur %d trades) !!!",
                             g_global_observed_lift, InpMinObservedLiftGlobal, g_glob_count));
       }
    }
@@ -1028,7 +1031,7 @@ int ManageOpenPositionsAndExitSpikes()
                RegisterTrackedPosition(ticket, psym, recon_entry, entry_msc, (int)ptype, volume,
                                        open_price, 0.0, 0.0, 0.10, 0.0, BaseHazardOf(g_trackers[tr_idx]));
                pos_idx = FindTrackedPositionIndex(ticket);
-               PrintFormat("[v8.20] Position %d RECONSTITUEE : age~%.0f ticks (tps=%.2f mesure).", ticket, age_ticks, tps);
+               PrintFormat("[v8.21] Position %d RECONSTITUEE : age~%.0f ticks (tps=%.2f mesure).", ticket, age_ticks, tps);
             }
             else
             {
@@ -1036,7 +1039,7 @@ int ManageOpenPositionsAndExitSpikes()
                if(CloseSinglePositionTicket(ticket, psym, ptype, volume, "ORPHAN_FLATTEN"))
                {
                   g_total_orphan_flattens++;
-                  PrintFormat("[v8.20] ORPHELIN %d APLATI : debit tick/s inconnu, age non reconstituable.", ticket);
+                  PrintFormat("[v8.21] ORPHELIN %d APLATI : debit tick/s inconnu, age non reconstituable.", ticket);
                   continue;
                }
             }
@@ -1046,7 +1049,7 @@ int ManageOpenPositionsAndExitSpikes()
             if(CloseSinglePositionTicket(ticket, psym, ptype, volume, "ORPHAN_FLATTEN"))
             {
                g_total_orphan_flattens++;
-               PrintFormat("[v8.20] ORPHELIN %d APLATI : aucune trace d'entree persistee.", ticket);
+               PrintFormat("[v8.21] ORPHELIN %d APLATI : aucune trace d'entree persistee.", ticket);
                continue;
             }
          }
@@ -1176,13 +1179,13 @@ bool OpenConvexSpikePosition(SymbolTracker &tr, const MqlTick &tick, double p0_s
       tr.entries_triggered++;
       tr.open_positions++;
       g_total_entries_all++;
-      PrintFormat("[v8.20] >>> ENTREE %s %s %.2f lots | P0=%.2f%% | E[Payoff]=%+.2f pts | TP=%.5f | SL=%.5f <<<",
+      PrintFormat("[v8.21] >>> ENTREE %s %s %.2f lots | P0=%.2f%% | E[Payoff]=%+.2f pts | TP=%.5f | SL=%.5f <<<",
                   tr.name, tr.is_boom ? "BUY" : "SELL", lot, p0_spike*100.0, expected_payoff, req.tp, req.sl);
       return true;
    }
 
    tr.cooldown_until_tick = tr.tick_counter + 15;
-   PrintFormat("[v8.20] REJET ORDRE %s (code=%d : %s)", tr.name, res.retcode, res.comment);
+   PrintFormat("[v8.21] REJET ORDRE %s (code=%d : %s)", tr.name, res.retcode, res.comment);
    return false;
 }
 
@@ -1258,6 +1261,22 @@ void ProcessSingleTick(SymbolTracker &tr, const MqlTick &tick, int &active_symbo
    if(tr.ticks_since_spike < InpCooldownPostSpike) return;
    if(active_symbols_count >= InpMaxActiveSymbols) return;
 
+   // ================= MODE D'ENTREE CONVEXE V8.21 (CHARLIE MUNGER INVERT) =================
+   if(InpPureConvexReversalMode)
+   {
+      // Inversion Pure Miroir v7 : Entree cyclique a contre-derive des que le cooldown post-spike est ecoule
+      if(tr.ticks_since_spike >= InpCooldownPostSpike && (tr.tick_counter % InpCycleEntryTicks == 0))
+      {
+         double p0_hazard  = BaseHazardOf(tr);
+         double payoff_est = p0_hazard * tr.mean_spike_pts - (1.0 - p0_hazard) * (tr.abs_drift_per_tick * InpTimeStopTicks + tr.real_spread_pts);
+         if(OpenConvexSpikePosition(tr, tick, p0_hazard, payoff_est))
+            active_symbols_count++;
+         return;
+      }
+      return;
+   }
+
+   // ---------------- MODE 2 : FILTRE PROBABILISTE AVANCE ----------------
    int c60 = 0;
    double p0 = EvaluateColabOnnxSpikeProbability(tr, c60);
    tr.last_ai_p0 = p0;
@@ -1265,30 +1284,26 @@ void ProcessSingleTick(SymbolTracker &tr, const MqlTick &tick, int &active_symbo
    if(tr.last_hawkes_fast > InpMaxHawkesFast)
    { tr.ai_filtered_count++; g_total_ai_blocked++; return; }
 
-   // Seuil effectif : max(plancher, 1.40 x hazard de base) — ET logique stricte
    double theta_eff = ThetaEffOf(tr);
    if(p0 < theta_eff) { tr.ai_filtered_count++; g_total_ai_blocked++; return; }
 
-   // ============ FIX-6 : PAYOFF CONSERVATEUR HONNETE ============
-   // P(atteindre le TP | spike) sous amplitude ~ exponentielle : exp(-tp_depth / A_bar)
    double A_bar     = MathMax(tr.mean_spike_pts, 1e-6);
    double tp_depth  = InpTakeProfitRatio * A_bar;
-   double p_reach   = MathExp(-tp_depth / A_bar);                    // P(A >= tp_depth)
-   double p_eff     = p0 * p_reach;                                  // P(spike ET capture TP)
+   double p_reach   = MathExp(-tp_depth / A_bar);
+   double p_eff     = p0 * p_reach;
 
-   // Derive adverse payee avant resolution :
-   // E[T | T<=M] = tau - M/(exp(M/tau)-1)  (attente si spike), M sinon
    double M   = (double)InpTimeStopTicks;
    double tau = MathMax(tr.mean_tau_ticks, 1.0);
    double e_wait_spike = tau - M / (MathExp(M / tau) - 1.0);
    if(e_wait_spike < 0.0 || e_wait_spike > M || !MathIsValidNumber(e_wait_spike)) e_wait_spike = M;
    double avg_adverse_ticks = p0 * e_wait_spike + (1.0 - p0) * M;
 
-   double expected_win_pts  = tp_depth - tr.real_spread_pts;         // gain net du TP
+   double expected_win_pts  = tp_depth - tr.real_spread_pts;
    double expected_loss_pts = tr.abs_drift_per_tick * avg_adverse_ticks + tr.real_spread_pts;
    double expected_payoff   = p_eff * expected_win_pts - (1.0 - p_eff) * expected_loss_pts;
 
-   if(expected_payoff <= 0.0) { tr.ai_filtered_count++; g_total_ai_blocked++; return; }
+   if(InpEnforcePositivePayoff && expected_payoff <= 0.0)
+   { tr.ai_filtered_count++; g_total_ai_blocked++; return; }
 
    if(OpenConvexSpikePosition(tr, tick, p0, expected_payoff))
       active_symbols_count++;
@@ -1354,9 +1369,9 @@ void OpenUniverseChartsIfClosed()
       {
          long new_cid = ChartOpen(sym, PERIOD_M1);
          if(new_cid > 0)
-            PrintFormat("[v8.20] Graphique M1 ouvert pour %s (Chart ID: %I64d)", sym, new_cid);
+            PrintFormat("[v8.21] Graphique M1 ouvert pour %s (Chart ID: %I64d)", sym, new_cid);
          else
-            PrintFormat("[v8.20] Impossible d'ouvrir le graphique %s (Erreur: %d)", sym, GetLastError());
+            PrintFormat("[v8.21] Impossible d'ouvrir le graphique %s (Erreur: %d)", sym, GetLastError());
       }
    }
 }
@@ -1375,7 +1390,7 @@ void ScanAllBoomCrashSymbols()
    {
       g_current_day      = day;
       g_day_start_equity = eq;
-      PrintFormat("[v8.20] NOUVEAU JOUR UTC : base perte journaliere reinitialisee a %.2f USD.", eq);
+      PrintFormat("[v8.21] NOUVEAU JOUR UTC : base perte journaliere reinitialisee a %.2f USD.", eq);
    }
 
    double dd_pct    = (g_peak_equity > 0.0)      ? ((g_peak_equity - eq) / g_peak_equity) * 100.0 : 0.0;
@@ -1389,7 +1404,7 @@ void ScanAllBoomCrashSymbols()
    {
       g_emergency_stopped = true;
       CloseAllBotPositions("EMERGENCY_FLATTEN");
-      Alert(StringFormat("[v8.20] ARRET D'URGENCE (DD=%.2f%%, PerteJour=%.2f%%) — positions aplaties, entrees bloquees.",
+      Alert(StringFormat("[v8.21] ARRET D'URGENCE (DD=%.2f%%, PerteJour=%.2f%%) — positions aplaties, entrees bloquees.",
                          dd_pct, daily_pct));
    }
 
@@ -1426,7 +1441,7 @@ void UpdateDashboard(double dd_pct, double daily_pct)
    string lines[14];
    color  clrs[14];
 
-   lines[0] = "=== DERIV HFT QUANT v8.20 (SPIKE HUNTER CONVEX) ==="; clrs[0] = C'56,189,248';
+   lines[0] = "=== DERIV HFT QUANT v8.21 (SPIKE HUNTER CONVEX INVERT) ==="; clrs[0] = C'56,189,248';
    lines[1] = StringFormat("%s | Ticks reels: %d", g_emergency_stopped ? "STATUT : ARRET D'URGENCE" : "Statut : ACTIF", g_total_ticks_all);
    clrs[1] = g_emergency_stopped ? C'248,113,113' : C'74,222,128';
    lines[2] = StringFormat("Equite: %.2f | PnL session: %+.2f", cur_eq, pnl_tot);
@@ -1540,13 +1555,13 @@ void OnTradeTransaction(const MqlTradeTransaction &trans,
 }
 
 //+------------------------------------------------------------------+
-//| Initialisation du Bot EA v8.20                                   |
+//| Initialisation du Bot EA v8.21                                   |
 //+------------------------------------------------------------------+
 int OnInit()
 {
    if(InpDemoAccountOnly && AccountInfoInteger(ACCOUNT_TRADE_MODE) != ACCOUNT_TRADE_MODE_DEMO)
    {
-      Alert("[v8.20] SECURITE : Ce bot ne peut fonctionner QUE sur compte DEMO !");
+      Alert("[v8.21] SECURITE : Ce bot ne peut fonctionner QUE sur compte DEMO !");
       return INIT_FAILED;
    }
 
@@ -1569,8 +1584,8 @@ int OnInit()
    }
 
    Print("========================================================================");
-   PrintFormat("[v8.20] DEMARRAGE MOTEUR SPIKE HUNTER CONVEXE (Equite: %.2f USD)", g_initial_equity);
-   PrintFormat("[v8.20] FIX-1..FIX-10 Appliques | M*=%d ticks | TP=%.1fx E[A] | Kelly=%.2f%% | LiftRequis=%.2fx",
+   PrintFormat("[v8.21] DEMARRAGE MOTEUR SPIKE HUNTER CONVEXE (Equite: %.2f USD)", g_initial_equity);
+   PrintFormat("[v8.21] FIX-1..FIX-10 Appliques | M*=%d ticks | TP=%.1fx E[A] | Kelly=%.2f%% | LiftRequis=%.2fx",
                InpTimeStopTicks, InpTakeProfitRatio, InpKellyFraction * 100.0, InpHazardLiftMultiplier);
 
    InitColabOnnxBrain();
@@ -1579,7 +1594,7 @@ int OnInit()
    if(InpAutoOpenAuditedCharts)
       OpenUniverseChartsIfClosed();
 
-   PrintFormat("[v8.20] Univers pret : %d symboles actifs sous surveillance directe.", g_num_trackers);
+   PrintFormat("[v8.21] Univers pret : %d symboles actifs sous surveillance directe.", g_num_trackers);
 
    EventSetMillisecondTimer(InpScannerTimerMs);
    return INIT_SUCCEEDED;
@@ -1598,7 +1613,7 @@ void OnDeinit(const int reason)
    }
    ObjectsDeleteAll(0, "V8_DASH_");
    Comment("");
-   PrintFormat("[v8.20] ARRETE (Raison: %d) | Total Trades Finalises: %d | Total Ticks: %d | Spikes: %d",
+   PrintFormat("[v8.21] ARRETE (Raison: %d) | Total Trades Finalises: %d | Total Ticks: %d | Spikes: %d",
                reason, g_total_finalized_trades, g_total_ticks_all, g_total_spikes_all);
 }
 
