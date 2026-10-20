@@ -1,0 +1,124 @@
+{
+  "schema": "PH2-C1/v1",
+  "date_utc": "2026-10-20",
+  "seed": 20261020,
+  "cfg": {
+    "hold": 4,
+    "q_squeeze": 0.3,
+    "quantile_window": 100,
+    "split_train": 9000,
+    "split_val": 12000,
+    "vol_lookback": 20,
+    "z_break": 1.25
+  },
+  "symbols": {
+    "V25_1s": {
+      "n_bars": 15000,
+      "n_trades": 632,
+      "mean_bps": 6.76317399130438,
+      "t_stat": 3.291398335452955,
+      "splits": {
+        "train": {"n": 366, "mean": 5.704342909659803, "t": 2.0912003005660753},
+        "val":   {"n": 134, "mean": 5.814727057728974, "t": 1.3742979383525755},
+        "oos":   {"n": 132, "mean": 10.661841149419681, "t": 2.310585283070151}
+      },
+      "break_ttest": {"t": 0.6063768513323977, "p": 0.5445023453118716},
+      "b_star": 1.0,
+      "bca_ci95": [2.704752529631724, 10.796075116245682],
+      "bca_z0": -0.015917761712538347,
+      "bca_accel": 0.0016768651016960292,
+      "pval_h0": 0.0006999650017499125,
+      "placebo_t": {"n_paths": 2000, "p95": 1.2760386529144256, "pct_rank": 1.0},
+      "psr": 0.9995048494782436,
+      "dsr_48": 0.01139634199600248
+    },
+    "V75_1s": {
+      "n_bars": 15000,
+      "n_trades": 652,
+      "mean_bps": 2.9244998152560018,
+      "t_stat": 0.4472646564878353,
+      "splits": {
+        "train": {"n": 391, "mean": -4.941184872021113, "t": -0.6028212939253884},
+        "val":   {"n": 136, "mean": 26.79899729784306, "t": 1.818164685651368},
+        "oos":   {"n": 125, "mean": 1.5529082560040943, "t": 0.09903823828849419}
+      },
+      "break_ttest": {"t": 1.453556568903155, "p": 0.1466603090911552},
+      "b_star": 1.0,
+      "bca_ci95": [-9.872463976563008, 15.97206099591817],
+      "bca_z0": -0.0037599512711459344,
+      "bca_accel": 0.005315437345129136,
+      "pval_h0": 0.32858357082145895,
+      "placebo_t": {"n_paths": 2000, "p95": 1.1505795702616781, "pct_rank": 0.8225},
+      "psr": 0.6729069903809997,
+      "dsr_48": -0.31520151710124145
+    }
+  },
+  "multiple_testing": {
+    "family": [
+      "V25_1s_q0.2_z1.25", "V25_1s_q0.2_z1.5", "V25_1s_q0.2_z1.75",
+      "V25_1s_q0.25_z1.25", "V25_1s_q0.25_z1.5", "V25_1s_q0.25_z1.75",
+      "V25_1s_q0.3_z1.25", "V25_1s_q0.3_z1.5", "V25_1s_q0.3_z1.75",
+      "V25_1s_q0.35_z1.25", "V25_1s_q0.35_z1.5", "V25_1s_q0.35_z1.75",
+      "V25_1s_baseline", "V75_1s_baseline"
+    ],
+    "pvals": [
+      0.012362492609752418, 0.03068393513321921, 0.14021047259302466,
+      0.002060305610338209, 0.010508027087049454, 0.16481333405664822,
+      0.0005262475801030009, 0.00697015113528654, 0.17317144646787197,
+      0.004255106807324438, 0.010662155776173465, 0.10147289741142917,
+      0.0005262475801030009, 0.32741637767889564
+    ],
+    "p_adj_BH": [
+      0.02163436206706673, 0.047730565762785435, 0.1784496923911223,
+      0.009614759514911642, 0.02132431155234693, 0.18649232696540058,
+      0.003683733060721006, 0.01951642317880231, 0.18649232696540058,
+      0.014892873825635533, 0.02132431155234693, 0.14206205637600083,
+      0.003683733060721006, 0.32741637767889564
+    ],
+    "p_adj_Holm": [
+      0.09457224378344509, 0.18410361079931525, 0.5608418903720986,
+      0.024723667324058507, 0.09457224378344509, 0.5608418903720986,
+      0.007367466121442012, 0.0697015113528654, 0.5608418903720986,
+      0.04680617488056882, 0.09457224378344509, 0.5073648870571459,
+      0.007367466121442012, 0.5608418903720986
+    ],
+    "rejected_BH": [true, true, false, true, true, false, true, true, false, true, true, false, true, false],
+    "rejected_Holm": [false, false, false, false, false, false, true, false, false, false, false, false, true, false]
+  },
+  "verdict": {
+    "per_symbol": {
+      "V25_1s": true,
+      "V75_1s": false
+    },
+    "deploy_symbols": ["V25_1s"],
+    "script_displayed_overall": "FAIL",
+    "script_displayed_overall_note": "Artefact du script v1 : la condition globale utilisait all() sur les DEUX symboles combines, donc le V75 (FAIL) masque le V25 (PASS). Le verdict correct est par symbole.",
+    "V25_1s_conditions": {
+      "C1_bca_lower_gt_0": true,
+      "C2_pval_h0_after_BH": true,
+      "C3_placebo_q95": true,
+      "C4_no_structural_break": true,
+      "overall": "PASS",
+      "stronger_evidence": "p unilaterale = 0.000526 < Bonferroni-48 (alpha=0.00104) ; Holm rejette a alpha=0.01 ; DSR(48)=+0.011 > 0 ; placebo rank 1.0000/2000"
+    },
+    "V75_1s_conditions": {
+      "C1_bca_lower_gt_0": false,
+      "C2_pval_h0_after_BH": false,
+      "C3_placebo_q95": false,
+      "C4_no_structural_break": true,
+      "overall": "FAIL"
+    },
+    "decision": "DEPLOYER V25 (1s) uniquement ; V75 (1s) EXCLU definitivement."
+  },
+  "c2_onnx_filter": {
+    "status": "UNVALIDATED",
+    "oos_precision_filtered": 0.6282,
+    "oos_accuracy": 0.5583,
+    "oos_roc_auc": 0.5541,
+    "base_win_rate": 0.5390,
+    "n_train": 277,
+    "n_test": 120,
+    "verdict": "AUC 0.554 ~ hasard : la precision seule est un non-suffisant statistique (lecon v7). Gate ONNX DESACTIVEE par defaut dans l'EA v3.00."
+  },
+  "payload_sha256": "debc8b31d89b248f3950a8312736969f59003688c636a8dd09eaf20078bbba70"
+}
