@@ -1,0 +1,51 @@
+# ==============================================================================
+# GITIGNORE - QUANT BOT DERIV (HIGH-FREQUENCY QUANTITATIVE FRAMEWORK)
+# ==============================================================================
+
+# Python caches and compiled bytecode
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.pytest_cache/
+.coverage
+htmlcov/
+*.egg-info/
+dist/
+build/
+venv/
+env/
+.env
+
+# Raw terminal logs and operating system artifacts
+*.log
+.DS_Store
+Thumbs.db
+desktop.ini
+.vscode/
+.idea/
+
+# MetaTrader temporary files
+*.tst
+*.tmp
+
+# Raw local storage folders (raw tick streams and terminal dumps kept locally)
+DONNER  TRADE V6/
+DONNER  TRADE V7/
+DOSSIER_COMPLET_BOT_HFT_DERIV_V6/
+PROJET DERIV/
+reclamer par argon/
+RESOURCE COLLAB/
+*.zip
+*.tar.gz
+*.7z
+
+# Keep all structured code, summaries, models, and documentation
+!*.md
+!*.mq5
+!*.ex5
+!*.onnx
+!*.npz
+!*.json
+!*.py
+!*.csv

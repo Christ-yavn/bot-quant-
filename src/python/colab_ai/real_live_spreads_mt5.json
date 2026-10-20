@@ -1,0 +1,125 @@
+{
+  "description": "Vrais spreads d'execution en direct mesures via SymbolInfoTick() sur le serveur MT5 Deriv-Demo (18 Octobre 2026), compares aux spreads historiques trompeurs de CopyTicks().",
+  "symbols": {
+    "boom_1000_index": {
+      "mt5_name": "Boom 1000 Index",
+      "is_boom": true,
+      "symbol_id": 0,
+      "historical_copyticks_spread_pts": 0.1530,
+      "real_live_execution_spread_pts": 1.7215,
+      "abs_drift_per_tick_pts": 0.01450,
+      "breakeven_drift_ticks": 118.7,
+      "mean_spike_pts": 16.925,
+      "mean_tau_ticks": 1066.6,
+      "min_lot": 0.20
+    },
+    "crash_1000_index": {
+      "mt5_name": "Crash 1000 Index",
+      "is_boom": false,
+      "symbol_id": 1,
+      "historical_copyticks_spread_pts": 0.0620,
+      "real_live_execution_spread_pts": 0.5422,
+      "abs_drift_per_tick_pts": 0.00600,
+      "breakeven_drift_ticks": 90.4,
+      "mean_spike_pts": 5.868,
+      "mean_tau_ticks": 961.0,
+      "min_lot": 0.20
+    },
+    "boom_900_index": {
+      "mt5_name": "Boom 900 Index",
+      "is_boom": true,
+      "symbol_id": 2,
+      "historical_copyticks_spread_pts": 0.0960,
+      "real_live_execution_spread_pts": 0.9620,
+      "abs_drift_per_tick_pts": 0.00900,
+      "breakeven_drift_ticks": 106.9,
+      "mean_spike_pts": 8.825,
+      "mean_tau_ticks": 911.4,
+      "min_lot": 0.20
+    },
+    "crash_900_index": {
+      "mt5_name": "Crash 900 Index",
+      "is_boom": false,
+      "symbol_id": 3,
+      "historical_copyticks_spread_pts": 0.1850,
+      "real_live_execution_spread_pts": 1.3560,
+      "abs_drift_per_tick_pts": 0.01700,
+      "breakeven_drift_ticks": 79.8,
+      "mean_spike_pts": 17.314,
+      "mean_tau_ticks": 907.3,
+      "min_lot": 0.20
+    },
+    "boom_600_index": {
+      "mt5_name": "Boom 600 Index",
+      "is_boom": true,
+      "symbol_id": 4,
+      "historical_copyticks_spread_pts": 0.0690,
+      "real_live_execution_spread_pts": 0.7730,
+      "abs_drift_per_tick_pts": 0.00800,
+      "breakeven_drift_ticks": 96.6,
+      "mean_spike_pts": 5.110,
+      "mean_tau_ticks": 586.5,
+      "min_lot": 0.20
+    },
+    "crash_600_index": {
+      "mt5_name": "Crash 600 Index",
+      "is_boom": false,
+      "symbol_id": 5,
+      "historical_copyticks_spread_pts": 0.2990,
+      "real_live_execution_spread_pts": 3.2820,
+      "abs_drift_per_tick_pts": 0.03400,
+      "breakeven_drift_ticks": 96.5,
+      "mean_spike_pts": 22.926,
+      "mean_tau_ticks": 571.5,
+      "min_lot": 0.20
+    },
+    "boom_500_index": {
+      "mt5_name": "Boom 500 Index",
+      "is_boom": true,
+      "symbol_id": 6,
+      "historical_copyticks_spread_pts": 0.0780,
+      "real_live_execution_spread_pts": 0.5270,
+      "abs_drift_per_tick_pts": 0.01000,
+      "breakeven_drift_ticks": 52.7,
+      "mean_spike_pts": 5.788,
+      "mean_tau_ticks": 486.9,
+      "min_lot": 0.20
+    },
+    "crash_500_index": {
+      "mt5_name": "Crash 500 Index",
+      "is_boom": false,
+      "symbol_id": 7,
+      "historical_copyticks_spread_pts": 0.0420,
+      "real_live_execution_spread_pts": 0.3270,
+      "abs_drift_per_tick_pts": 0.00500,
+      "breakeven_drift_ticks": 65.4,
+      "mean_spike_pts": 2.930,
+      "mean_tau_ticks": 480.0,
+      "min_lot": 0.20
+    },
+    "boom_300_index": {
+      "mt5_name": "Boom 300 Index",
+      "is_boom": true,
+      "symbol_id": 8,
+      "historical_copyticks_spread_pts": 0.0220,
+      "real_live_execution_spread_pts": 0.5030,
+      "abs_drift_per_tick_pts": 0.00400,
+      "breakeven_drift_ticks": 125.8,
+      "mean_spike_pts": 1.273,
+      "mean_tau_ticks": 289.3,
+      "min_lot": 0.50
+    },
+    "crash_300_index": {
+      "mt5_name": "Crash 300 Index",
+      "is_boom": false,
+      "symbol_id": 9,
+      "historical_copyticks_spread_pts": 0.1190,
+      "real_live_execution_spread_pts": 1.1130,
+      "abs_drift_per_tick_pts": 0.01900,
+      "breakeven_drift_ticks": 58.6,
+      "mean_spike_pts": 6.847,
+      "mean_tau_ticks": 297.3,
+      "min_lot": 0.50
+    }
+  }
+}

@@ -1,0 +1,5 @@
+close_reason,trades_count,win_rate_pct,total_pnl_usd,avg_pnl_usd,avg_duration_sec
+GREEN_CASH_IN,254,100.0,8.39,0.033,172.5
+MARKET_CLOSE_OR_MANUAL,3,66.7,-4.57,-1.523,1209.3
+STOP_LOSS,4,0.0,-30.48,-7.62,1651.5
+TAKE_PROFIT,1,100.0,0.3,0.3,159.0

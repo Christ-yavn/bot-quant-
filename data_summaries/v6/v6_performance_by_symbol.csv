@@ -1,0 +1,4 @@
+symbol,total_trades,win_count,loss_count,breakeven_count,win_rate_pct,net_pnl_usd,gross_profit_usd,gross_loss_usd,profit_factor,avg_win_usd,avg_loss_usd,max_win_usd,max_loss_usd,avg_duration_sec,max_duration_sec,total_volume_lots
+Boom 500 Index,54,52,2,0,96.3,-5.34,2.05,-7.39,0.28,0.039,-3.695,0.04,-3.82,166.8,3575,10.8
+Crash 1000 Index,1,1,0,0,100.0,0.01,0.01,-0.0,999.0,0.01,0.0,0.01,0.01,95.0,95,0.2
+Crash 900 Index,207,204,3,0,98.6,-21.03,6.71,-27.74,0.24,0.033,-9.247,0.3,-11.66,217.9,5152,41.4
