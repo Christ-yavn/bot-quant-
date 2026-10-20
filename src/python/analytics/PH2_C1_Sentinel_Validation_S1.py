@@ -32,6 +32,7 @@ Run (Google Colab, CPU runtime, ~10-25 min):
   - Mount Drive and adjust SYMBOLS[...]['path'] to your CSV locations.
   - Reduce N_PLACEBO_GRID to 200 for a faster first pass.
 """
+import os
 import hashlib
 import json
 import numpy as np
@@ -168,10 +169,10 @@ def ppw_block_length(x):
     g = float(np.dot(w, np.abs(ks) * np.array(gam)))
     d = 2.0 * max(sigma2, 1e-12) ** 2
     if g <= 1e-12:                       # white-noise limit
-        return 1.0, 1.0, m, g, sigma2
+        return 1.0, m, g, sigma2
     b = (2.0 * g * g / d * n) ** (1.0 / 3.0)
     b = float(min(max(1.0, b), max(1.0, n // 4)))
-    return b, 2.0 * (g ** 2) ** (1.0 / 3.0) * (n ** (1.0 / 3.0)) / d ** 0.0 if False else b, m, g, sigma2
+    return b, m, g, sigma2
 
 
 # ============================================================================
@@ -490,6 +491,4 @@ def main():
 
 
 if __name__ == "__main__":
-    from google.colab import drive
-    drive.mount("/content/drive")
     main()
