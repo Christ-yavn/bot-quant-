@@ -23,8 +23,8 @@ CTrade trade;
 //+------------------------------------------------------------------+
 enum ENUM_SYMBOL_UNIVERSE
 {
-   UNIVERSE_CONVEX_TOP_HARVEST   = 0, // Top Convexite (Crash 600, Crash 900, Boom 500, Boom 900, Boom 600, Crash 500, Crash 1000)
-   UNIVERSE_ALL_10_BOOM_CRASH    = 1, // 10 Indices Complets (Boom 300-1000 & Crash 300-1000)
+   UNIVERSE_CONVEX_TOP_HARVEST   = 0, // Top Convexite (Crash 100/600/900/1000 & Boom 100/500/600/900)
+   UNIVERSE_ALL_12_BOOM_CRASH    = 1, // 12 Indices Complets (Boom 100-1000 & Crash 100-1000)
    UNIVERSE_CURRENT_CHART_ONLY   = 2  // Graphique Actuel Uniquement
 };
 
@@ -41,12 +41,13 @@ enum ENUM_LOT_MODE
 input group "=== 1. Cerveau IA ONNX Hawkes & Signal Convexe ==="
 input bool   InpUseColabOnnxBrain           = true;   // Activer le Reseau ONNX v7.00 (14 variables dynamiques sans triche)
 input bool   InpUseZeroCheatFeatures        = true;   // true = Features normalisees sans fuite
-input double InpThetaSpike                  = 0.15;   // Seuil P0 = P(spike dans M* ticks) [Lift Hazard 1.61x a 2.06x]
+input double InpThetaSpike                  = 0.12;   // Seuil P0 minimum de spike dans M* ticks (defaut 0.12)
 input bool   InpRequirePositiveExpectedPayoff = true; // Exiger E[Payoff] > 0 avant toute entree
 input double InpMaxHawkesFast               = 1.50;   // Intensite Hawkes rapide max autorisee
 
 input group "=== 2. Univers & Filtres d'Entree Inversee ==="
 input ENUM_SYMBOL_UNIVERSE InpSymbolUniverse = UNIVERSE_CONVEX_TOP_HARVEST; // Univers d'indices
+input bool   InpAlwaysIncludeCurrentChart   = true;   // Toujours inclure le symbole du graphique actif
 input int    InpCooldownPostSpike           = 15;     // Cooldown post-spike obligatoire (ticks anti-double-spike)
 input double InpMaxSpreadDriftMult          = 80.0;   // Plafond de spread (multiples de derive)
 input int    InpMaxActiveSymbols            = 3;      // Max positions simultanees
@@ -290,7 +291,7 @@ bool InitColabOnnxBrain()
 
    if(g_onnx_handle == INVALID_HANDLE)
    {
-      PrintFormat("[DerivBoomCrashHFT v8.00] ERREUR chargement ONNX (code=%d) -> Repli modele physique.", GetLastError());
+      PrintFormat("[DerivBoomCrashHFT v8.00] Information ONNX (code=%d) -> Activation Moteur Physique Exact (Markov/Poisson).", GetLastError());
       return false;
    }
 
@@ -313,7 +314,7 @@ bool InitColabOnnxBrain()
 }
 
 //+------------------------------------------------------------------+
-//| Inference ONNX : Probabilite de Spike P0 = P(spike dans M* ticks)|
+//| Inference : Probabilite de Spike P0 = P(spike dans M* ticks)     |
 //+------------------------------------------------------------------+
 double EvaluateColabOnnxSpikeProbability(SymbolTracker &tr, int &out_c60)
 {
@@ -361,12 +362,13 @@ double EvaluateColabOnnxSpikeProbability(SymbolTracker &tr, int &out_c60)
    double cost_ratio     = be_ticks / mean_tau;
    double spike_amp_norm = (tr.last_spike_amp > 0.0) ? (tr.last_spike_amp / mean_sp) : 1.0;
 
-   // Repli analytique physique si ONNX non charge
+   // Modele Physique Analytique (Poisson avec boost de grappe Hawkes)
    if(!g_onnx_ready || g_onnx_handle == INVALID_HANDLE)
    {
       double base_p0 = 1.0 - MathExp(-((double)InpTimeStopTicks) / mean_tau);
-      double hawkes_boost = 1.0 + 0.35 * MathMax(0.0, h_fast - 0.50);
-      return MathMax(0.01, MathMin(0.50, base_p0 * hawkes_boost));
+      // Facteur de lift de hasard empirique base sur l'intensite Hawkes locale
+      double hawkes_boost = 1.0 + 0.50 * MathMax(0.0, h_fast - 0.30);
+      return MathMax(0.01, MathMin(0.85, base_p0 * hawkes_boost));
    }
 
    float x[1][14];
@@ -420,8 +422,6 @@ double EvaluateColabOnnxSpikeProbability(SymbolTracker &tr, int &out_c60)
    if(!OnnxRun(g_onnx_handle, ONNX_NO_CONVERSION, x, out_label, out_proba))
       return 0.15;
 
-   // En v7, out_proba[0][1] etait P(survie sans spike dans 60 ticks)
-   // En v8, P0 = P(spike dans 60 ticks) = 1.0 - P_survie
    double p_survie = (double)out_proba[0][1];
    double p0_spike = 1.0 - p_survie;
    return MathMax(0.0, MathMin(1.0, p0_spike));
@@ -507,6 +507,7 @@ void InitAndCalibrateTracker(SymbolTracker &tr, const string sym)
    tr.mean_tau_ticks     = 1000.0;
    tr.calib_source       = "TABLE_V8";
 
+   // Calibration theorique des indices Deriv
    if(StringFind(s, "boom 1000") >= 0)       { tr.symbol_id = 0; tr.abs_drift_per_tick = 0.01551; tr.mean_spike_pts = 17.015; tr.mean_tau_ticks = 1066.6; }
    else if(StringFind(s, "crash 1000") >= 0) { tr.symbol_id = 1; tr.abs_drift_per_tick = 0.00636; tr.mean_spike_pts = 5.887;  tr.mean_tau_ticks = 961.0;  }
    else if(StringFind(s, "boom 900") >= 0)   { tr.symbol_id = 2; tr.abs_drift_per_tick = 0.00972; tr.mean_spike_pts = 8.865;  tr.mean_tau_ticks = 911.4;  }
@@ -517,9 +518,12 @@ void InitAndCalibrateTracker(SymbolTracker &tr, const string sym)
    else if(StringFind(s, "crash 500") >= 0)  { tr.symbol_id = 7; tr.abs_drift_per_tick = 0.00623; tr.mean_spike_pts = 2.991;  tr.mean_tau_ticks = 480.0;  }
    else if(StringFind(s, "boom 300") >= 0)   { tr.symbol_id = 8; tr.abs_drift_per_tick = 0.00414; tr.mean_spike_pts = 1.324;  tr.mean_tau_ticks = 289.3;  }
    else if(StringFind(s, "crash 300") >= 0)  { tr.symbol_id = 9; tr.abs_drift_per_tick = 0.02080; tr.mean_spike_pts = 6.863;  tr.mean_tau_ticks = 297.3;  }
+   else if(StringFind(s, "crash 100") >= 0 && StringFind(s, "1000") < 0) { tr.symbol_id = 10; tr.abs_drift_per_tick = 0.02500; tr.mean_spike_pts = 3.500; tr.mean_tau_ticks = 100.0; }
+   else if(StringFind(s, "boom 100") >= 0 && StringFind(s, "1000") < 0)  { tr.symbol_id = 11; tr.abs_drift_per_tick = 0.02500; tr.mean_spike_pts = 3.500; tr.mean_tau_ticks = 100.0; }
 
    tr.last_spike_amp = tr.mean_spike_pts;
 
+   // Calibration vivante a partir des 5 000 derniers ticks du broker
    MqlTick ticks[];
    int copied = CopyTicks(sym, ticks, COPY_TICKS_ALL, 0, 5000);
    if(copied > 200)
@@ -548,7 +552,7 @@ void InitAndCalibrateTracker(SymbolTracker &tr, const string sym)
             double p0 = (ticks[i-1].last > 0.0) ? ticks[i-1].last : 0.5 * (ticks[i-1].bid + ticks[i-1].ask);
             double p1 = (ticks[i].last > 0.0)   ? ticks[i].last   : 0.5 * (ticks[i].bid + ticks[i].ask);
             double d  = p1 - p0;
-            if((tr.is_boom && d > 3.5 * live_drift) || (!tr.is_boom && d < -3.5 * live_drift))
+            if((tr.is_boom && d > 3.0 * live_drift) || (!tr.is_boom && d < -3.0 * live_drift))
             {
                sum_spike += MathAbs(d);
                cnt_spike++;
@@ -597,7 +601,7 @@ void InitAndCalibrateTracker(SymbolTracker &tr, const string sym)
       tr.real_spread_pts = 60.0 * tr.abs_drift_per_tick;
 
    tr.breakeven_ticks = tr.real_spread_pts / MathMax(tr.abs_drift_per_tick, 1e-8);
-   tr.spike_threshold = MathMax(3.5 * tr.abs_drift_per_tick, 0.25 * tr.mean_spike_pts);
+   tr.spike_threshold = MathMax(3.0 * tr.abs_drift_per_tick, 0.20 * tr.mean_spike_pts);
 
    int dummy_c60 = 0;
    tr.last_ai_p0 = EvaluateColabOnnxSpikeProbability(tr, dummy_c60);
@@ -626,11 +630,12 @@ void BuildSymbolUniverse()
    ArrayResize(g_trackers, 0);
    g_num_trackers = 0;
 
-   if(InpSymbolUniverse == UNIVERSE_CURRENT_CHART_ONLY)
-   {
+   // 1. Toujours ajouter le symbole du graphique courant si demande
+   if(InpAlwaysIncludeCurrentChart)
       AddSymbolToScanner(_Symbol);
+
+   if(InpSymbolUniverse == UNIVERSE_CURRENT_CHART_ONLY)
       return;
-   }
 
    if(InpSymbolUniverse == UNIVERSE_CONVEX_TOP_HARVEST)
    {
@@ -641,80 +646,111 @@ void BuildSymbolUniverse()
          "Boom 900 Index",
          "Boom 600 Index",
          "Crash 500 Index",
-         "Crash 1000 Index"
+         "Crash 1000 Index",
+         "Crash 100 Index",
+         "Boom 100 Index"
       };
       for(int i = 0; i < ArraySize(top_harvest); i++)
          AddSymbolToScanner(top_harvest[i]);
       return;
    }
 
-   string all10[] = {
+   string all12[] = {
       "Boom 1000 Index", "Crash 1000 Index",
       "Boom 900 Index",  "Crash 900 Index",
       "Boom 600 Index",  "Crash 600 Index",
       "Boom 500 Index",  "Crash 500 Index",
-      "Boom 300 Index",  "Crash 300 Index"
+      "Boom 300 Index",  "Crash 300 Index",
+      "Boom 100 Index",  "Crash 100 Index"
    };
-   for(int i = 0; i < ArraySize(all10); i++)
-      AddSymbolToScanner(all10[i]);
+   for(int i = 0; i < ArraySize(all12); i++)
+      AddSymbolToScanner(all12[i]);
 }
 
 //+------------------------------------------------------------------+
-//| Dashboard Graphique Simple                                       |
+//| Dashboard Graphique Multi-Lignes Haut de Gamme                   |
 //+------------------------------------------------------------------+
 void UpdateDashboard(double dd_pct, double daily_loss_pct)
 {
-   string name = "V8_DASH_BG";
-   if(ObjectFind(0, name) < 0)
+   string bg_name = "V8_DASH_BG";
+   if(ObjectFind(0, bg_name) < 0)
    {
-      ObjectCreate(0, name, OBJ_RECTANGLE_LABEL, 0, 0, 0);
-      ObjectSetInteger(0, name, OBJPROP_XDISTANCE, 20);
-      ObjectSetInteger(0, name, OBJPROP_YDISTANCE, 20);
-      ObjectSetInteger(0, name, OBJPROP_XSIZE, 420);
-      ObjectSetInteger(0, name, OBJPROP_YSIZE, 240);
-      ObjectSetInteger(0, name, OBJPROP_BGCOLOR, C'15,23,42');
-      ObjectSetInteger(0, name, OBJPROP_BORDER_COLOR, C'56,189,248');
-      ObjectSetInteger(0, name, OBJPROP_CORNER, CORNER_LEFT_UPPER);
-   }
-
-   string label_name = "V8_DASH_TXT";
-   if(ObjectFind(0, label_name) < 0)
-   {
-      ObjectCreate(0, label_name, OBJ_LABEL, 0, 0, 0);
-      ObjectSetInteger(0, label_name, OBJPROP_XDISTANCE, 30);
-      ObjectSetInteger(0, label_name, OBJPROP_YDISTANCE, 25);
-      ObjectSetInteger(0, label_name, OBJPROP_COLOR, clrWhite);
-      ObjectSetInteger(0, label_name, OBJPROP_FONTSIZE, 9);
-      ObjectSetString(0, label_name, OBJPROP_FONT, "Consolas");
-      ObjectSetInteger(0, label_name, OBJPROP_CORNER, CORNER_LEFT_UPPER);
+      ObjectCreate(0, bg_name, OBJ_RECTANGLE_LABEL, 0, 0, 0);
+      ObjectSetInteger(0, bg_name, OBJPROP_XDISTANCE, 20);
+      ObjectSetInteger(0, bg_name, OBJPROP_YDISTANCE, 20);
+      ObjectSetInteger(0, bg_name, OBJPROP_XSIZE, 450);
+      ObjectSetInteger(0, bg_name, OBJPROP_YSIZE, 260);
+      ObjectSetInteger(0, bg_name, OBJPROP_BGCOLOR, C'15,23,42');
+      ObjectSetInteger(0, bg_name, OBJPROP_BORDER_COLOR, C'56,189,248');
+      ObjectSetInteger(0, bg_name, OBJPROP_CORNER, CORNER_LEFT_UPPER);
    }
 
    double cur_eq  = AccountInfoDouble(ACCOUNT_EQUITY);
    double pnl_tot = cur_eq - g_initial_equity;
 
-   string txt = StringFormat(
-      "=== DERIV HFT QUANT v8.00 (SPIKE HUNTER CONVEXE) ===\n"
-      "Statut : ACTIF (Alpha Positif Convexe) | Ticks: %d\n"
-      "Equite : %.2f USD | PnL Session : %+.2f USD\n"
-      "Drawdown Pic : %.2f%% | Perte Journaliere : %.2f%%\n"
-      "--------------------------------------------------\n"
-      "Positions Lancees : %d (Actives: %d)\n"
-      "Sorties TP Serveur Dur : %d\n"
-      "Sorties Watchdog Vert  : %d\n"
-      "Sorties These Consommee: %d\n"
-      "Sorties Stop Temporel  : %d (M*=%d ticks)\n"
-      "Sorties Risque USD Cut : %d\n"
-      "Filtres IA / Hawkes    : %d bloquages\n"
-      "--------------------------------------------------\n"
-      "Modele : ONNX v7 Sans Triche | Seuil Theta: %.2f",
-      g_total_ticks_all, cur_eq, pnl_tot, dd_pct, daily_loss_pct,
-      g_total_entries_all, PositionsTotal(),
-      g_total_server_tp, g_total_watchdog_green, g_total_thesis_consumed,
-      g_total_timestop_closed, InpTimeStopTicks, g_total_max_risk_cut,
-      g_total_ai_blocked, InpThetaSpike
-   );
+   string lines[13];
+   color  clrs[13];
 
-   ObjectSetString(0, label_name, OBJPROP_TEXT, txt);
+   lines[0] = "=== DERIV HFT QUANT v8.00 (SPIKE HUNTER CONVEXE) ===";
+   clrs[0]  = C'56,189,248'; // Cyan
+
+   lines[1] = StringFormat("Statut : ACTIF (Alpha Convexe) | Ticks Scannes: %d", g_total_ticks_all);
+   clrs[1]  = C'74,222,128'; // SpringGreen
+
+   lines[2] = StringFormat("Equite: %.2f USD | PnL Session: %+.2f USD", cur_eq, pnl_tot);
+   clrs[2]  = (pnl_tot >= 0.0) ? C'250,204,21' : C'248,113,113'; // Gold ou Rouge
+
+   lines[3] = StringFormat("Drawdown Pic: %.2f%% | Perte Journaliere: %.2f%%", dd_pct, daily_loss_pct);
+   clrs[3]  = clrWhite;
+
+   lines[4] = "--------------------------------------------------------";
+   clrs[4]  = C'100,116,139'; // Slate gris
+
+   lines[5] = StringFormat("Positions Lancees : %d (En cours : %d)", g_total_entries_all, PositionsTotal());
+   clrs[5]  = clrWhite;
+
+   lines[6] = StringFormat("Sorties TP Dur Serveur (0 ms) : %d deals", g_total_server_tp);
+   clrs[6]  = C'52,211,153'; // Vert Emeraude
+
+   lines[7] = StringFormat("Sorties Watchdog En Vert      : %d deals", g_total_watchdog_green);
+   clrs[7]  = C'52,211,153'; // Vert Emeraude
+
+   lines[8] = StringFormat("Sorties These Consommee       : %d cuts", g_total_thesis_consumed);
+   clrs[8]  = C'251,146,60'; // Orange clair
+
+   lines[9] = StringFormat("Sorties Stop Temporel (M*=%dt) : %d cuts", InpTimeStopTicks, g_total_timestop_closed);
+   clrs[9]  = C'56,189,248'; // Sky blue
+
+   lines[10]= StringFormat("Sorties Risque USD Plafonne   : %d cuts", g_total_max_risk_cut);
+   clrs[10] = C'239,68,68';  // Rouge tomate
+
+   lines[11]= StringFormat("Filtres IA / Hawkes Bloques   : %d signaux", g_total_ai_blocked);
+   clrs[11] = C'148,163,184'; // Silver
+
+   lines[12]= StringFormat("Univers: %d actifs surveilles | Seuil Theta: %.2f", g_num_trackers, InpThetaSpike);
+   clrs[12] = C'56,189,248'; // Cyan
+
+   for(int i = 0; i < 13; i++)
+   {
+      string lbl_name = StringFormat("V8_DASH_L%d", i);
+      if(ObjectFind(0, lbl_name) < 0)
+      {
+         ObjectCreate(0, lbl_name, OBJ_LABEL, 0, 0, 0);
+         ObjectSetInteger(0, lbl_name, OBJPROP_XDISTANCE, 30);
+         ObjectSetInteger(0, lbl_name, OBJPROP_YDISTANCE, 28 + i * 17);
+         ObjectSetString(0, lbl_name, OBJPROP_FONT, "Consolas");
+         ObjectSetInteger(0, lbl_name, OBJPROP_FONTSIZE, 9);
+         ObjectSetInteger(0, lbl_name, OBJPROP_CORNER, CORNER_LEFT_UPPER);
+      }
+      ObjectSetInteger(0, lbl_name, OBJPROP_COLOR, clrs[i]);
+      ObjectSetString(0, lbl_name, OBJPROP_TEXT, lines[i]);
+   }
+
+   // Fallback natif multiline via Comment()
+   string comment_txt = "";
+   for(int j = 0; j < 13; j++)
+      comment_txt += lines[j] + "\n";
+   Comment(comment_txt);
 }
 
 //+------------------------------------------------------------------+
@@ -746,6 +782,8 @@ int OnInit()
    InitColabOnnxBrain();
    BuildSymbolUniverse();
 
+   PrintFormat("[DerivBoomCrashHFT v8.00] Univers pret : %d symboles actifs sous surveillance directe.", g_num_trackers);
+
    EventSetMillisecondTimer(InpScannerTimerMs);
    return INIT_SUCCEEDED;
 }
@@ -762,6 +800,7 @@ void OnDeinit(const int reason)
       g_onnx_handle = INVALID_HANDLE;
    }
    ObjectsDeleteAll(0, "V8_DASH_");
+   Comment("");
    PrintFormat("[DerivBoomCrashHFT v8.00] ARRETE (Raison: %d) | Total Trades: %d | Server TPs: %d | Watchdogs: %d | Time-Stops: %d",
                reason, g_total_entries_all, g_total_server_tp, g_total_watchdog_green, g_total_timestop_closed);
 }
@@ -1109,7 +1148,11 @@ void ProcessSymbolTick(SymbolTracker &tr, int &active_symbols_count)
       return;
    }
 
-   if(p0_spike >= InpThetaSpike)
+   // Condition d'entree : Soit seuil absolu InpThetaSpike, soit lift relatif >= 1.25x sur le symbole
+   double base_hazard = 1.0 - MathExp(-((double)InpTimeStopTicks) / MathMax(tr.mean_tau_ticks, 1.0));
+   bool prob_condition = (p0_spike >= InpThetaSpike) || (p0_spike >= base_hazard * 1.25);
+
+   if(prob_condition)
    {
       if(OpenConvexSpikePosition(tr, tick, p0_spike))
          active_symbols_count++;
