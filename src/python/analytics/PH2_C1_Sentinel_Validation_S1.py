@@ -274,11 +274,11 @@ def bh_adjust(pvals):
     thr = np.arange(1, m + 1) / m * 0.05
     passed = p[o] <= thr
     k = int(np.max(np.nonzero(passed)[0]) + 1) if passed.any() else 0
-    out = np.empty(m)
+    out = np.zeros(m, dtype=bool)
     if k > 0:
         cut = p[o][k - 1]
         out = np.where(p <= cut, True, False)
-    return out.astype(bool), float(np.minimum(p * m, 1.0))
+    return out.astype(bool), np.minimum(p * m, 1.0)
 
 
 def holm_adjust(pvals):
