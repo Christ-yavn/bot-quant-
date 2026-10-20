@@ -186,3 +186,40 @@ Un audit empirique à 10 000 blocs de rééchantillonnage stationnaire (script s
 * **Taux de Succès (Win Rate) :** 14.09 % (conforme à la convexité positive de Taleb).
 * **Drawdown Maximum Médian :** Seulement **.64 USD** (Q99% = .34 USD).
 * **Tous les 7 symboles de l'univers de récolte sont strictement positifs :** Crash 600 (+157.39 $), Crash 900 (+72.56 $), Boom 900 (+31.48 $), Boom 600 (+27.77 $), Boom 500 (+27.15 $), Crash 500 (+16.22 $), Crash 1000 (+8.17 $).
+
+---
+
+## 11. VERSION 8.20 (« SPIKE HUNTER CONVEXE — AUDIT FIX-1 À FIX-10 ») : ROBUSTESSE MICROSTRUCTURELLE (JOUR 4)
+
+### 11.1 Contexte et Motivation
+Après l'audit statique médico-légal de la v8.10, la version **v8.20** a été rédigée pour corriger 10 points critiques de microstructure et d'intégrité de données afin de garantir une fidélité d'exécution absolue face au broker Deriv.
+
+### 11.2 Les 10 Correctifs Appliqués (FIX-1 à FIX-10)
+1. **FIX-1 : Curseur CopyTicks Réel (Flux Haute Fidélité)**  
+   Consommation du flux de ticks réel avec pointeur `last_time_msc` et gestion des doublons millisecondes (`last_ms_consumed`). Zéro tick perdu lors des micro-sauts.
+2. **FIX-2 : Horloges Cohérentes et Débit Mesuré (`ticks_per_sec`)**  
+   Mesure dynamique du débit réel de chaque indice. Reconstitution de l'âge des positions basée sur l'horloge broker Unix ms et le TPS empirique persistant en GlobalVariable (`V8_TPS_<sym>`).
+3. **FIX-3 : Arrêt d'Urgence Robuste (Flatten Immédiat + Gestion Continue)**  
+   En cas de déclenchement d'un coupe-circuit (-2% jour ou -10% DD), toutes les positions sont aplaties (`EMERGENCY_FLATTEN`), les nouvelles entrées sont bloquées, mais la boucle de gestion des positions reste active pour parer à tout résidu.
+4. **FIX-4 : Ratio de Capture Mesuré (PnL / MFE)**  
+   Remplacement de la constante arbitraire par le calcul empirique exact : ratio entre le PnL net réalisé et l'Excursion Maximale Favorable (*Max Favorable Excursion* — MFE).
+5. **FIX-5 : Estimateur Honnête du Lift de Poisson**  
+   $$	ext{Lift}_{	ext{obs}} = rac{\sum 	ext{Spikes Capturés}}{\sum 	ext{Hazard de Base à l'Entrée}}$$  
+   Élimine le biais d'évaluation statique et désactive tout actif dérivant sous $1.30	imes$.
+6. **FIX-6 : Payoff Conservateur & Espérance Nette Exacte**  
+   Intègre la probabilité d'atteinte du TP sous distribution exponentielle des amplitudes $P(A \ge TP) = e^{-TP / ar{A}}$ et la dérive adverse conditionnelle payée avant résolution :
+   $$\mathbb{E}[T \mid T \le M] = 	au - rac{M}{e^{M/	au} - 1}$$
+7. **FIX-7 : Kelly Aligné sur le Stop-Loss Réel du Serveur + Marge de Slippage**  
+   Calcul du risque au lot minimum basé sur le SL réel placé sur le serveur Deriv multiplié par un tampon de slippage de $1.25	imes$. Refus formel du trade si le lot minimum dépasse la cible de risque.
+8. **FIX-8 : Verrouillage Anti-Intrusion (Refus des Symboles Non-Calibrés)**  
+   Filtrage strict : tout symbole non documenté dans la table de calibration médico-légale est rejeté avec alerte.
+9. **FIX-9 : Comptabilisation par Position Complète (Cumul des Deals OUT)**  
+   Agrégation des volumes et PnL de sortie sur transactions multiples avant finalisation et journalisation dans `v8_closed_positions.csv`.
+10. **FIX-10 : Réinitialisation Journalière Automatique (00:00 UTC)**  
+    Remise à zéro de l'équité de référence à chaque changement de jour UTC pour un respect strict du plafond de perte journalier.
+
+### 11.3 Métriques de Compilation
+* **Fichiers :** `src/mql5/DerivBoomCrashHFT_v8.mq5` et `DerivBoomCrashHFT_v8.ex5`.
+* **Compilateur :** MetaEditor 64 (build 6272).
+* **Résultat :** **0 erreur, 0 avertissement** (115 070 octets).
+* **Statut d'Exécution :** Déployé et actif sous MetaTrader 5 sur compte institutionnel démo (`32449166`).

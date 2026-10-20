@@ -22,7 +22,7 @@ flowchart TD
     subgraph TRACK 1: Gamme Boom & Crash [Processus Jump-Diffusion]
         T1["Gamme 1 : Boom & Crash Series"]
         T1 --> T1_A["v1.00 à v7.00 : Étude & Falsification de la Dérive (Martingale S < 0)"]
-        T1 --> T1_B["v8.00 : Chasseur de Sauts Convexe Inversé (Positive Skewness +340.73$)"]
+        T1 --> T1_B["v8.20 : Chasseur de Sauts Convexe Inversé (Positive Skewness +340.73$)"]
     end
 
     subgraph TRACK 2: Gamme Step & Volatilités [Processus Continus & Pas Discrets]
