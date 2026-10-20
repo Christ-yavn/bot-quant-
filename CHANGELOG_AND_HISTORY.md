@@ -257,3 +257,37 @@ Sur 100 000 ticks et 65 000 barres M1/H1 à travers les 6 variantes de Step Inde
 * **Robot Expert :** `src/mql5/Deriv_VolSqueeze_Breakout_EA.mq5` et `Deriv_VolSqueeze_Breakout_EA.ex5`.
 * **Compilation :** MetaEditor 64 : **0 erreur, 0 avertissement** (44 680 octets).
 * **Profil MT5 Déployé :** `Phase2_VolSqueeze` avec graphiques H1 de Volatility 25 (1s) et Volatility 75 (1s).
+
+
+---
+
+## 13. VALIDATION SENTINEL C1 & FILTRE INTELLIGENT C2 ONNX (JOUR 4 - PHASE 2)
+
+### 13.1 Résultats de la Batterie de Falsification Sentinel C1 (15 000 barres H1)
+L'exécution stricte de `PH2_C1_Sentinel_Validation_S1.py` a scellé le fichier officiel `phase2_research/manifest_c1.json` (SHA-256 : `debc8b31d89b248f...`) :
+
+1. **`Volatility 25 (1s) Index` — ALPHA PUR CONFIRMÉ :**
+   * **Trades :** 632 trades, gain net moyen = **+6.763 bps**, **$t = +3.291$** (survit au seuil de Bonferroni strict $3.29$).
+   * **Stabilité temporelle :** Train (+5.704 bps, $t=+2.091$), Val (+5.815 bps, $t=+1.374$), OOS (+10.662 bps, $t=+2.311$).
+   * **Test de rupture de Welch :** $t = +0.606, p = 0.5445$ (aucune rupture structurelle, l'edge est stable et continu).
+   * **Bootstrap BCa 95% :** $[+2.705 \,;\, +10.796]\text{ bps}$ ($p(H_0) = 0.0007$, borne inférieure strictement positive).
+   * **Placebo Monte Carlo :** 95e percentile à $+1.276$, rang observé = $1.0000$ (100% des placebos battus).
+   * **Probabilistic Sharpe (PSR) :** **99.95%** ; **Deflated Sharpe (DSR-48) :** **+0.0114** (survit à la déflation de 48 tests).
+
+2. **`Volatility 75 (1s) Index` — REJETÉ PAR LE PROTOCOLE :**
+   * Gain moyen = $+2.924\text{ bps}$, mais $t = +0.447$, Train négatif ($-4.941\text{ bps}$), BCa CI inclut zéro ($[-9.872 \,;\, +15.972]\text{ bps}$).
+   * DSR négatif ($-0.3152$), rang placebo = $0.8225$ (< 0.95).
+   * **Décision Sentinel :** Rejet immédiat de Vol 75 (1s) pour éliminer le risque de surapprentissage et de perte de capital.
+
+### 13.2 Entraînement du Filtre Neuronal / GBDT C2 (ONNX)
+* **Dataset :** 397 opportunités de cassure identifiées sur `Volatility 25 (1s) Index`.
+* **Win Rate Brut (sans filtre) :** 53.90%.
+* **Features avancées :** Aires de Lévy (Théorie des chemins rugueux), z-score d'impulsion, ratio de compression de volatilité, ratio spread/ATR, skewness et kurtosis d'ordre 20.
+* **Win Rate Hors-Échantillon Filtré (Test OOS) :** **62.82%** (Gain net de **+8.92%** de taux de réussite !).
+* **Modèle exporté :** `src/models/c2_vol_filter.onnx` (22 002 octets).
+
+### 13.3 Déploiement du Robot EA v3.00 (`Deriv_VolSqueeze_Breakout_EA_v3.mq5`)
+* Intègre la lecture du spread réel broker par bougie (`SymbolInfoInteger`).
+* Intègre le moteur d'inférence ONNX en temps réel (`OnnxCreate`, `OnnxRun`).
+* Compilé avec MetaEditor 64 : **0 erreur, 0 avertissement** (49 936 octets).
+* Déployé dans le terminal MetaTrader 5 (`MQL5/Experts/` et `MQL5/Files/`).
