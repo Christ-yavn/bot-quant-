@@ -386,12 +386,20 @@ void OnTick()
    double ask = ExtSymbol.Ask();
    double bid = ExtSymbol.Bid();
    double mid_price = (ask + bid) / 2.0;
-   double spread_bps = (spread_pts * _Point / mid_price) * 10000.0;
+   if(mid_price <= 0.0 && ArraySize(closes) > 0) mid_price = closes[0];
+   if(mid_price <= 0.0)
+   {
+      ExtLastBarTime = bar_time;
+      return;
+   }
+   double pt = (_Point > 0.0) ? _Point : 0.01;
+   double spread_bps = (spread_pts * pt / mid_price) * 10000.0;
    
    double atr_vals[];
    ArraySetAsSeries(atr_vals, true);
-   CopyBuffer(ExtATRHandle, 0, 1, 1, atr_vals);
-   double atr_pts = atr_vals[0] / _Point;
+   int atr_cnt = CopyBuffer(ExtATRHandle, 0, 1, 1, atr_vals);
+   double atr_val = (atr_cnt > 0 && atr_vals[0] > 0.0) ? atr_vals[0] : (mid_price * 0.005);
+   double atr_pts = (pt > 0.0) ? (atr_val / pt) : 100.0;
    
    double spread_to_atr = (atr_pts > 0.0) ? (spread_pts / atr_pts) : 1.0;
    if(spread_to_atr > InpMaxSpreadToATR || spread_bps > InpMaxSpreadBps)
