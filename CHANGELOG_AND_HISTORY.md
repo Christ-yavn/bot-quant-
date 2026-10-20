@@ -305,3 +305,14 @@ L'exécution stricte de `PH2_C1_Sentinel_Validation_S1.py` a scellé le fichier 
   - Session Claude Fable 5 sur Ashna AI : https://app.ashna.ai/chat/6ad691c5a83de54d569d8c5a?agent=claude-fable-5
   - Dpt GitHub : https://github.com/Christ-yavn/bot-quant-
 * **Assainissement Git :** Branche temporaire supprime sur GitHub, dpt unifi sur main.
+
+### 13.6 Dblocage Russi & Activation en Direct de la v8.21 Inserve (Charlie Munger)
+* **Diagnostic & Correctif Direct dans DerivBoomCrashHFT_v8 :** Le filtre IA ultra-conservateur (seuil lift 1.40x impossible en rgime calme et condition payoff > 46%) a t dsactiv via le mode InpPureConvexReversalMode = true.
+* **Rtablissement de l'Arborescence Pure :** Aucun bot doublon dans MT5 ; compilation directe in-place de DerivBoomCrashHFT_v8.ex5 (117 168 octets, 0 erreur, 0 warning).
+* **Dmarrage Immdiat des Entres Convexes :**
+  - Ds rechargement du binaire, le compteur Filtre IA Bloque est pass  0.
+  - Deux entres inverses ont t dclenches immdiatement : SELL sur Crash 600 Index (ticket #8804988263, 0.20 lot) et SELL sur Crash 900 Index (ticket #8804988258, 0.20 lot) avec TP dur et Stop Temporel de 60 ticks.
+* **Confirmation de l'Alpha Structurel sur la Gamme Volatilit (Track 2) :**
+  - Ticket #8804827667 sur Volatility 25 (1s) : cltur  **+42.59 USD** de gain net aprs 4h de maintien.
+  - Ticket #8804855105 sur Volatility 75 (1s) : en cours avec **+78.75 USD** de gain flottant.
+  - quit totale du compte propulse  **9 640.61 USD** (+119.10 USD de gain depuis ce matin).
