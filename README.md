@@ -1,135 +1,103 @@
-# ⚡ QUANT BOT DERIV — High-Frequency Algorithmic Trading & Stochastic Microstructure Framework
+# ⚡ QUANT BOT DERIV — High-Frequency Quantitative Framework (Multi-Track)
 
 [![MQL5](https://img.shields.io/badge/Language-MQL5%20%2F%20C%2B%2B-blue.svg)](https://www.mql5.com)
 [![Python](https://img.shields.io/badge/Research-Python%203.12-green.svg)](https://www.python.org)
 [![ONNX](https://img.shields.io/badge/Inference-ONNX%20Runtime-orange.svg)](https://onnx.ai)
 [![MetaTrader 5](https://img.shields.io/badge/Platform-MetaTrader%205-darkblue.svg)](https://www.metatrader5.com)
 [![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
-[![Status](https://img.shields.io/badge/Phase-v7.00%20Forensic%20Complete%20%7C%20Phase%202%20Ready-purple.svg)](#)
+[![GitHub](https://img.shields.io/badge/Repo-Christ--yavn%2Fbot--quant---purple.svg)](https://github.com/Christ-yavn/bot-quant-)
 
 ---
 
-## 📌 Executive Summary & Project Manifesto
+## 🏛️ Architecture Produit : Deux Gammes Quantitatives Distinctes
 
-This repository hosts an enterprise-grade quantitative trading framework developed for high-frequency algorithmic execution on **Deriv synthetic indices** (specifically the **Boom & Crash** jump-diffusion series: Crash 300/500/600/900/1000 and Boom 300/500/600/900/1000), expanding in Phase 2 to **Step Index**, **Volatility Indices (V10–V100 1s)**, **Forex ECN**, **CME Micro-Futures**, and **Crypto Liquidity Pools**.
-
-Across 7 architectural iterations (`v1.00` $\rightarrow$ `v7.00`), this research project progressed through:
-1. **Stochastic Jump-Diffusion Modeling:** Characterizing synthetic tick generation as $dP_t = d \cdot dt - A_t \cdot dN_t$.
-2. **Hawkes Self-Exciting Point Processes:** Estimating jump arrival intensity $\lambda(t) = \mu + \sum \alpha e^{-\beta(t - t_i)}$ via Maximum Likelihood Estimation (MLE) on over **10,000,000 historical ticks**.
-3. **Embedded Neural Inference via ONNX:** Designing zero-data-leakage multi-layer perceptrons running in MetaTrader 5 with sub-millisecond execution latency.
-4. **Adversarial Empirical Falsification:** Benchmarking theoretical models against **2,484 real-market live deals** on MT5 account `32449166`.
-5. **The Convex Payoff Breakthrough:** Falsifying directional drift harvesting and proving via empirical simulation that **Inverted Spike-Hunting yields +$340.73 USD** under positive skewness.
-
----
-
-## 🏛️ System Architecture
+Pour répondre aux microstructures fondamentalement opposées des marchés de Deriv, le projet est officiellement scindé en **deux gammes algorithmiques spécialisées et indépendantes** :
 
 ```mermaid
 flowchart TD
-    subgraph Data & Telemetry Layer
-        A1["Deriv MT5 Live Tick Stream (1 tick/sec)"] --> A2["Tick Circular Buffer & Dynamic Spread Tracker"]
-        A2 --> A3["Feature Extractor (14 Zero-Leakage Hawkes Indicators)"]
+    subgraph Master Architecture
+        ROOT["FRAMEWORK QUANT DERIV (Christ-yavn/bot-quant-)"]
     end
 
-    subgraph Intelligence & Filter Layer
-        A3 --> B1["Physics Hawkes Gate (Poisson Excess Test)"]
-        B1 --> B2["Embedded ONNX Engine (boom_crash_meta_brain.onnx)"]
-        B2 --> B3["Dynamic Probability Filter (Q70 Calibration)"]
+    subgraph TRACK 1: Gamme Boom & Crash [Processus Jump-Diffusion]
+        T1["Gamme 1 : Boom & Crash Series"]
+        T1 --> T1_A["v1.00 à v7.00 : Étude & Falsification de la Dérive (Martingale S < 0)"]
+        T1 --> T1_B["v8.00 : Chasseur de Sauts Convexe Inversé (Positive Skewness +340.73$)"]
     end
 
-    subgraph Execution & Microstructure Layer
-        B3 --> C1["Async Order Dispatcher (OrderSendAsync <0.5ms)"]
-        C1 --> C2["Broker Compliance Filter (SYMBOL_TRADE_STOPS_LEVEL)"]
-        C2 --> C3["Virtual Take-Profit Engine (Memory-Managed at 50ms)"]
+    subgraph TRACK 2: Gamme Step & Volatilités [Processus Continus & Pas Discrets]
+        T2["Gamme 2 : Step Index & Volatility Series"]
+        T2 --> T2_A["Step Index : Chaînes de Markov (B=1 pas) & Temps de Premier Passage (FPT)"]
+        T2 --> T2_B["Volatilités (V10-V100 1s) : GARCH(1,1), Hurst (H), Kalman & Chemins Rugueux"]
     end
 
-    subgraph Risk & Safeguards Layer
-        C3 --> D1["Dollar-Capped Risk Cut ($2.50 Normalized Max)"]
-        C3 --> D2["Anti-2nd-Spike Circuit Breaker"]
-        C3 --> D3["Daily Account Circuit Breaker (-$400 USD Hard Stop)"]
-    end
+    ROOT --> T1
+    ROOT --> T2
 ```
 
 ---
 
-## 🔬 Core Empirical Results & Breakthrough Findings
+## 🎯 GAMME 1 : SÉRIE BOOM & CRASH (`v1.00` $\rightarrow$ `v7.00` & `v8.00` INVERSÉE)
 
-### 1. Live Performance Comparison: `v6.00` vs `v7.00` vs `Inverted Convex`
+### 1. Bilan Historique & Découvertes Clés (`v1.00` à `v7.00`)
+* **Actifs cibles :** `Crash 300/500/600/900/1000` et `Boom 300/500/600/900/1000`.
+* **Nature physique :** Processus de sauts de Poisson à mémoire nulle ($\hat{n}_{\text{Hawkes}} \approx 0.000$).
+* **Falsification formelle :** Récolter la dérive calme (*drift*) est mathématiquement perdant sous spread réel $S > 0$ par le **Théorème d'Arrêt Optionnel de Doob** ($\mathbb{E}[\text{PnL}] = -S < 0$).
+* **Télémétrie v7.00 Live :** 1 242 trades réels, 85.91 % de Win Rate, perte de -406.14 $ due à la concavité (gains minuscules de +0.20 $ balayés par des spikes de -3.54 $).
 
-| Metric | Version `v6.00` Live | Version `v7.00` Live | Inverted Strategy (Simulation) |
-| :--- | :---: | :---: | :---: |
-| **Philosophy** | Drift Harvester (Hard TP) | Zero-Leakage Drift Harvester (Virtual TP) | **Convex Spike Hunter (Time-Decay Stop)** |
-| **Total Trades** | 258 positions | 1,242 positions | **1,242 positions** |
-| **Win Rate** | 98.06 % | 85.91 % | **14.09 %** |
-| **Gross Wins** | +$8.65 USD | +$213.50 USD | **+$601.44 USD** |
-| **Gross Losses** | -$35.13 USD | -$619.64 USD | **-$260.71 USD** |
-| **Net PnL** | -$26.48 USD | -$406.14 USD | **+$340.73 USD** |
-| **Order Rejections** | 162,956 `[Invalid stops]` | **0 (Zero rejections!)** | **0** |
-| **Daily Breaker** | Not Triggered | **Triggered at -$400 (Saved 95.2% Capital)** | **Profitable Curve** |
-
-### 2. The Taleb Skewness & Convexity Discovery
-* **Why Drift Harvesting Fails:**  
-  Collecting drift wins small payouts ($+\$0.20$ avg) with high frequency (86%), but rare spikes wipe out profits ($-\$3.54$ avg). This is **negative skewness (concave)**.
-* **Why Spike Hunting Wins:**  
-  Hunting spikes with a strict 60-second time stop suffers frequent tiny losses ($-\$0.25$ avg), but when a spike hits, it delivers an enormous asymmetric payoff ($+\$3.48$ up to $+\$15.00$). This is **positive skewness (convex)**.
+### 2. Le Pivot Stratégique : Version `v8.00` (Convexe Inversée)
+* **Philosophie :** Parier **dans le sens du spike** (SELL sur Crash, BUY sur Boom).
+* **Stop Temporel Strict :** Si aucun spike ne survient après $M$ ticks (ex. 60 ticks), sortie immédiate avec perte minime contrôlée (-0.25 $).
+* **Capture Asymétrique :** Dès que le spike éclate, encaissement immédiat du gain (+3.50 $ à +15.00 $).
+* **Performance Replay Empirique :** **+$340.73 USD** sur les 1 242 trades réels.
 
 ---
 
-## 📁 Repository Directory Structure
+## 🔬 GAMME 2 : SÉRIE STEP INDEX & VOLATILITÉS (PHASE 2 R&D)
+
+### 1. Step Index (Diffusion par Pas Discrets $\pm 0.1$)
+* **Microstructure unique :** Spread $S = 0.1$ égal au pas $\delta = 0.1$ $\implies$ **Breakeven de seulement 1 pas ($B = 1$)**, ratio signal/coût le plus élevé du broker.
+* **Modélisation :** Chaînes de Markov à temps discret (DTMC), problème du premier temps de passage (FPT) à horizon tronqué, et tests d'autocorrélation ACD.
+
+### 2. Indices de Volatilité (V10 à V250, Séries 1s)
+* **Garde-fou catégoriel :** Les prix bruts sont des GBM à vol nominale constante (pas de mean-reversion sur le prix).
+* **Modélisation :** Mean-reversion restreinte aux variables stationnaires (résidus GARCH, scores $z$ de dérive locale Kalman, log-variance), estimation de l'Exposant de Hurst $H$ (DFA / R/S corrigée), et signatures de chemins rugueux (Terry Lyons).
+
+---
+
+## 📁 Organisation du Dépôt
 
 ```text
-├── docs/                                 <- Comprehensive research & mathematical foundations
-│   ├── JOURNAL_COMPLET_DES_PROMPTS.md    <- Complete archive of all user prompts and instructions
-│   ├── ENCYCLOPEDIE_COMPLETE_BOT_HFT.md  <- Complete 56KB pedagogical reference manual (v1 to v6)
-│   ├── RAPPORT_COMPLET_SESSION_V6.md     <- Forensic audit of the v6 live run
-│   ├── RAPPORT_COMPLET_SESSION_V7.md     <- Forensic audit of the v7 live run
-│   ├── MATHEMATICAL_PROOFS_AND_THEORY.md <- Jump-diffusion SDE, Hawkes MLE, Doob's stopping theorem
-│   └── MICROSTRUCTURE_DERIV_SPEC.md      <- Tick rates, real vs chart spread, virtual TP mechanics
+bot-quant-/
+├── README.md                                  <- Manifeste & architecture des 2 gammes
+├── CHANGELOG_AND_HISTORY.md                   <- Chronologie exhaustive Jours 1 à 4
+├── LICENSE                                    <- Licence MIT
+├── .gitignore                                 <- Filtrage intelligent
 │
-├── src/                                  <- Source code
-│   ├── mql5/                             <- MetaTrader 5 Expert Advisors (v6.mq5, v7.mq5, .ex5 binaries)
+├── docs/                                      <- Documentation théorique & prompts d'experts
+│   ├── JOURNAL_COMPLET_DES_PROMPTS.md         <- Archive intégrale de tous les prompts (Step 0 à 1052+)
+│   ├── MEMOIRE_POUR_GEMINI_ARGON.txt          <- Mémoire standardisée prête à importer dans Gemini
+│   ├── PROMPT_CLAUDE_FABLE_5_RECHERCHE_MATH.md<- Cahier des charges mathématique Claude Fable 5
+│   ├── PROMPT_CLAUDE_FABLE_5_ROUND_2_DEEP_SPEC.md <- Approfondissement doctoral L99
+│   ├── PROMPT_GEMINI_4_ARGON_EXECUTION_CALCUL.md <- Mission d'exécution empirique Gemini 4 Argon
+│   ├── ENCYCLOPEDIE_COMPLETE_BOT_HFT.md       <- Cours complet (56 Ko) de la v1 à la v6
+│   ├── MATHEMATICAL_PROOFS_AND_THEORY.md      <- Preuves Doob, Martingales, Hawkes, Taleb
+│   ├── MICROSTRUCTURE_DERIV_SPEC.md           <- Spreads réels et TP virtuel
+│   └── RAPPORT_COMPLET_SESSION_V7.md          <- Audit de la session v7.00
+│
+├── src/                                       <- Code source de production
+│   ├── mql5/                                  <- Bots MT5 Gamme Boom & Crash (v6, v7, v8)
 │   └── python/
-│       ├── colab_ai/                     <- Zero-leakage training script, ONNX model, 10M dataset
-│       ├── research_engine/              <- Complete backtester, risk engine, and data harvesters
-│       └── analytics/                    <- MT5 live extractors, leakage scanner, reverse simulator
+│       ├── colab_ai/                          <- Entraînement ONNX Zero-Leakage & dataset 10M
+│       ├── research_engine/                   <- Moteur complet de simulation & backtest
+│       └── analytics/                         <- Extracteurs MT5 & simulateur d'inversion
 │
-├── data_summaries/                       <- Empirical live trade datasets & performance CSVs
-│   ├── v6/                               <- Deals, positions, orders, equity curve for v6
-│   └── v7/                               <- 1,242 positions, 2,484 deals, symbol breakdowns, reverse simulation
+├── data_summaries/                            <- Résultats des sessions réelles (CSV légers)
+│   ├── v6/                                    <- 258 trades, deals et courbe v6
+│   └── v7/                                    <- 1 242 trades, 2 484 deals, et simulation inverse (+340$)
 │
-├── phase2_research/                      <- Phase 2: Step Index, Volatilities (V10-V100), Forex, Crypto
-│   ├── README.md                         <- Phase 2 roadmap and continuous stochastic models
-│   └── scripts/                          <- High-throughput MT5 data harvesters & Hurst/OU scanners
-│
-├── CHANGELOG_AND_HISTORY.md              <- Full chronological chronicle from Day 1 to Day 4
-├── LICENSE                               <- MIT License
-└── README.md                             <- Project manifesto & repository guide
+└── phase2_research/                           <- GAMME 2 : RECHERCHE STEP & VOLATILITÉS
+    ├── README.md                              <- Feuille de route Phase 2
+    ├── data_harvested/HARVEST_MANIFEST.csv    <- Manifeste des 18 instruments moissonnés
+    └── scripts/                               <- Moissonneurs MT5 & scanners Hurst/OU
 ```
-
----
-
-## 🚀 Quickstart & Replication Guide
-
-### 1. Re-Training the Zero-Leakage Neural Net (Google Colab)
-```bash
-cd src/python/colab_ai
-python3 train_boom_crash_l99_onnx.py --data boom_crash_10M_events.npz --epochs 25 --batch-size 1024
-```
-
-### 2. Running the Reverse Strategy Simulation
-```bash
-python src/python/analytics/simulate_reverse_strategy.py
-```
-
-### 3. Launching Phase 2 Data Harvester for Step Index & Volatilities
-```bash
-python phase2_research/scripts/extract_historical_step_volatilities.py
-python phase2_research/scripts/analyze_hurst_and_ou.py
-```
-
----
-
-## 📜 Authors & Citation
-* **Principal Quant Investigator:** Christ-yavn
-* **Autonomous Quantitative AI Assistant:** Antigravity (Google DeepMind Architecture)
-* **License:** MIT License
