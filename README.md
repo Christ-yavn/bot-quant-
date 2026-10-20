@@ -79,6 +79,7 @@ flowchart TD
 
 ```text
 ├── docs/                                 <- Comprehensive research & mathematical foundations
+│   ├── JOURNAL_COMPLET_DES_PROMPTS.md    <- Complete archive of all user prompts and instructions
 │   ├── ENCYCLOPEDIE_COMPLETE_BOT_HFT.md  <- Complete 56KB pedagogical reference manual (v1 to v6)
 │   ├── RAPPORT_COMPLET_SESSION_V6.md     <- Forensic audit of the v6 live run
 │   ├── RAPPORT_COMPLET_SESSION_V7.md     <- Forensic audit of the v7 live run

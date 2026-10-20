@@ -12,3 +12,6 @@ This directory houses the foundational documentation, mathematical proofs, and e
    Formal stochastic calculus derivations: Jump-Diffusion SDEs, Hawkes likelihood estimation, Doob's Optional Stopping Theorem, and the Taleb Payoff Skewness proof.
 5. [MICROSTRUCTURE_DERIV_SPEC.md](MICROSTRUCTURE_DERIV_SPEC.md):  
    Deriv market microstructure: tick generation rates, real vs chart spreads, breakeven ticks, and the Virtual Take-Profit mechanism.
+
+6. [JOURNAL_COMPLET_DES_PROMPTS_ET_CONVERSATIONS.md](JOURNAL_COMPLET_DES_PROMPTS_ET_CONVERSATIONS.md):  
+   Exhaustive audit journal compiling all 49 user prompts, decisions, and instructions exchanged from Step 0 to Step 1052.
