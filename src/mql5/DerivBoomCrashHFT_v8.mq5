@@ -392,7 +392,7 @@ double GetBrokerMinStopDistancePts(const string sym)
    double pt        = SymbolInfoDouble(sym, SYMBOL_POINT);
    long   stops_lvl = SymbolInfoInteger(sym, SYMBOL_TRADE_STOPS_LEVEL);
    long   freeze    = SymbolInfoInteger(sym, SYMBOL_TRADE_FREEZE_LEVEL);
-   return (double)(MathMax(stops_lvl, freeze) + 4) * pt;
+   return (double)(MathMax(stops_lvl, freeze) + 5) * pt;
 }
 
 ENUM_ORDER_TYPE_FILLING GetSupportedFillingMode(const string sym)
@@ -1128,7 +1128,12 @@ bool OpenConvexSpikePosition(SymbolTracker &tr, const MqlTick &tick, double p0_s
    if(tr.open_positions > 0 || (tick.time_msc - tr.last_order_sent_msc) < 3000) return false;
    if(!(bool)TerminalInfoInteger(TERMINAL_TRADE_ALLOWED) || !(bool)MQLInfoInteger(MQL_TRADE_ALLOWED)) return false;
 
-   double spread = tick.ask - tick.bid;
+   // Fresh tick acquisition directly from broker
+   MqlTick live_tick;
+   if(!SymbolInfoTick(tr.name, live_tick) || live_tick.ask <= 0.0 || live_tick.bid <= 0.0)
+      live_tick = tick;
+
+   double spread = live_tick.ask - live_tick.bid;
    tr.real_spread_pts = spread;
    tr.breakeven_ticks = spread / MathMax(tr.abs_drift_per_tick, 1e-8);
    if(tr.breakeven_ticks > InpMaxSpreadDriftMult) return false;
@@ -1137,10 +1142,11 @@ bool OpenConvexSpikePosition(SymbolTracker &tr, const MqlTick &tick, double p0_s
    double lot = ComputeConvexLotSize(tr, sl_dist_pts);
    if(lot <= 0.0) return false;
 
-   tr.last_order_sent_msc = tick.time_msc;
+   tr.last_order_sent_msc = live_tick.time_msc;
    int    digits     = (int)SymbolInfoInteger(tr.name, SYMBOL_DIGITS);
    double min_stop    = GetBrokerMinStopDistancePts(tr.name);
    double tp_depth    = MathMax(min_stop, InpTakeProfitRatio * tr.mean_spike_pts);
+   double sl_depth    = MathMax(min_stop, sl_dist_pts);
 
    MqlTradeRequest req; MqlTradeResult res;
    ZeroMemory(req); ZeroMemory(res);
@@ -1153,20 +1159,20 @@ bool OpenConvexSpikePosition(SymbolTracker &tr, const MqlTick &tick, double p0_s
    req.comment      = "V8_SPK_HUNT";
 
    // INVERSION : Boom=BUY (spike hausse = gain) | Crash=SELL (spike baisse = gain)
-   // TP BUY declenche sur BID, TP SELL sur ASK (cote correct)
+   // Guaranteed stop distances relative to entry price and opposite quote
    if(tr.is_boom)
    {
       req.type  = ORDER_TYPE_BUY;
-      req.price = tick.ask;
-      req.tp    = NormalizeDouble(tick.bid + tp_depth, digits);
-      req.sl    = NormalizeDouble(tick.bid - sl_dist_pts, digits);
+      req.price = live_tick.ask;
+      req.tp    = NormalizeDouble(req.price + tp_depth, digits);
+      req.sl    = NormalizeDouble(live_tick.bid - sl_depth, digits);
    }
    else
    {
       req.type  = ORDER_TYPE_SELL;
-      req.price = tick.bid;
-      req.tp    = NormalizeDouble(tick.ask - tp_depth, digits);
-      req.sl    = NormalizeDouble(tick.ask + sl_dist_pts, digits);
+      req.price = live_tick.bid;
+      req.tp    = NormalizeDouble(req.price - tp_depth, digits);
+      req.sl    = NormalizeDouble(live_tick.ask + sl_depth, digits);
    }
 
    bool sent = OrderSend(req, res);
@@ -1174,7 +1180,7 @@ bool OpenConvexSpikePosition(SymbolTracker &tr, const MqlTick &tick, double p0_s
    {
       ulong ticket = res.order;
       if(ticket == 0) ticket = res.deal;
-      RegisterTrackedPosition(ticket, tr.name, tr.tick_counter, tick.time_msc, (int)req.type,
+      RegisterTrackedPosition(ticket, tr.name, tr.tick_counter, live_tick.time_msc, (int)req.type,
                               lot, req.price, req.tp, req.sl, p0_spike, expected_payoff, BaseHazardOf(tr));
       tr.entries_triggered++;
       tr.open_positions++;
@@ -1185,7 +1191,8 @@ bool OpenConvexSpikePosition(SymbolTracker &tr, const MqlTick &tick, double p0_s
    }
 
    tr.cooldown_until_tick = tr.tick_counter + 15;
-   PrintFormat("[v8.21] REJET ORDRE %s (code=%d : %s)", tr.name, res.retcode, res.comment);
+   PrintFormat("[v8.21] REJET ORDRE %s (code=%d : %s) [Price=%.5f TP=%.5f SL=%.5f MinStop=%.5f Bid=%.5f Ask=%.5f]",
+               tr.name, res.retcode, res.comment, req.price, req.tp, req.sl, min_stop, live_tick.bid, live_tick.ask);
    return false;
 }
 

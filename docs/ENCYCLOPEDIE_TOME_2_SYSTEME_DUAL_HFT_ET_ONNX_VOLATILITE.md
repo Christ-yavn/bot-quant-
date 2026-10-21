@@ -12,9 +12,12 @@
 
 Afin d'assurer la reproductibilité absolue de la recherche et la traçabilité complète de chaque formule et code source, les liens directeurs suivants sont scellés dans le référentiel :
 
-1. **Session Fondamentale de Recherche avec Claude Fable 5 (Ashna AI) :**
-   * URL pérenne : [https://app.ashna.ai/chat/6ad691c5a83de54d569d8c5a?agent=claude-fable-5](https://app.ashna.ai/chat/6ad691c5a83de54d569d8c5a?agent=claude-fable-5)
-   * Objet : Conception mathématique de l'inversion de convexité v8.00, formalisation de l'arrêt analytique ^* = 60	ext{ ticks}$, batterie de tests Sentinelle et spécification du filtre de gradient boosting ONNX.
+1. **Sessions Fondamentales de Recherche avec Claude Fable 5 (Ashna AI) :**
+   * **Session 1 (Track 2 Volatilité & ONNX C2) :** [6ad691c5a83de54d569d8c5a](https://app.ashna.ai/chat/6ad691c5a83de54d569d8c5a?agent=claude-fable-5)
+   * **Session 2 (Track 1 Forensique v7 & Inversion Convexe) :** [6ad75c564b55dd601aa09d82](https://app.ashna.ai/chat/6ad75c564b55dd601aa09d82?agent=claude-fable-5)
+   * **Session 3 (Track 1 Audit v8, Checklist FIX-1..10 & Déploiement) :** [6ad7ef4cfd29d02fc4aaef4c](https://app.ashna.ai/chat/6ad7ef4cfd29d02fc4aaef4c?agent=claude-fable-5)
+   * **Archive d'Ingénierie Complète :** [docs/ARCHIVE_RECHERCHES_ET_CONVERSATIONS_FABLE_5.md](docs/ARCHIVE_RECHERCHES_ET_CONVERSATIONS_FABLE_5.md)
+   * **Objets :** Conception mathématique de l'inversion de convexité v8.22, formalisation de l'arrêt analytique ^* = 60\text{ ticks}$, batterie de tests Sentinelle C1/C2 et spécification du filtre ONNX.
 2. **Dépôt Git Officiel Centralisé :**
    * URL GitHub : [https://github.com/Christ-yavn/bot-quant-](https://github.com/Christ-yavn/bot-quant-)
    * Branche officielle de déploiement : main

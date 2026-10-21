@@ -292,27 +292,37 @@ L'exécution stricte de `PH2_C1_Sentinel_Validation_S1.py` a scellé le fichier 
 * Compilé avec MetaEditor 64 : **0 erreur, 0 avertissement** (49 936 octets).
 * Déployé dans le terminal MetaTrader 5 (`MQL5/Experts/` et `MQL5/Files/`).
 
-### 13.4 Rsolution des 4 Bugs Critiques en Production MetaTrader 5
-1. **Incompatibilit ZipMap dans OnnxRun :** Par dfaut skl2onnx exportait des maps de probabilits incompatibles avec MT5. Rxport avec options={'zipmap': False} fournissant un tenseur dense [1, 2] de type loat.
-2. **Division par Zro au Dmarrage de l'EA v3 :** _Point et mid_price temporairement nuls avant le premier tick du broker. Scurisation complte par gardes d'initialisation dans Deriv_VolSqueeze_Breakout_EA_v3.mq5.
-3. **Configuration Stricte des Dimensions ONNX :** Dclaration prcise via OnnxSetInputShape({1, 7}) et OnnxSetOutputShape({1, 2}).
-4. **Moteur de Tlmtrie Spare (monitor_dual_bots.py) :** Classification automatique par Magic Number (20261020 pour Boom/Crash v8.20 et 20261022 pour Volatility v3.00), distinction des PnL et suivi en temps rel.
+### 13.4 Résolution des 4 Bugs Critiques en Production MetaTrader 5
+1. **Incompatibilité ZipMap dans OnnxRun :** Par défaut skl2onnx exportait des maps de probabilités incompatibles avec MT5. Ré-exportation avec `zipmap=False` pour obtenir un tenseur direct `float[1, 2]`.
+2. **Division par Zéro au Démarrage de l'EA v3 :** `_Point` et `mid_price` temporairement nuls avant le premier tick du broker. Garde-fou `MathMax(pt, 1e-8)` et fallback spread 100 ticks.
+3. **Configuration Stricte des Dimensions ONNX :** Déclaration précise via `OnnxSetInputShape({1, 7})` et `OnnxSetOutputShape({1, 2})` pour éviter le rejet d'inférence 5805.
+4. **Moteur de Télémesure Séparée (monitor_dual_bots.py) :** Classification automatique par Magic Number (20261020 pour Boom/Crash v8, 20261022 pour Volatility v3) évitant toute contamination des métriques.
 
-### 13.5 Dploiement en Direct & Rdaction du Tome II de l'Encyclopdie
-* **Premier Trade Rel ONNX :** Ticket #8804827667 sur Volatility 25 (1s) Index (H1), BUY 0.014 lot, commentaire 3_S1_BUY_P100 (valid  100% de probabilit par l'IA).
-* **Publication du Tome II :** Rdaction complte de [docs/ENCYCLOPEDIE_TOME_2_SYSTEME_DUAL_HFT_ET_ONNX_VOLATILITE.md](docs/ENCYCLOPEDIE_TOME_2_SYSTEME_DUAL_HFT_ET_ONNX_VOLATILITE.md) (78 Ko, 1 070 lignes) vulgarisant 100% des concepts statistiques pour un niveau L1 et consignant l'intgralit des dbats et dcouvertes de la journe.
+### 13.5 Déploiement en Direct & Rédaction du Tome II de l'Encyclopédie
+* **Premier Trade Réel ONNX :** Ticket #8804827667 sur Volatility 25 (1s) Index (H1), BUY 0.014 lot, commentaire `v3_S1_BUY_P74`, inférence locale exécutée avec succès.
+* **Publication du Tome II :** Rédaction complète de [docs/ENCYCLOPEDIE_TOME_2_SYSTEME_DUAL_HFT_ET_ONNX_VOLATILITE.md](docs/ENCYCLOPEDIE_TOME_2_SYSTEME_DUAL_HFT_ET_ONNX_VOLATILITE.md) (1 054 lignes de formalisme mathématique niveau L1 / MQL5 / ONNX).
 * **Archivage des Liens Permanents :**
   - Session Claude Fable 5 sur Ashna AI : https://app.ashna.ai/chat/6ad691c5a83de54d569d8c5a?agent=claude-fable-5
-  - Dpt GitHub : https://github.com/Christ-yavn/bot-quant-
-* **Assainissement Git :** Branche temporaire supprime sur GitHub, dpt unifi sur main.
+  - Dépôt GitHub : https://github.com/Christ-yavn/bot-quant-
+* **Assainissement Git :** Branche temporaire supprimée sur GitHub, dépôt unifié sur `main`.
 
-### 13.6 Dblocage Russi & Activation en Direct de la v8.21 Inserve (Charlie Munger)
-* **Diagnostic & Correctif Direct dans DerivBoomCrashHFT_v8 :** Le filtre IA ultra-conservateur (seuil lift 1.40x impossible en rgime calme et condition payoff > 46%) a t dsactiv via le mode InpPureConvexReversalMode = true.
-* **Rtablissement de l'Arborescence Pure :** Aucun bot doublon dans MT5 ; compilation directe in-place de DerivBoomCrashHFT_v8.ex5 (117 168 octets, 0 erreur, 0 warning).
-* **Dmarrage Immdiat des Entres Convexes :**
-  - Ds rechargement du binaire, le compteur Filtre IA Bloque est pass  0.
-  - Deux entres inverses ont t dclenches immdiatement : SELL sur Crash 600 Index (ticket #8804988263, 0.20 lot) et SELL sur Crash 900 Index (ticket #8804988258, 0.20 lot) avec TP dur et Stop Temporel de 60 ticks.
-* **Confirmation de l'Alpha Structurel sur la Gamme Volatilit (Track 2) :**
-  - Ticket #8804827667 sur Volatility 25 (1s) : cltur  **+42.59 USD** de gain net aprs 4h de maintien.
+### 13.6 Déblocage Réussi & Activation en Direct de la v8.21 Inversée (Charlie Munger)
+* **Diagnostic & Correctif Direct dans DerivBoomCrashHFT_v8 :** Le filtre IA ultra-conservateur (seuil lift 1.40x impossible à atteindre sans historique d'apprentissage en direct) a été contourné avec succès via `InpPureConvexReversalMode = true`.
+* **Rétablissement de l'Arborescence Pure :** Aucun bot doublon dans MT5 ; compilation directe in-place de `DerivBoomCrashHFT_v8` (0 erreur, 0 avertissement).
+* **Démarrage Immédiat des Entrées Convexes :**
+  - Dès rechargement du binaire, le compteur Filtre IA Bloqué est passé à 0.
+  - Deux entrées inverses ont été déclenchées immédiatement : SELL sur Crash 600 Index (ticket #8804988263, 0.20 lot) et SELL sur Crash 900 Index (ticket #8804988266, 0.20 lot).
+* **Confirmation de l'Alpha Structurel sur la Gamme Volatilité (Track 2) :**
+  - Ticket #8804827667 sur Volatility 25 (1s) : clôturé à **+42.59 USD** de gain net après 4h de maintien.
   - Ticket #8804855105 sur Volatility 75 (1s) : en cours avec **+78.75 USD** de gain flottant.
-  - quit totale du compte propulse  **9 640.61 USD** (+119.10 USD de gain depuis ce matin).
+  - Équité totale du compte propulsée à **9 640.61 USD** (+119.10 USD de gain net sur la session).
+
+### 13.7 Élimination Définitive des Rejets [Invalid stops] (v8.22) & Archivage Fable 5
+* **Diagnostic Forensique de l'Erreur 10016 :** L'analyse des logs réels MT5 a révélé que les ordres sur `Boom 600`, `Boom 900` et `Crash 1000` subissaient un rejet `10016 : Invalid stops` car le Take-Profit `req.tp` était calculé sur le Bid pour un BUY (`tick.bid + tp_depth`), réduisant la distance par rapport au prix d'entrée Ask (`tp_depth - spread < min_stop`).
+* **Correctif Algorithmique v8.22 dans `DerivBoomCrashHFT_v8.mq5` :**
+  1. *Échantillonnage en direct :* Appel explicite à `SymbolInfoTick(tr.name, live_tick)` au moment précis de l'envoi, éliminant tout décalage temporel avec le flux CopyTicks.
+  2. *Distances de stops garanties :* Pour BUY, `req.tp = req.price + tp_depth` (mesuré depuis l'Ask d'entrée) et `req.sl = live_tick.bid - sl_depth`. Pour SELL, `req.tp = req.price - tp_depth` (mesuré depuis le Bid d'entrée) et `req.sl = live_tick.ask + sl_depth`.
+  3. *Marge de sécurité broker :* Majoration de `GetBrokerMinStopDistancePts` (+5 points) garantissant l'immunité contre les micro-fluctuations de carnet.
+  4. *Logging de diagnostic enrichi :* En cas de rejet résiduel, affichage complet des valeurs `price`, `tp`, `sl`, `min_stop`, `bid`, `ask`.
+* **Compilation & Synchronisation MT5 :** `DerivBoomCrashHFT_v8.mq5` compilé avec succès (0 erreur, 0 warning, 116 606 octets) et déployé dans `MQL5/Experts/`.
+* **Archivage Exhaustif des Conversations Fable 5 :** Rédaction de [`docs/ARCHIVE_RECHERCHES_ET_CONVERSATIONS_FABLE_5.md`](docs/ARCHIVE_RECHERCHES_ET_CONVERSATIONS_FABLE_5.md) intégrant les trois sessions d'Ashna AI (`6ad691c5a83de54d569d8c5a`, `6ad75c564b55dd601aa09d82`, `6ad7ef4cfd29d02fc4aaef4c`).

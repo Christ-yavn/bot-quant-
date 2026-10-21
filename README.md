@@ -9,15 +9,17 @@
 
 ---
 
-
----
-
 ### 🌐 Liens et Archives Permanentes de Recherche
 * **Dépôt GitHub Officiel :** [https://github.com/Christ-yavn/bot-quant-](https://github.com/Christ-yavn/bot-quant-)
-* **Session de Recherche Claude Fable 5 (Ashna AI) :** [https://app.ashna.ai/chat/6ad691c5a83de54d569d8c5a?agent=claude-fable-5](https://app.ashna.ai/chat/6ad691c5a83de54d569d8c5a?agent=claude-fable-5)
+* **Archive Complète des Recherches Fable 5 :** [docs/ARCHIVE_RECHERCHES_ET_CONVERSATIONS_FABLE_5.md](docs/ARCHIVE_RECHERCHES_ET_CONVERSATIONS_FABLE_5.md)
+* **Sessions de Recherche Claude Fable 5 (Ashna AI) :**
+  - Session 1 (Volatilité H1, Doob, Lévy & ONNX C2) : [`6ad691c5a83de54d569d8c5a`](https://app.ashna.ai/chat/6ad691c5a83de54d569d8c5a?agent=claude-fable-5)
+  - Session 2 (Forensique v7, Munger Inversion & $M^*$ Stop) : [`6ad75c564b55dd601aa09d82`](https://app.ashna.ai/chat/6ad75c564b55dd601aa09d82?agent=claude-fable-5)
+  - Session 3 (Architecture v8, Check FIX-1..10 & Validations) : [`6ad7ef4cfd29d02fc4aaef4c`](https://app.ashna.ai/chat/6ad7ef4cfd29d02fc4aaef4c?agent=claude-fable-5)
 * **Grand Manuel Tome I (Fondations v1.00 à v6.00) :** [docs/ENCYCLOPEDIE_COMPLETE_BOT_HFT_DERIV_V1_A_V6.md](docs/ENCYCLOPEDIE_COMPLETE_BOT_HFT_DERIV_V1_A_V6.md)
 * **Grand Manuel Tome II (Système Dual, Théorie L1, ONNX & Déploiement) :** [docs/ENCYCLOPEDIE_TOME_2_SYSTEME_DUAL_HFT_ET_ONNX_VOLATILITE.md](docs/ENCYCLOPEDIE_TOME_2_SYSTEME_DUAL_HFT_ET_ONNX_VOLATILITE.md)
 * **Moteur de Suivi Temps Réel Dual-Bot :** [src/python/analytics/monitor_dual_bots.py](src/python/analytics/monitor_dual_bots.py)
+* **Journal Intégral des Prompts & Décisions :** [docs/JOURNAL_COMPLET_DES_PROMPTS_ET_CONVERSATIONS.md](docs/JOURNAL_COMPLET_DES_PROMPTS_ET_CONVERSATIONS.md)
 
 ## 🏛️ Architecture Produit : Deux Gammes Quantitatives Distinctes
 
