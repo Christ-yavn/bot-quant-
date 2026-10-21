@@ -1,7 +1,7 @@
 ﻿# -*- coding: utf-8 -*-
 
 def get_content():
-    return """# ENCYCLOPÉDIE COMPLÈTE DU SYSTÈME QUANTITATIF DUAL (TOME II)
+    return r"""# ENCYCLOPÉDIE COMPLÈTE DU SYSTÈME QUANTITATIF DUAL (TOME II)
 ## Du Chasseur de Sauts Convexe (Boom/Crash v8.20) au Filtre Neuronal ONNX de Volatilité (v3.00) : Fondations Mathématiques Niveau L1, Falsifications Économétriques et Déploiement en Temps Réel
 
 > [!IMPORTANT]
@@ -17,7 +17,7 @@ Afin d'assurer la reproductibilité absolue de la recherche et la traçabilité 
 
 1. **Session Fondamentale de Recherche avec Claude Fable 5 (Ashna AI) :**
    * URL pérenne : [https://app.ashna.ai/chat/6ad691c5a83de54d569d8c5a?agent=claude-fable-5](https://app.ashna.ai/chat/6ad691c5a83de54d569d8c5a?agent=claude-fable-5)
-   * Objet : Conception mathématique de l'inversion de convexité v8.00, formalisation de l'arrêt analytique ^* = 60\text{ ticks}$, batterie de tests Sentinelle et spécification du filtre de gradient boosting ONNX.
+   * Objet : Conception mathématique de l'inversion de convexité v8.00, formalisation de l'arrêt analytique $M^* = 60\\text{ ticks}$, batterie de tests Sentinelle et spécification du filtre de gradient boosting ONNX.
 2. **Dépôt Git Officiel Centralisé :**
    * URL GitHub : [https://github.com/Christ-yavn/bot-quant-](https://github.com/Christ-yavn/bot-quant-)
    * Branche officielle de déploiement : main
@@ -30,7 +30,7 @@ Afin d'assurer la reproductibilité absolue de la recherche et la traçabilité 
 
 Avant d'exposer l'intégralité des cours, théories et architectures logicielles, voici l'audit formel de vérification croisée entre les équations, les manifests cryptographiques, les journaux Colab et les bases de données MetaTrader 5 :
 
-`	ext
+``\\text
 ========================================================================================
 PROTOCOLE CHAIN-OF-VERIFICATION (CoVe) — CONTRÔLE D'ANCRAGE RÉEL (Dhuliawala et al., 2023)
 ========================================================================================
@@ -88,20 +88,20 @@ PROTOCOLE CHAIN-OF-VERIFICATION (CoVe) — CONTRÔLE D'ANCRAGE RÉEL (Dhuliawala
 1. **[Partie 1 : Rétrospective Complète : La Grande Épopée de la Gamme 1 (De la v1.00 à la v6.00)](#partie-1)**
    * 1.1. La nature physique des indices Boom & Crash : le processus de saut de Poisson
    * 1.2. L'escalator et la trappe piégée : l'illusion mathématique de la récolte de dérive (*Drift Harvesting*)
-   * 1.3. L'évolution technique pas à pas de la 1.00 à la 6.00
-   * 1.4. Pourquoi la 6.00 restait fragile : le concept fondamental de **Concavité Négative** (Taleb)
+   * 1.3. L'évolution technique pas à pas de la v1.00 à la v6.00
+   * 1.4. Pourquoi la v6.00 restait fragile : le concept fondamental de **Concavité Négative** (Taleb)
 2. **[Partie 2 : La Révolution Convexe : La Série Boom & Crash v7.00, v8.00 et v8.20](#partie-2)**
-   * 2.1. L'audit télémétrique implacable de la 7.00 (1 242 trades réels, 85.91 % de gains, mais perte nette)
+   * 2.1. L'audit télémétrique implacable de la v7.00 (1 242 trades réels, 85.91 % de gains, mais perte nette)
    * 2.2. Le dialogue stratégique avec Claude Fable 5 : L'Inversion Radicale de Charlie Munger
-   * 2.3. L'architecture du Chasseur de Sauts Convexe 8.00 / 8.20
-   * 2.4. Le stop temporel analytique strict (^* = 60\text{ ticks}$) et la simulation inverse (+340.73 USD)
+   * 2.3. L'architecture du Chasseur de Sauts Convexe v8.00 / v8.20
+   * 2.4. Le stop temporel analytique strict ($M^* = 60\\text{ ticks}$) et la simulation inverse (+340.73 USD)
 3. **[Partie 3 : La Gamme 2 : L'Odyssée du Step Index et la Falsification par Doob](#partie-3)**
    * 3.1. Qu'est-ce que le Step Index ? La marche aléatoire à pas discrets
-   * 3.2. L'investigation économétrique rigoureuse (Hurst  \approx 0.50$, Tests ADF/KPSS)
+   * 3.2. L'investigation économétrique rigoureuse (Hurst $\\approx 0.50$, Tests ADF/KPSS)
    * 3.3. Le Théorème d'Arrêt Optionnel de Doob expliqué en Licence 1 : Pourquoi Step Index est un piège
    * 3.4. La découverte des indices continus : Volatility 25 (1s) et Volatility 75 (1s)
 4. **[Partie 4 : Le Cours Complet de Statistiques Quantitatives Expliqué pour un Étudiant en L1](#partie-4)**
-   * 4.1. Le test $ de Student et de Welch ($-stat, degrés de liberté, $-valeur, $ vs $)
+   * 4.1. Le test $t$ de Student et de Welch ($t$-stat, degrés de liberté, $p$-valeur, $t_{\\text{crit}}$ vs $t_{\\text{obs}}$)
    * 4.2. Le Bootstrap Stationnaire BCa (Bias-Corrected and Accelerated) et les Blocs de Politis-White
    * 4.3. Le piège du Dragage de Données (*Data Snooping*) et les Corrections de Bonferroni / Holm / Benjamini-Hochberg
    * 4.4. Le Test Placebo par Mouvement Brownien Géométrique (GBM Permutation Test)

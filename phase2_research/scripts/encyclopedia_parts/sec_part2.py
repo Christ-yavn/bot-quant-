@@ -8,11 +8,11 @@ def get_content():
 
 ## 2.1. L'AUDIT TÉLÉMÉTRIQUE IMPLACABLE DE LA V7.00 (1 242 TRADES RÉELS)
 
-Le 20 octobre 2026 au matin, un audit exhaustif a été mené sur l'historique complet des transactions générées en direct sur le compte MetaTrader 5 démo (32449166). Cet audit a extrait la totalité des ordres, des deals et des courbes d'équité de la version 7.00.
+Le 20 octobre 2026 au matin, un audit exhaustif a été mené sur l'historique complet des transactions générées en direct sur le compte MetaTrader 5 démo (32449166). Cet audit a extrait la totalité des ordres, des deals et des courbes d'équité de la version v7.00.
 
 Les résultats chiffrés sont d'une clarté chirurgicale :
 
-`	ext
+``\text
 ========================================================================================
              BILAN TÉLÉMÉTRIQUE RÉEL DE LA V7.00 (COMPTE MT5 32449166)
 ========================================================================================
@@ -53,7 +53,7 @@ Nous nous sommes posé la question inverse :
   * Sur un indice Crash : Au lieu d'acheter la montée, **nous vendons (SELL)** !
   * Sur un indice Boom : Au lieu de vendre la descente, **nous achetons (BUY)** !
 
-`	ext
+``\text
 ========================================================================================
        COMPARAISON DE STRUCTURE DES DEUX PARADIGMES (CONCAVE VS CONVEXE)
 ========================================================================================
@@ -107,11 +107,11 @@ Dès qu'un trade est ouvert :
 ## 2.4. LA SIMULATION DE RÉVERSION ET LE DÉPLOIEMENT EN DIRECT (V8.20)
 
 ### La Preuve par Simulation sur les 1 242 Trades Réels de la v7.00
-Pour valider cette mécanique avant de modifier le code de production, nous avons programmé un moteur de backtest exact rejouant tick par tick les 1 242 trades de la 7.00 en inversant la polarité d'exécution et en appliquant le stop temporel strict ^* = 60\text{ ticks}$.
+Pour valider cette mécanique avant de modifier le code de production, nous avons programmé un moteur de backtest exact rejouant tick par tick les 1 242 trades de la v7.00 en inversant la polarité d'exécution et en appliquant le stop temporel strict ^* = 60\text{ ticks}$.
 
 Le résultat est spectaculaire :
 
-`	ext
+``\text
 ========================================================================================
        RÉSULTAT DE LA SIMULATION DU MOTEUR CONVEXE V8 SUR L'HISTORIQUE V7
 ========================================================================================

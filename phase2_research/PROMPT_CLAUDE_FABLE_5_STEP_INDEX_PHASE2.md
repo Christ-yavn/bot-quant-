@@ -17,22 +17,22 @@ Tu es le Directeur de la Recherche Quantitative et l'Architecte Théorique du co
 ### 2. MODÉLISATION DU STEP INDEX : MARCHE ALÉATOIRE DISCRÈTE ET CONVEXITÉ
 
 L'analyse microstructurelle prouve que le Step Index est coté sur un réseau 1D discret :
-- Pas temporel : $\Delta t = 1	ext{ s}$.
-- Pas d'espace : $\Delta p \in \{-\delta, 0, +\delta\}$ avec $\delta = 0.10	ext{ pt}$.
-- Coût de friction irréversible : Spread constant $S = \delta = 0.10	ext{ pt}$ (1 pas).
+- Pas temporel : $\Delta t = 1\text{ s}$.
+- Pas d'espace : $\Delta p \in \{-\delta, 0, +\delta\}$ avec $\delta = 0.10\text{ pt}$.
+- Coût de friction irréversible : Spread constant $S = \delta = 0.10\text{ pt}$ (1 pas).
 
 #### Question 1.1 : Théorème de Gambler's Ruin à Deux Barrières Asymétriques sous Spread
 Considérons une position ouverte à $p_0$ avec un Take-Profit à $p_0 + M\delta$ et un Stop-Loss à $p_0 - K\delta$ ($M, K \in \mathbb{N}^*$, $M > K$).
 Soit $p = P(\Delta p = +\delta)$ et $q = P(\Delta p = -\delta)$ avec $p + q = 1$.
 1. Dérive l'expression exacte de la probabilité de toucher le Take-Profit avant le Stop-Loss, notée $\pi(p, K, M)$.
 2. En intégrant le spread $S = \delta$ déduit à l'ouverture, donne la formule analytique complète de l'espérance mathématique de gain :
-   $$\mathbb{E}[	ext{Gain}](p, K, M, S)$$
-3. **Preuve de Doob sous Symétrie ($p = q = 0.5$) :** Démontre rigoureusement que quelle que soit l'asymétrie choisie entre $M$ et $K$ ($M \gg K$), $\mathbb{E}[	ext{Gain}] = -S < 0$.
-4. **Condition d'Alpha de Seuil :** Détermine la valeur critique minimale $p^*(K, M, S)$ pour laquelle $\mathbb{E}[	ext{Gain}] > 0$.
+   $$\mathbb{E}_{p, K, M, S}[\text{Gain}]$$
+3. **Preuve de Doob sous Symétrie ($p = q = 0.5$) :** Démontre rigoureusement que quelle que soit l'asymétrie choisie entre $M$ et $K$ ($M \gg K$), $\mathbb{E}[\text{Gain}] = -S < 0$.
+4. **Condition d'Alpha de Seuil :** Détermine la valeur critique minimale $p^*(K, M, S)$ pour laquelle $\mathbb{E}[\text{Gain}] > 0$.
 
 #### Question 1.2 : Modélisation d'une Dépendance de Markov d'Ordre 1
 Supposons que le générateur présente un biais de persistance ou de rebond modélisé par une chaîne de Markov :
-$$P(	ext{Up}_t \mid 	ext{Up}_{t-1}) = p_1, \quad P(	ext{Down}_t \mid 	ext{Down}_{t-1}) = q_1$$
+$$P(\text{Up}_t \mid \text{Up}_{t-1}) = p_1, \quad P(\text{Down}_t \mid \text{Down}_{t-1}) = q_1$$
 1. Dérive la distribution du temps de premier passage (*First Passage Time*) pour atteindre un gain de $+M$ pas.
 2. Si $p_1 > 0.50$ (momentum discret), comment calibrer dynamiquement la taille du trade et le temps de maintien maximal $T^*$ pour maximiser le ratio de Sharpe ?
 

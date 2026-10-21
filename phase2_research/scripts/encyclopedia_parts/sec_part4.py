@@ -37,7 +37,7 @@ Décomposons chaque terme pour un étudiant de L1 :
 3. **$ (La taille de l'échantillon) :** Le nombre total de trades analysés ( = 632$ trades sur V25).
 4. **$\text{SE} = \frac{s}{\sqrt{N}}$ (L'Erreur-Type ou *Standard Error*) :** C'est l'incertitude pesant sur notre estimation de la moyenne. Remarquez la présence fondamentale de $\sqrt{N}$ au dénominateur : **plus nous analysons de trades, plus l'incertitude se rétrécit vers zéro !**
 
-`	ext
+``\text
 ========================================================================================
             SIGNIFICATION INTUITIVE DU SCORE T (T-STAT)
 ========================================================================================
@@ -92,7 +92,7 @@ Grâce à ces deux termes, l'intervalle BCa fournit une précision de second ord
 Pour qu'un bot soit autorisé à passer en production, **la borne inférieure de son intervalle de confiance BCa à 95 % doit être STRICTEMENT supérieure à zéro** :
 \text{IC}_{95\%}^{\text{BCa}} = [\text{Borne Inférieure} \,;\, \text{Borne Supérieure}] \implies \text{Borne Inférieure} > 0
 
-`	ext
+``\text
 ========================================================================================
          VERDICT SENTINELLE C1 SUR L'INTERVALLE DE CONFIANCE BCA 95 %
 ========================================================================================
@@ -167,7 +167,7 @@ Nous calculons le **95e percentile de la distribution des placebos** ({95}$).
 La Condition Sentinelle C3 exige que le score réel du bot dépasse obligatoirement ce {95}$ :
 \text{Rang Observé} = \frac{\sum_{i=1}^{2000} \mathbb{I}(t_{\text{placebo}}^{(i)} < t_{\text{observé}})}{2000} \ge 0.9500 \quad (95\%)
 
-`	ext
+``\text
 ========================================================================================
             VERDICT DU TEST PLACEBO MONTE CARLO (2 000 MARCHÉS SIMULÉS)
 ========================================================================================
@@ -209,7 +209,7 @@ Le DSR intègre également les moments d'ordre supérieur de la distribution des
 * Si $\text{DSR} \le 0$ : L'alpha est une illusion statistique détruite par la multiplicité des tests.
 * Si $\text{DSR} > 0$ : L'avantage est authentique et survit à la déflation d'un laboratoire quantitatif.
 
-`	ext
+``\text
 ========================================================================================
               RÉSULTATS DE LA DÉFLATION DE SHARPE (LÓPEZ DE PRADO)
 ========================================================================================
@@ -233,13 +233,12 @@ Pour compléter le système S1 sur Volatility 25 (1s), nous avons entraîné un 
 
 ### 1. Les 7 Descripteurs Microstructurels (*Features*)
 À chaque bougie H1 où la stratégie S1 détecte une sortie de compression (*Squeeze Breakout*), le modèle extrait 7 variables quantitatives :
-1. **$ (spread_bps) :** Le coût du spread réel du broker exprimé en points de base.
-2. **$ (spread_to_atr) :** Le ratio entre le spread et la volatilité moyenne ATR(20). Permet de bloquer les ordres lorsque le frottement absorbe une part excessive du mouvement espéré.
-3. **$ (ol_ratio_bb_kc) :** Le ratio de largeur entre les Bandes de Bollinger et les Canaux de Keltner. Mesure l'intensité explosive de l'expansion.
-4. **$ (impulse_zscore) :** Le z-score de la vitesse de la cassure par rapport à l'historique récent.
-5. **$ (
-orm_momentum) :** La valeur normalisée de l'oscillateur de momentum linéaire.
-6. **$ (levy_area_proxy) :** Approximation de l'Aire de Lévy issue de la théorie des chemins rugueux (*Rough Path Theory*), capturant les micro-torsions du prix.
+1. **$x_1$ (spread_bps) :** Le coût du spread réel du broker exprimé en points de base.
+2. **$x_2$ (spread_to_atr) :** Le ratio entre le spread et la volatilité moyenne ATR(20). Permet de bloquer les ordres lorsque le frottement absorbe une part excessive du mouvement espéré.
+3. **$x_3$ (vol_ratio_bb_kc) :** Le ratio de largeur entre les Bandes de Bollinger et les Canaux de Keltner. Mesure l'intensité explosive de l'expansion.
+4. **$x_4$ (impulse_zscore) :** Le z-score de la vitesse de la cassure par rapport à l'historique récent.
+5. **$x_5$ (norm_momentum) :** La valeur normalisée de l'oscillateur de momentum linéaire.
+6. **$x_6$ (levy_area_proxy) :** Approximation de l'Aire de Lévy issue de la théorie des chemins rugueux (*Rough Path Theory*), capturant les micro-torsions du prix.
 7. **$ (	ail_fatness_kurt) :** L'aplatissement empirique mesurant la probabilité d'événements extrêmes.
 
 ### 2. Le Mécanisme de Filtrage Décisionnel en Production

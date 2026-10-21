@@ -43,9 +43,9 @@ Dans le dossier Google Drive partagé `EXPORT_DRIVE_PHASE2_STEP_VOLATILITY`, tu 
 ### 3. MICROSTRUCTURE ÉTABLIE DU STEP INDEX (GROUND TRUTH)
 
 L'audit des premiers ticks réels de `Step_Index_ticks_sample.csv` démontre la structure suivante :
-- **Intervalle temporel :** $\Delta t = 1,000 	ext{ ms}$ (exactement 1 tick par seconde).
+- **Intervalle temporel :** $\Delta t = 1,000 \text{ ms}$ (exactement 1 tick par seconde).
 - **Taille de pas discret :** $\Delta p \in \{-0.10, 0.00, +0.10\}$.
-- **Friction de transaction :** Spread fixe constant $S = 0.10 	ext{ pt}$ (soit exactement 1 pas de cotation).
+- **Friction de transaction :** Spread fixe constant $S = 0.10 \text{ pt}$ (soit exactement 1 pas de cotation).
 
 ---
 
@@ -56,10 +56,10 @@ En exploitant directement les fichiers du dossier Drive, exécute le pipeline d'
 #### TÂCHE 1 : Test de l'Hypothèse Nulle de Martingale sur le Step Index
 Sur `Step_Index_ticks_sample.csv` et `Step_Index_M1_deep.csv` :
 1. Calcule la distribution des incréments $\Delta p_t = p_t - p_{t-1}$.
-2. Estime la probabilité non-conditionnelle de hausse $P(	ext{Up})$, de baisse $P(	ext{Down})$, et de pas nul $P(	ext{Flat})$.
+2. Estime la probabilité non-conditionnelle de hausse $P(\text{Up})$, de baisse $P(\text{Down})$, et de pas nul $P(\text{Flat})$.
 3. **Chaîne de Markov d'ordre 1 & 2 :** Calcule la matrice de transition conditionnelle :
-   $$P(	ext{Up}_t \mid 	ext{Up}_{t-1}), \quad P(	ext{Down}_t \mid 	ext{Up}_{t-1})$$
-   $$P(	ext{Up}_t \mid 	ext{Up}_{t-1}, 	ext{Up}_{t-2}), \quad P(	ext{Down}_t \mid 	ext{Down}_{t-1}, 	ext{Down}_{t-2})$$
+   $$P(\text{Up}_t \mid \text{Up}_{t-1}), \quad P(\text{Down}_t \mid \text{Up}_{t-1})$$
+   $$P(\text{Up}_t \mid \text{Up}_{t-1}, \text{Up}_{t-2}), \quad P(\text{Down}_t \mid \text{Down}_{t-1}, \text{Down}_{t-2})$$
 4. **Test de ratio de variance de Lo-MacKinlay** pour $k \in \{2, 4, 8, 16, 32\}$ avec z-statistiques corrigées de l'hétéroscédasticité. Existe-t-il une mémoire de corrélation ou une dépendance non-linéaire ?
 
 #### TÂCHE 2 : Modélisation Empirique du Gambler's Ruin sous Friction Réelle
@@ -69,13 +69,13 @@ Soit un trade directionnel ouvert avec un Take-Profit à $+M$ pas et un Stop-Los
    - Le temps moyen d'atteinte de la barrière (First Passage Time $\mathbb{E}[T]$ en secondes).
    - Le P&L moyen net par trade après déduction du spread $S = 0.10$.
    - Le skew de la distribution des payoffs.
-2. Identifie s'il existe une région $(K^*, M^*)$ où l'espérance mathématique nette dépasse strictement 0 ($\mathbb{E}[	ext{Trade}] > 0$), ou si le théorème de Doob condamne toute stratégie statique.
+2. Identifie s'il existe une région $(K^*, M^*)$ où l'espérance mathématique nette dépasse strictement 0 ($\mathbb{E}[\text{Trade}] > 0$), ou si le théorème de Doob condamne toute stratégie statique.
 
 #### TÂCHE 3 : Audit Microstructurel des 10 Indices de Volatilité (V10 à V250 1s)
 Pour éviter l'erreur de catégorie (modéliser un GBM comme un processus à retour à la moyenne) :
 1. Vérifie sur `Volatility_..._H1_history.csv` et `_M1_deep.csv` que les séries de log-prix $\ln(P_t)$ sont bien des marches aléatoires pures (test ADF et KPSS confirmant la non-stationnarité en niveau).
 2. Démontre que la stationnarité et la mean-reversion ne résident QUE dans les variables d'état transformées :
-   - **Log-Range normalisé de Parkinson / Garman-Klass :** $\ln(	ext{High}_t / 	ext{Low}_t)$.
+   - **Log-Range normalisé de Parkinson / Garman-Klass :** $\ln(\text{High}_t / \text{Low}_t)$.
    - **Volatilité Réalisée (RV) à haute fréquence :** Distribution et clustering d'autocorrélation.
 3. Quantifie la demi-vie de retour à la moyenne (Half-life de l'Ornstein-Uhlenbeck) sur la volatilité réalisée de ces 10 indices.
 

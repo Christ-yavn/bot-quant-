@@ -64,7 +64,7 @@ Maintenant, ajoutons la réalité du monde réel : le courtier Deriv prélève u
 L'espérance de profit net après arrêt devient :
 \mathbb{E}[\text{Gain Net}] = \mathbb{E}[M_T - M_0] - S = 0 - S = -S < 0
 
-`	ext
+``\text
 ========================================================================================
             LA PREUVE PAR LE THÉORÈME D'ARRÊT DE DOOB SUR STEP INDEX
 ========================================================================================

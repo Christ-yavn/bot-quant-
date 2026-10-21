@@ -6,7 +6,7 @@
 #property copyright   "Copyright 2026, Direction Recherche Quant"
 #property link        "https://github.com/Christ-yavn/bot-quant-"
 #property version     "1.00"
-#property description "Ouvre automatiquement les 5 graphiques audites v8.10 Spike Hunter"
+#property description "Ouvre automatiquement les 5 graphiques audites v8.22 Spike Hunter"
 #property script_show_inputs false
 
 void OnStart()
@@ -20,7 +20,7 @@ void OnStart()
    };
 
    Print("========================================================================");
-   Print("[OpenAuditedCharts] Ouverture des graphiques audites v8.10 en cours...");
+   Print("[OpenAuditedCharts] Ouverture des graphiques audites v8.22 en cours...");
 
    for(int i = 0; i < ArraySize(audited_symbols); i++)
    {

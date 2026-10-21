@@ -32,7 +32,8 @@ def build():
     
     full_text = "\n\n---\n\n".join(parts) + "\n"
     
-    target_docs = r"C:\Users\CHRIST\Desktop\IA\ANTIGRAVITY\projets\general project   quant bot deriv\docs\ENCYCLOPEDIE_TOME_2_SYSTEME_DUAL_HFT_ET_ONNX_VOLATILITE.md"
+    base_dir = os.path.dirname(os.path.abspath(__file__))
+    target_docs = os.path.normpath(os.path.join(base_dir, "..", "..", "docs", "ENCYCLOPEDIE_TOME_2_SYSTEME_DUAL_HFT_ET_ONNX_VOLATILITE.md"))
     target_brain = r"C:\Users\CHRIST\.gemini\antigravity\brain\5397a900-270a-4ff8-9f78-dac9b4fe3b2d\ENCYCLOPEDIE_TOME_2_SYSTEME_DUAL_HFT_ET_ONNX_VOLATILITE.md"
     
     # Write to project docs

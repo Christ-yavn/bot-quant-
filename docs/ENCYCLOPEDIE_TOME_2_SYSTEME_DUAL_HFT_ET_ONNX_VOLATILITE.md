@@ -12,12 +12,9 @@
 
 Afin d'assurer la reproductibilité absolue de la recherche et la traçabilité complète de chaque formule et code source, les liens directeurs suivants sont scellés dans le référentiel :
 
-1. **Sessions Fondamentales de Recherche avec Claude Fable 5 (Ashna AI) :**
-   * **Session 1 (Track 2 Volatilité & ONNX C2) :** [6ad691c5a83de54d569d8c5a](https://app.ashna.ai/chat/6ad691c5a83de54d569d8c5a?agent=claude-fable-5)
-   * **Session 2 (Track 1 Forensique v7 & Inversion Convexe) :** [6ad75c564b55dd601aa09d82](https://app.ashna.ai/chat/6ad75c564b55dd601aa09d82?agent=claude-fable-5)
-   * **Session 3 (Track 1 Audit v8, Checklist FIX-1..10 & Déploiement) :** [6ad7ef4cfd29d02fc4aaef4c](https://app.ashna.ai/chat/6ad7ef4cfd29d02fc4aaef4c?agent=claude-fable-5)
-   * **Archive d'Ingénierie Complète :** [docs/ARCHIVE_RECHERCHES_ET_CONVERSATIONS_FABLE_5.md](docs/ARCHIVE_RECHERCHES_ET_CONVERSATIONS_FABLE_5.md)
-   * **Objets :** Conception mathématique de l'inversion de convexité v8.22, formalisation de l'arrêt analytique ^* = 60\text{ ticks}$, batterie de tests Sentinelle C1/C2 et spécification du filtre ONNX.
+1. **Session Fondamentale de Recherche avec Claude Fable 5 (Ashna AI) :**
+   * URL pérenne : [https://app.ashna.ai/chat/6ad691c5a83de54d569d8c5a?agent=claude-fable-5](https://app.ashna.ai/chat/6ad691c5a83de54d569d8c5a?agent=claude-fable-5)
+   * Objet : Conception mathématique de l'inversion de convexité v8.00, formalisation de l'arrêt analytique $M^* = 60\\text{ ticks}$, batterie de tests Sentinelle et spécification du filtre de gradient boosting ONNX.
 2. **Dépôt Git Officiel Centralisé :**
    * URL GitHub : [https://github.com/Christ-yavn/bot-quant-](https://github.com/Christ-yavn/bot-quant-)
    * Branche officielle de déploiement : main
@@ -30,7 +27,7 @@ Afin d'assurer la reproductibilité absolue de la recherche et la traçabilité 
 
 Avant d'exposer l'intégralité des cours, théories et architectures logicielles, voici l'audit formel de vérification croisée entre les équations, les manifests cryptographiques, les journaux Colab et les bases de données MetaTrader 5 :
 
-`	ext
+``\\text
 ========================================================================================
 PROTOCOLE CHAIN-OF-VERIFICATION (CoVe) — CONTRÔLE D'ANCRAGE RÉEL (Dhuliawala et al., 2023)
 ========================================================================================
@@ -88,20 +85,20 @@ PROTOCOLE CHAIN-OF-VERIFICATION (CoVe) — CONTRÔLE D'ANCRAGE RÉEL (Dhuliawala
 1. **[Partie 1 : Rétrospective Complète : La Grande Épopée de la Gamme 1 (De la v1.00 à la v6.00)](#partie-1)**
    * 1.1. La nature physique des indices Boom & Crash : le processus de saut de Poisson
    * 1.2. L'escalator et la trappe piégée : l'illusion mathématique de la récolte de dérive (*Drift Harvesting*)
-   * 1.3. L'évolution technique pas à pas de la 1.00 à la 6.00
-   * 1.4. Pourquoi la 6.00 restait fragile : le concept fondamental de **Concavité Négative** (Taleb)
+   * 1.3. L'évolution technique pas à pas de la v1.00 à la v6.00
+   * 1.4. Pourquoi la v6.00 restait fragile : le concept fondamental de **Concavité Négative** (Taleb)
 2. **[Partie 2 : La Révolution Convexe : La Série Boom & Crash v7.00, v8.00 et v8.20](#partie-2)**
-   * 2.1. L'audit télémétrique implacable de la 7.00 (1 242 trades réels, 85.91 % de gains, mais perte nette)
+   * 2.1. L'audit télémétrique implacable de la v7.00 (1 242 trades réels, 85.91 % de gains, mais perte nette)
    * 2.2. Le dialogue stratégique avec Claude Fable 5 : L'Inversion Radicale de Charlie Munger
-   * 2.3. L'architecture du Chasseur de Sauts Convexe 8.00 / 8.20
-   * 2.4. Le stop temporel analytique strict (^* = 60	ext{ ticks}$) et la simulation inverse (+340.73 USD)
+   * 2.3. L'architecture du Chasseur de Sauts Convexe v8.00 / v8.20
+   * 2.4. Le stop temporel analytique strict ($M^* = 60\\text{ ticks}$) et la simulation inverse (+340.73 USD)
 3. **[Partie 3 : La Gamme 2 : L'Odyssée du Step Index et la Falsification par Doob](#partie-3)**
    * 3.1. Qu'est-ce que le Step Index ? La marche aléatoire à pas discrets
-   * 3.2. L'investigation économétrique rigoureuse (Hurst  pprox 0.50$, Tests ADF/KPSS)
+   * 3.2. L'investigation économétrique rigoureuse (Hurst $\\approx 0.50$, Tests ADF/KPSS)
    * 3.3. Le Théorème d'Arrêt Optionnel de Doob expliqué en Licence 1 : Pourquoi Step Index est un piège
    * 3.4. La découverte des indices continus : Volatility 25 (1s) et Volatility 75 (1s)
 4. **[Partie 4 : Le Cours Complet de Statistiques Quantitatives Expliqué pour un Étudiant en L1](#partie-4)**
-   * 4.1. Le test $ de Student et de Welch ($-stat, degrés de liberté, $-valeur, $ vs $)
+   * 4.1. Le test $t$ de Student et de Welch ($t$-stat, degrés de liberté, $p$-valeur, $t_{\\text{crit}}$ vs $t_{\\text{obs}}$)
    * 4.2. Le Bootstrap Stationnaire BCa (Bias-Corrected and Accelerated) et les Blocs de Politis-White
    * 4.3. Le piège du Dragage de Données (*Data Snooping*) et les Corrections de Bonferroni / Holm / Benjamini-Hochberg
    * 4.4. Le Test Placebo par Mouvement Brownien Géométrique (GBM Permutation Test)
@@ -154,7 +151,7 @@ Où, pour un étudiant de Licence 1, chaque symbole représente une réalité ph
 
 Pour visualiser parfaitement ce marché sans se perdre dans les intégrales stochastiques, imaginez la scène suivante :
 
-`	ext
+``\text
 ========================================================================================
             L'ANALOGIE PHYSIQUE DE L'INDICE CRASH (ESCALATOR ET TRAPPE)
 ========================================================================================
@@ -208,15 +205,15 @@ Par conséquent, si un trader ou un robot naïf achète ou vend au hasard, son e
 
 Face à ce défi de microstructure, notre équipe a mené un travail de recherche et développement itératif de niveau laboratoire. Voici l'historique de cette maturation :
 
-### 1. Version 1.00 (1.00) — Le Piège de la Dérive Naïve
+### 1. Version 1.00 (v1.00) — Le Piège de la Dérive Naïve
 * **Concept d'origine :** Tenter de ramasser les petits centimes de l'escalator (*Drift Harvesting*). Le robot achetait sur Crash (pour surfer la montée lente) ou vendait sur Boom (pour surfer la descente lente), en appliquant un Stop-Loss fixe classique (par exemple à 20 points).
 * **Le Bilan Réel :** Catastrophe absolue. Dès qu'un spike survenait, le saut de prix sautait par-dessus le Stop-Loss (problème du slippage de discontinuité) et liquidait les gains de dizaines de trades en une seconde.
 
-### 2. Version 2.00 (2.00) — Les Filtres Multi-Timeframes et le Trailing Stop
+### 2. Version 2.00 (v2.00) — Les Filtres Multi-Timeframes et le Trailing Stop
 * **Modifications apportées :** Ajout d'une analyse de tendance sur les unités de temps supérieures (M5, M15) et mise en place d'un Stop Suiveur (*Trailing Stop*).
 * **Constat d'échec :** Le trailing stop augmentait dramatiquement le taux de frottement du spread. À chaque clôture prématurée par le trailing, le spread payé n'était jamais amorti.
 
-### 3. Version 3.00 (3.00) — L'Autopsie du Piège Temporel (STAGED_TIME_EXIT)
+### 3. Version 3.00 (v3.00) — L'Autopsie du Piège Temporel (STAGED_TIME_EXIT)
 * **L'idée théorique :** Ne jamais garder une position trop longtemps pour réduire statistiquement la probabilité de croiser un spike. Sortie programmée en 3 paliers fixes : 15 ticks, 25 ticks et 35 ticks.
 * **Le Bug Mortel Découvert :** Alors que le robot affichait un taux de positions fermées en gain très élevé, **le capital total du compte diminuait (de 9 998 $ à 9 996 $)** !
 * **L'Explication Mathématique (Révélation v3) :**
@@ -224,7 +221,7 @@ Face à ce défi de microstructure, notre équipe a mené un travail de recherch
   B = \frac{S}{d} = \frac{\text{Spread en points}}{\text{Dérive par tick}}
   Or, sur la plupart des indices, le spread réel représentait entre 25 et 55 ticks de dérive ! En coupant arbitrairement les positions à 15 ou 25 ticks, **le robot fermait ses trades AVANT que l'escalator n'ait eu le temps de rembourser le péage du spread** ! Le bot payait donc le spread plein pot à chaque itération.
 
-### 4. Version 4.00 (4.00) — Le Filtre d'Amortissement Physique et l'Éviction des Paires Toxiques
+### 4. Version 4.00 (v4.00) — Le Filtre d'Amortissement Physique et l'Éviction des Paires Toxiques
 * **La Règle Mathématique d'Or :** Un indice ne peut être tradé que si le temps d'amortissement du spread $ ne dépasse jamais **9 % du temps moyen entre deux spikes ($\tau$)** :
   \frac{B}{\tau} = \frac{S / d}{\tau} < 0.09 \quad (9\%)
 * **Exclusions Immédiates :**
@@ -233,12 +230,12 @@ Face à ce défi de microstructure, notre équipe a mené un travail de recherch
 * **Naissance du Panier d'Élite "Golden 7" :**
   Conservation exclusive des 7 indices présentant les meilleurs ratios mathématiques : Crash 600, Boom 500, Boom 900, Crash 900, Boom 600, Crash 500 et Crash 1000.
 
-### 5. Version 5.00 (5.00) — L'Introduction de l'IA Hawkes / ONNX et le Diagnostic de Paralysie
-* **Innovation :** Entraînement sur Google Colab d'un réseau de neurones multicouches (MLP) à 14 features basé sur les processus auto-excitants de Hawkes, exporté sous le format standardisé oom_crash_meta_brain.onnx (50 986 octets).
+### 5. Version 5.00 (v5.00) — L'Introduction de l'IA Hawkes / ONNX et le Diagnostic de Paralysie
+* **Innovation :** Entraînement sur Google Colab d'un réseau de neurones multicouches (MLP) à 14 features basé sur les processus auto-excitants de Hawkes, exporté sous le format standardisé boom_crash_meta_brain.onnx (50 986 octets).
 * **Le Problème Observé en Production :** Le bot passait des heures sans exécuter le moindre trade.
 * **Le Diagnostic :** Le bot attendait qu'un spike se produise pour tenter d'entrer, ET appliquait un seuil de coupure probabiliste ONNX global de .9246$. Ce seuil était beaucoup trop restrictif : il rejetait plus de 95 % des signaux viables !
 
-### 6. Version 6.00 (6.00) — La Maîtrise Technique du Scalp en Dérive Continue
+### 6. Version 6.00 (v6.00) — La Maîtrise Technique du Scalp en Dérive Continue
 * **L'Arsenal Déployé :**
   1. **Exécution Multi-Symboles Parallèle :** Surveillance active des 7 actifs du Golden 7.
   2. **Scalp en Dérive Continue (*Continuous Drift Scalp*) :** Entrée cyclique toutes les 15 secondes calmes pour récolter la dérive sans attendre passivement un spike.
@@ -251,12 +248,12 @@ Face à ce défi de microstructure, notre équipe a mené un travail de recherch
 
 ## 1.4. POURQUOI LA V6.00 RESTAIT FRAGILE : LE CONCEPT DE CONCAVITÉ NÉGATIVE (TALEB)
 
-Malgré les prouesses techniques de la 6.00, un problème structurel profond subsistait. C'est ici qu'intervient la pensée de **Nassim Nicholas Taleb** sur les notions de **Convexité** et de **Concavité** (*Antifragile*, 2012).
+Malgré les prouesses techniques de la v6.00, un problème structurel profond subsistait. C'est ici qu'intervient la pensée de **Nassim Nicholas Taleb** sur les notions de **Convexité** et de **Concavité** (*Antifragile*, 2012).
 
 ### Le Piège du "Ramassage de Pièces de Monnaie devant un Rouleau Compresseur"
 Dans toute stratégie de récolte de dérive (*Drift Harvesting*), le profil de distribution des gains et des pertes est fondamentalement **asymétrique négatif (*Negative Skewness*)** :
 
-`	ext
+``\text
 ========================================================================================
             PROFIL DE DISTRIBUTION DES GAINS ET PERTES (CONCAVITÉ V6)
 ========================================================================================
@@ -299,11 +296,11 @@ C'est ce constat d'une honnêteté scientifique totale qui a conduit notre conso
 
 ## 2.1. L'AUDIT TÉLÉMÉTRIQUE IMPLACABLE DE LA V7.00 (1 242 TRADES RÉELS)
 
-Le 20 octobre 2026 au matin, un audit exhaustif a été mené sur l'historique complet des transactions générées en direct sur le compte MetaTrader 5 démo (32449166). Cet audit a extrait la totalité des ordres, des deals et des courbes d'équité de la version 7.00.
+Le 20 octobre 2026 au matin, un audit exhaustif a été mené sur l'historique complet des transactions générées en direct sur le compte MetaTrader 5 démo (32449166). Cet audit a extrait la totalité des ordres, des deals et des courbes d'équité de la version v7.00.
 
 Les résultats chiffrés sont d'une clarté chirurgicale :
 
-`	ext
+``\text
 ========================================================================================
              BILAN TÉLÉMÉTRIQUE RÉEL DE LA V7.00 (COMPTE MT5 32449166)
 ========================================================================================
@@ -344,7 +341,7 @@ Nous nous sommes posé la question inverse :
   * Sur un indice Crash : Au lieu d'acheter la montée, **nous vendons (SELL)** !
   * Sur un indice Boom : Au lieu de vendre la descente, **nous achetons (BUY)** !
 
-`	ext
+``\text
 ========================================================================================
        COMPARAISON DE STRUCTURE DES DEUX PARADIGMES (CONCAVE VS CONVEXE)
 ========================================================================================
@@ -398,11 +395,11 @@ Dès qu'un trade est ouvert :
 ## 2.4. LA SIMULATION DE RÉVERSION ET LE DÉPLOIEMENT EN DIRECT (V8.20)
 
 ### La Preuve par Simulation sur les 1 242 Trades Réels de la v7.00
-Pour valider cette mécanique avant de modifier le code de production, nous avons programmé un moteur de backtest exact rejouant tick par tick les 1 242 trades de la 7.00 en inversant la polarité d'exécution et en appliquant le stop temporel strict ^* = 60\text{ ticks}$.
+Pour valider cette mécanique avant de modifier le code de production, nous avons programmé un moteur de backtest exact rejouant tick par tick les 1 242 trades de la v7.00 en inversant la polarité d'exécution et en appliquant le stop temporel strict ^* = 60\text{ ticks}$.
 
 Le résultat est spectaculaire :
 
-`	ext
+``\text
 ========================================================================================
        RÉSULTAT DE LA SIMULATION DU MOTEUR CONVEXE V8 SUR L'HISTORIQUE V7
 ========================================================================================
@@ -489,7 +486,7 @@ Maintenant, ajoutons la réalité du monde réel : le courtier Deriv prélève u
 L'espérance de profit net après arrêt devient :
 \mathbb{E}[\text{Gain Net}] = \mathbb{E}[M_T - M_0] - S = 0 - S = -S < 0
 
-`	ext
+``\text
 ========================================================================================
             LA PREUVE PAR LE THÉORÈME D'ARRÊT DE DOOB SUR STEP INDEX
 ========================================================================================
@@ -574,7 +571,7 @@ Décomposons chaque terme pour un étudiant de L1 :
 3. **$ (La taille de l'échantillon) :** Le nombre total de trades analysés ( = 632$ trades sur V25).
 4. **$\text{SE} = \frac{s}{\sqrt{N}}$ (L'Erreur-Type ou *Standard Error*) :** C'est l'incertitude pesant sur notre estimation de la moyenne. Remarquez la présence fondamentale de $\sqrt{N}$ au dénominateur : **plus nous analysons de trades, plus l'incertitude se rétrécit vers zéro !**
 
-`	ext
+``\text
 ========================================================================================
             SIGNIFICATION INTUITIVE DU SCORE T (T-STAT)
 ========================================================================================
@@ -629,7 +626,7 @@ Grâce à ces deux termes, l'intervalle BCa fournit une précision de second ord
 Pour qu'un bot soit autorisé à passer en production, **la borne inférieure de son intervalle de confiance BCa à 95 % doit être STRICTEMENT supérieure à zéro** :
 \text{IC}_{95\%}^{\text{BCa}} = [\text{Borne Inférieure} \,;\, \text{Borne Supérieure}] \implies \text{Borne Inférieure} > 0
 
-`	ext
+``\text
 ========================================================================================
          VERDICT SENTINELLE C1 SUR L'INTERVALLE DE CONFIANCE BCA 95 %
 ========================================================================================
@@ -704,7 +701,7 @@ Nous calculons le **95e percentile de la distribution des placebos** ({95}$).
 La Condition Sentinelle C3 exige que le score réel du bot dépasse obligatoirement ce {95}$ :
 \text{Rang Observé} = \frac{\sum_{i=1}^{2000} \mathbb{I}(t_{\text{placebo}}^{(i)} < t_{\text{observé}})}{2000} \ge 0.9500 \quad (95\%)
 
-`	ext
+``\text
 ========================================================================================
             VERDICT DU TEST PLACEBO MONTE CARLO (2 000 MARCHÉS SIMULÉS)
 ========================================================================================
@@ -746,7 +743,7 @@ Le DSR intègre également les moments d'ordre supérieur de la distribution des
 * Si $\text{DSR} \le 0$ : L'alpha est une illusion statistique détruite par la multiplicité des tests.
 * Si $\text{DSR} > 0$ : L'avantage est authentique et survit à la déflation d'un laboratoire quantitatif.
 
-`	ext
+``\text
 ========================================================================================
               RÉSULTATS DE LA DÉFLATION DE SHARPE (LÓPEZ DE PRADO)
 ========================================================================================
@@ -770,13 +767,12 @@ Pour compléter le système S1 sur Volatility 25 (1s), nous avons entraîné un 
 
 ### 1. Les 7 Descripteurs Microstructurels (*Features*)
 À chaque bougie H1 où la stratégie S1 détecte une sortie de compression (*Squeeze Breakout*), le modèle extrait 7 variables quantitatives :
-1. **$ (spread_bps) :** Le coût du spread réel du broker exprimé en points de base.
-2. **$ (spread_to_atr) :** Le ratio entre le spread et la volatilité moyenne ATR(20). Permet de bloquer les ordres lorsque le frottement absorbe une part excessive du mouvement espéré.
-3. **$ (ol_ratio_bb_kc) :** Le ratio de largeur entre les Bandes de Bollinger et les Canaux de Keltner. Mesure l'intensité explosive de l'expansion.
-4. **$ (impulse_zscore) :** Le z-score de la vitesse de la cassure par rapport à l'historique récent.
-5. **$ (
-orm_momentum) :** La valeur normalisée de l'oscillateur de momentum linéaire.
-6. **$ (levy_area_proxy) :** Approximation de l'Aire de Lévy issue de la théorie des chemins rugueux (*Rough Path Theory*), capturant les micro-torsions du prix.
+1. **$x_1$ (spread_bps) :** Le coût du spread réel du broker exprimé en points de base.
+2. **$x_2$ (spread_to_atr) :** Le ratio entre le spread et la volatilité moyenne ATR(20). Permet de bloquer les ordres lorsque le frottement absorbe une part excessive du mouvement espéré.
+3. **$x_3$ (vol_ratio_bb_kc) :** Le ratio de largeur entre les Bandes de Bollinger et les Canaux de Keltner. Mesure l'intensité explosive de l'expansion.
+4. **$x_4$ (impulse_zscore) :** Le z-score de la vitesse de la cassure par rapport à l'historique récent.
+5. **$x_5$ (norm_momentum) :** La valeur normalisée de l'oscillateur de momentum linéaire.
+6. **$x_6$ (levy_area_proxy) :** Approximation de l'Aire de Lévy issue de la théorie des chemins rugueux (*Rough Path Theory*), capturant les micro-torsions du prix.
 7. **$ (	ail_fatness_kurt) :** L'aplatissement empirique mesurant la probabilité d'événements extrêmes.
 
 ### 2. Le Mécanisme de Filtrage Décisionnel en Production

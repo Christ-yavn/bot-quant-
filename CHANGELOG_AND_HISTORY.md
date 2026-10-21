@@ -154,23 +154,23 @@ Avec cette fondation scientifique inébranlable, le projet s'étend désormais v
 
 ---
 
-## 10. VERSION 8.00 (« SPIKE HUNTER CONVEXE ») : CONCEPTION, IMPLÉMENTATION ET VALIDATION FORMELLE (JOUR 4)
+## 10. VERSION 8.00 (« SPIKE HUNTER CONVEXE ») : CONCEPTION, IMPLÉMENTATION ET VALIDATION FORMELLE (JOUR 4)
 
 ### 10.1 Le Mandat Quantitatif
 À la suite de la découverte de l'asymétrie de Taleb sur les 1 242 trades v7 (+340.73 $ en contre-factuel), le mandat a été confié à la direction de recherche (Claude Fable 5 et Gemini 4 Argon) pour formaliser mathématiquement chaque équation de la v8.00 avant d'écrire une seule ligne de code.
 
 ### 10.2 Découvertes Théoriques Majeures (Rapport PH2-QUANT-001 & V8-REVERSE-CONVEXITY-001)
 1. **Le paradoxe résolu du classifieur ONNX :**
-   Le réseau de neurones v7 (14 features Hawkes normalisées sans fuite) entraînait une sélection de régimes à **hasard élevé (lift de 1.61x à 2.06x par rapport au processus de Poisson nul)**. En inversant la décision ( = 1 - P_1 \ge 	heta_{\text{spike}} = 0.15$), le robot entre précisément lorsque les spikes sont statistiquement deux fois plus probables que le taux de base.
-2. **Preuve d'absence d'optimum intérieur pour ^*$ :**
-   \mathbb{E}(M) = (\mu_S - S - d	au)(1 - e^{-M/	au}) - S e^{-M/	au}
-   \frac{1}{2}rac{\partial \mathbb{E}}{\partial M} = \frac{1}{2}rac{\mu_S - d	au}{	au} e^{-M/	au}
-   La dérivée ne s'annule jamais. La condition de rentabilité est un seuil de faisabilité ($\mu_S > S + d	au$). L'horizon de 60 ticks (^* = 60$) est le stop temporel opérationnel optimal qui borne la perte à {\max} pprox 0.25\ USD.
+   Le réseau de neurones v7 (14 features Hawkes normalisées sans fuite) entraînait une sélection de régimes à **hasard élevé (lift de 1.61x à 2.06x par rapport au processus de Poisson nul)**. En inversant la décision ($P_0 = 1 - P_1 \ge \theta_{\text{spike}} = 0.15$), le robot entre précisément lorsque les spikes sont statistiquement deux fois plus probables que le taux de base.
+2. **Preuve d'absence d'optimum intérieur pour $M^*$ :**
+   $$\mathbb{E}(M) = (\mu_S - S - d\tau)(1 - e^{-M/\tau}) - S e^{-M/\tau}$$
+   $$\frac{\partial \mathbb{E}}{\partial M} = \frac{\mu_S - d\tau}{\tau} e^{-M/\tau}$$
+   La dérivée ne s'annule jamais. La condition de rentabilité est un seuil de faisabilité ($\mu_S > S + d\tau$). L'horizon de 60 ticks ($M^* = 60$) est le stop temporel opérationnel optimal qui borne la perte à $L_{\max} \approx 0.25$ USD.
 3. **Architecture de Sortie Hybride :**
-   * *TP Dur Côté Serveur (.8 \cdot \mathbb{E}[A]$) :* Placé dès l'ouverture au-dessus de SYMBOL_TRADE_STOPS_LEVEL. Élimine la latence réseau (0 ms) et capture le gap favorable dans le tick du spike.
+   * *TP Dur Côté Serveur ($0.8 \cdot \mathbb{E}[A]$) :* Placé dès l'ouverture au-dessus de SYMBOL_TRADE_STOPS_LEVEL. Élimine la latence réseau (0 ms) et capture le gap favorable dans le tick du spike.
    * *Watchdog OnTick :* Détecte les spikes avortés ou mini-spikes ($|\Delta p| > \text{seuil}$) et liquide immédiatement la position au marché (SPIKE_CAUGHT_WATCHDOG si profit $\ge 0.50\, ou THESIS_CONSUMED_CUT si la thèse est consommée).
 4. **Dimensionnement Kelly Convexe :**
-   ^* = 7.92\%$. Pour garantir une probabilité de ruine (DD 50%) inférieure à  	imes 10^{-5}$, le robot est dimensionné à **1/8 Kelly ($pprox 0.99\%$ equity)**.
+   $f^* = 7.92\%$. Pour garantir une probabilité de ruine (DD 50%) inférieure à $3 \times 10^{-5}$, le robot est dimensionné à **1/8 Kelly ($\approx 0.99\%$ equity)**.
 
 ### 10.3 Implémentation Logicielle MQL5
 * **Fichiers :** src/mql5/DerivBoomCrashHFT_v8.mq5 et DerivBoomCrashHFT_v8.ex5.
@@ -180,11 +180,11 @@ Avec cette fondation scientifique inébranlable, le projet s'étend désormais v
 ### 10.4 Validation Statistique par Bootstrap Stationnaire (Politis & Romano 1994)
 Un audit empirique à 10 000 blocs de rééchantillonnage stationnaire (script src/python/analytics/validate_v8_bootstrap.py) a été exécuté sur les 1 242 trades :
 * **Probabilité d'Alpha (\text{PnL} > 0) = \mathbf{100.00\%}$** (zéro trajectoire en perte sur 10 000 simulations).
-* **Intervalle de Confiance à 95% du P&L :** **[+.51, +.52] USD** (Médiane : **+.85 USD**).
+* **Intervalle de Confiance à 95% du P&L :** **[+340.51, +340.52] USD** (Médiane : **+340.85 USD**).
 * **Facteur de Profit Médian :** **2.27** (Q5% = 1.89, Q95% = 2.68).
 * **Ratio de Gain Asymétrique (Payoff Ratio) :** **13.83** (+3.48 $ / -0.25 $).
 * **Taux de Succès (Win Rate) :** 14.09 % (conforme à la convexité positive de Taleb).
-* **Drawdown Maximum Médian :** Seulement **.64 USD** (Q99% = .34 USD).
+* **Drawdown Maximum Médian :** Seulement **11.64 USD** (Q99% = 18.34 USD).
 * **Tous les 7 symboles de l'univers de récolte sont strictement positifs :** Crash 600 (+157.39 $), Crash 900 (+72.56 $), Boom 900 (+31.48 $), Boom 600 (+27.77 $), Boom 500 (+27.15 $), Crash 500 (+16.22 $), Crash 1000 (+8.17 $).
 
 ---
@@ -204,13 +204,13 @@ Après l'audit statique médico-légal de la v8.10, la version **v8.20** a été
 4. **FIX-4 : Ratio de Capture Mesuré (PnL / MFE)**  
    Remplacement de la constante arbitraire par le calcul empirique exact : ratio entre le PnL net réalisé et l'Excursion Maximale Favorable (*Max Favorable Excursion* — MFE).
 5. **FIX-5 : Estimateur Honnête du Lift de Poisson**  
-   $$\text{Lift}_{\text{obs}} = \frac{1}{2}rac{\sum \text{Spikes Capturés}}{\sum \text{Hazard de Base à l'Entrée}}$$  
-   Élimine le biais d'évaluation statique et désactive tout actif dérivant sous $1.30	imes$.
+   $$\text{Lift}_{\text{obs}} = \frac{\sum \text{Spikes Capturés}}{\sum \text{Hazard de Base à l'Entrée}}$$  
+   Élimine le biais d'évaluation statique et désactive tout actif dérivant sous $1.30\times$.
 6. **FIX-6 : Payoff Conservateur & Espérance Nette Exacte**  
-   Intègre la probabilité d'atteinte du TP sous distribution exponentielle des amplitudes $P(A \ge TP) = e^{-TP / ar{A}}$ et la dérive adverse conditionnelle payée avant résolution :
-   $$\mathbb{E}[T \mid T \le M] = 	au - \frac{1}{2}rac{M}{e^{M/	au} - 1}$$
+   Intègre la probabilité d'atteinte du TP sous distribution exponentielle des amplitudes $P(A \ge TP) = e^{-TP / \bar{A}}$ et la dérive adverse conditionnelle payée avant résolution :
+   $$\mathbb{E}[T \mid T \le M] = \tau - \frac{M}{e^{M/\tau} - 1}$$
 7. **FIX-7 : Kelly Aligné sur le Stop-Loss Réel du Serveur + Marge de Slippage**  
-   Calcul du risque au lot minimum basé sur le SL réel placé sur le serveur Deriv multiplié par un tampon de slippage de $1.25	imes$. Refus formel du trade si le lot minimum dépasse la cible de risque.
+   Calcul du risque au lot minimum basé sur le SL réel placé sur le serveur Deriv multiplié par un tampon de slippage de $1.25\times$. Refus formel du trade si le lot minimum dépasse la cible de risque.
 8. **FIX-8 : Verrouillage Anti-Intrusion (Refus des Symboles Non-Calibrés)**  
    Filtrage strict : tout symbole non documenté dans la table de calibration médico-légale est rejeté avec alerte.
 9. **FIX-9 : Comptabilisation par Position Complète (Cumul des Deals OUT)**  

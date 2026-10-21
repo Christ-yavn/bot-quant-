@@ -113,5 +113,18 @@ class TestQuantitativeMechanics(unittest.TestCase):
         self.assertLess(target_risk_usd, equity * 0.20, "Kelly 1/8 must never risk more than 20% total equity")
         self.assertGreater(target_risk_usd, 50.0, "Target risk must be meaningful for multi-symbol diversification")
 
+
+    def test_ea_version_and_normalized_order_price_invariants(self):
+        v8_path = os.path.join(os.path.dirname(__file__), '..', 'src', 'mql5', 'DerivBoomCrashHFT_v8.mq5')
+        self.assertTrue(os.path.exists(v8_path), 'DerivBoomCrashHFT_v8.mq5 must exist')
+        with open(v8_path, 'r', encoding='utf-8') as f:
+            v8_content = f.read()
+            
+        self.assertIn('#property version     ' + chr(34) + '8.22' + chr(34), v8_content, 'EA version must be 8.22')
+        self.assertIn('NormalizeDouble(live_tick.ask, digits)', v8_content, 'BUY entry price must be normalized')
+        self.assertIn('NormalizeDouble(live_tick.bid, digits)', v8_content, 'SELL entry price must be normalized')
+        self.assertIn('NormalizeDouble(req.price + tp_depth, digits)', v8_content, 'BUY TP must be normalized from req.price')
+        self.assertIn('NormalizeDouble(req.price - tp_depth, digits)', v8_content, 'SELL TP must be normalized from req.price')
+
 if __name__ == '__main__':
     unittest.main()

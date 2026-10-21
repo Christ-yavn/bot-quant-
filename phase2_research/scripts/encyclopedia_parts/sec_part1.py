@@ -34,7 +34,7 @@ Où, pour un étudiant de Licence 1, chaque symbole représente une réalité ph
 
 Pour visualiser parfaitement ce marché sans se perdre dans les intégrales stochastiques, imaginez la scène suivante :
 
-`	ext
+``\text
 ========================================================================================
             L'ANALOGIE PHYSIQUE DE L'INDICE CRASH (ESCALATOR ET TRAPPE)
 ========================================================================================
@@ -88,15 +88,15 @@ Par conséquent, si un trader ou un robot naïf achète ou vend au hasard, son e
 
 Face à ce défi de microstructure, notre équipe a mené un travail de recherche et développement itératif de niveau laboratoire. Voici l'historique de cette maturation :
 
-### 1. Version 1.00 (1.00) — Le Piège de la Dérive Naïve
+### 1. Version 1.00 (v1.00) — Le Piège de la Dérive Naïve
 * **Concept d'origine :** Tenter de ramasser les petits centimes de l'escalator (*Drift Harvesting*). Le robot achetait sur Crash (pour surfer la montée lente) ou vendait sur Boom (pour surfer la descente lente), en appliquant un Stop-Loss fixe classique (par exemple à 20 points).
 * **Le Bilan Réel :** Catastrophe absolue. Dès qu'un spike survenait, le saut de prix sautait par-dessus le Stop-Loss (problème du slippage de discontinuité) et liquidait les gains de dizaines de trades en une seconde.
 
-### 2. Version 2.00 (2.00) — Les Filtres Multi-Timeframes et le Trailing Stop
+### 2. Version 2.00 (v2.00) — Les Filtres Multi-Timeframes et le Trailing Stop
 * **Modifications apportées :** Ajout d'une analyse de tendance sur les unités de temps supérieures (M5, M15) et mise en place d'un Stop Suiveur (*Trailing Stop*).
 * **Constat d'échec :** Le trailing stop augmentait dramatiquement le taux de frottement du spread. À chaque clôture prématurée par le trailing, le spread payé n'était jamais amorti.
 
-### 3. Version 3.00 (3.00) — L'Autopsie du Piège Temporel (STAGED_TIME_EXIT)
+### 3. Version 3.00 (v3.00) — L'Autopsie du Piège Temporel (STAGED_TIME_EXIT)
 * **L'idée théorique :** Ne jamais garder une position trop longtemps pour réduire statistiquement la probabilité de croiser un spike. Sortie programmée en 3 paliers fixes : 15 ticks, 25 ticks et 35 ticks.
 * **Le Bug Mortel Découvert :** Alors que le robot affichait un taux de positions fermées en gain très élevé, **le capital total du compte diminuait (de 9 998 $ à 9 996 $)** !
 * **L'Explication Mathématique (Révélation v3) :**
@@ -104,7 +104,7 @@ Face à ce défi de microstructure, notre équipe a mené un travail de recherch
   B = \frac{S}{d} = \frac{\text{Spread en points}}{\text{Dérive par tick}}
   Or, sur la plupart des indices, le spread réel représentait entre 25 et 55 ticks de dérive ! En coupant arbitrairement les positions à 15 ou 25 ticks, **le robot fermait ses trades AVANT que l'escalator n'ait eu le temps de rembourser le péage du spread** ! Le bot payait donc le spread plein pot à chaque itération.
 
-### 4. Version 4.00 (4.00) — Le Filtre d'Amortissement Physique et l'Éviction des Paires Toxiques
+### 4. Version 4.00 (v4.00) — Le Filtre d'Amortissement Physique et l'Éviction des Paires Toxiques
 * **La Règle Mathématique d'Or :** Un indice ne peut être tradé que si le temps d'amortissement du spread $ ne dépasse jamais **9 % du temps moyen entre deux spikes ($\tau$)** :
   \frac{B}{\tau} = \frac{S / d}{\tau} < 0.09 \quad (9\%)
 * **Exclusions Immédiates :**
@@ -113,12 +113,12 @@ Face à ce défi de microstructure, notre équipe a mené un travail de recherch
 * **Naissance du Panier d'Élite "Golden 7" :**
   Conservation exclusive des 7 indices présentant les meilleurs ratios mathématiques : Crash 600, Boom 500, Boom 900, Crash 900, Boom 600, Crash 500 et Crash 1000.
 
-### 5. Version 5.00 (5.00) — L'Introduction de l'IA Hawkes / ONNX et le Diagnostic de Paralysie
-* **Innovation :** Entraînement sur Google Colab d'un réseau de neurones multicouches (MLP) à 14 features basé sur les processus auto-excitants de Hawkes, exporté sous le format standardisé oom_crash_meta_brain.onnx (50 986 octets).
+### 5. Version 5.00 (v5.00) — L'Introduction de l'IA Hawkes / ONNX et le Diagnostic de Paralysie
+* **Innovation :** Entraînement sur Google Colab d'un réseau de neurones multicouches (MLP) à 14 features basé sur les processus auto-excitants de Hawkes, exporté sous le format standardisé boom_crash_meta_brain.onnx (50 986 octets).
 * **Le Problème Observé en Production :** Le bot passait des heures sans exécuter le moindre trade.
 * **Le Diagnostic :** Le bot attendait qu'un spike se produise pour tenter d'entrer, ET appliquait un seuil de coupure probabiliste ONNX global de .9246$. Ce seuil était beaucoup trop restrictif : il rejetait plus de 95 % des signaux viables !
 
-### 6. Version 6.00 (6.00) — La Maîtrise Technique du Scalp en Dérive Continue
+### 6. Version 6.00 (v6.00) — La Maîtrise Technique du Scalp en Dérive Continue
 * **L'Arsenal Déployé :**
   1. **Exécution Multi-Symboles Parallèle :** Surveillance active des 7 actifs du Golden 7.
   2. **Scalp en Dérive Continue (*Continuous Drift Scalp*) :** Entrée cyclique toutes les 15 secondes calmes pour récolter la dérive sans attendre passivement un spike.
@@ -131,12 +131,12 @@ Face à ce défi de microstructure, notre équipe a mené un travail de recherch
 
 ## 1.4. POURQUOI LA V6.00 RESTAIT FRAGILE : LE CONCEPT DE CONCAVITÉ NÉGATIVE (TALEB)
 
-Malgré les prouesses techniques de la 6.00, un problème structurel profond subsistait. C'est ici qu'intervient la pensée de **Nassim Nicholas Taleb** sur les notions de **Convexité** et de **Concavité** (*Antifragile*, 2012).
+Malgré les prouesses techniques de la v6.00, un problème structurel profond subsistait. C'est ici qu'intervient la pensée de **Nassim Nicholas Taleb** sur les notions de **Convexité** et de **Concavité** (*Antifragile*, 2012).
 
 ### Le Piège du "Ramassage de Pièces de Monnaie devant un Rouleau Compresseur"
 Dans toute stratégie de récolte de dérive (*Drift Harvesting*), le profil de distribution des gains et des pertes est fondamentalement **asymétrique négatif (*Negative Skewness*)** :
 
-`	ext
+``\text
 ========================================================================================
             PROFIL DE DISTRIBUTION DES GAINS ET PERTES (CONCAVITÉ V6)
 ========================================================================================

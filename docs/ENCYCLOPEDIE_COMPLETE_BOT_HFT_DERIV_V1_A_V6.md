@@ -133,8 +133,8 @@ flowchart TD
 ### Pourquoi un Bot en MQL5/C++ Natif plutôt qu'un script Python ?
 Au tout début du projet, on aurait pu laisser un script Python envoyer des ordres à MetaTrader 5. Mais en **Trading Haute Fréquence (HFT)** sur des ticks d'une seconde :
 * Un script Python externe met **50 à 150 millisecondes** à communiquer avec MT5 via le pont IPC, et il se bloque dès qu'il envoie un ordre sur un symbole.
-* Notre Expert Advisor [DerivBoomCrashHFT.mq5](file:///C:/Users/CHRIST/.gemini/antigravity/scratch/projet_deriv/src/bot/mql5/DerivBoomCrashHFT.mq5) est compilé en **code machine X64 natif (`.ex5`)** qui tourne **à l'intérieur même de MetaTrader 5** :
-  * Il embarque le fichier [`boom_crash_meta_brain.onnx`](file:///C:/Users/CHRIST/.gemini/antigravity/scratch/projet_deriv/colab/results_from_colab/boom_crash_meta_brain.onnx) directement dans sa mémoire vive (`#resource "\\Files\\boom_crash_meta_brain.onnx" as uchar ExtColabOnnxBrain[]`).
+* Notre Expert Advisor [DerivBoomCrashHFT.mq5](../src/mql5/DerivBoomCrashHFT_v6.mq5) est compilé en **code machine X64 natif (`.ex5`)** qui tourne **à l'intérieur même de MetaTrader 5** :
+  * Il embarque le fichier [`boom_crash_meta_brain.onnx`](../src/python/colab_ai/boom_crash_meta_brain.onnx) directement dans sa mémoire vive (`#resource "\\Files\\boom_crash_meta_brain.onnx" as uchar ExtColabOnnxBrain[]`).
   * Il évalue les 14 équations différentielles de Hawkes et le réseau de neurones en **moins de 40 microsecondes ($0.00004$ seconde)** !
   * Il envoie les ordres d'achat/vente et de fermeture en parallèle via `OrderSendAsync()` en **moins de $0.5$ milliseconde** !
 
@@ -231,7 +231,7 @@ flowchart LR
   2. `IA2_RandomForestSurvival`
   3. **`IA3_DeepSurvivalNeuralNet_MLP` (Réseau de Neurones Profond Multi-Couches $14 \rightarrow 64 \rightarrow 32 \rightarrow 16 \rightarrow 2$)** $\rightarrow$ **CHAMPION SUR LES 10 MILLIONS DE TICKS**
   4. `IA4_HistGradientBoosting`
-  Le réseau de neurones gagnant a été exporté dans [`boom_crash_meta_brain.onnx`](file:///C:/Users/CHRIST/.gemini/antigravity/scratch/projet_deriv/colab/results_from_colab/boom_crash_meta_brain.onnx) (`50 986 octets`) et compilé directement dans le bot MQL5 (`v5.00`).
+  Le réseau de neurones gagnant a été exporté dans [`boom_crash_meta_brain.onnx`](../src/python/colab_ai/boom_crash_meta_brain.onnx) (`50 986 octets`) et compilé directement dans le bot MQL5 (`v5.00`).
 * **✅ Avantages de la `v5.00` :**
   * Première intégration mondiale d'un réseau de neurones ONNX de survie de Hawkes tournant en C++ natif (`< 40 µs`) directement dans MetaTrader 5 sur Boom & Crash.
 * **❌ Inconvénients constatés lors de votre test Live de la `v5.00` (*« C'est lent et ça prend PAS BEAUCOUP DE POSITIONS »*) :**
@@ -271,7 +271,7 @@ flowchart LR
 
 # PARTIE 2 : LA STRATÉGIE ET LE FONCTIONNEMENT ACTUEL (`v6.00`) EXPLIQUÉS DE A À Z (COURS COMPLET NIVEAU L1)
 
-Dans cette deuxième partie, nous allons ouvrir le capot de la **`v6.00`** ([DerivBoomCrashHFT.mq5](file:///C:/Users/CHRIST/.gemini/antigravity/scratch/projet_deriv/src/bot/mql5/DerivBoomCrashHFT.mq5)) et décortiquer **chaque concept mathématique, chaque décision de l'IA et chaque fonction du code** avec des exemples chiffrés ultra-simples.
+Dans cette deuxième partie, nous allons ouvrir le capot de la **`v6.00`** ([DerivBoomCrashHFT.mq5](../src/mql5/DerivBoomCrashHFT_v6.mq5)) et décortiquer **chaque concept mathématique, chaque décision de l'IA et chaque fonction du code** avec des exemples chiffrés ultra-simples.
 
 ---
 
@@ -349,7 +349,7 @@ Mais en 1971, le mathématicien **Alan G. Hawkes** a découvert un processus bea
 **L'idée est très simple :**
 Quand un tremblement de terre (un **Spike**) se produit, la tension géologique augmente temporairement, ce qui augmente la probabilité d'avoir une **réplique** (un **2e ou 3e Spike rapproché**, qu'on appelle un **Cluster**) dans les secondes qui suivent ! Puis, à mesure que les secondes passent sans réplique, cette excitation retombe exponentiellement vers zéro.
 
-Voici la formule exacte de l'excitation de Hawkes que nous avons codée dans le bot ([lignes 184 à 195 de `DerivBoomCrashHFT.mq5`](file:///C:/Users/CHRIST/.gemini/antigravity/scratch/projet_deriv/src/bot/mql5/DerivBoomCrashHFT.mq5#L184-L195)) :
+Voici la formule exacte de l'excitation de Hawkes que nous avons codée dans le bot ([lignes 184 à 195 de `DerivBoomCrashHFT.mq5`](../src/mql5/DerivBoomCrashHFT_v6.mq5#L184-L195)) :
 
 $$h_{\beta}(t) = \sum_{i=1}^{n} \underbrace{\left(\frac{A_i}{\mu_S}\right)}_{\text{Force du spike } i} \times \underbrace{e^{-\beta \cdot (t - t_i)}}_{\text{Oubli exponentiel avec le temps}}$$
 
@@ -371,7 +371,7 @@ Le bot calcule cette formule à **3 vitesses d'oubli différentes** en même tem
 
 #### 2. Les 14 Neurones d'Entrée du Réseau de Neurones ONNX (`IA3_DeepSurvivalNeuralNet_MLP`)
 
-À chaque fois que le bot envisage d'ouvrir une position, la fonction [`EvaluateColabOnnxSurvivalProbability()`](file:///C:/Users/CHRIST/.gemini/antigravity/scratch/projet_deriv/src/bot/mql5/DerivBoomCrashHFT.mq5#L165-L246) construit un vecteur `x[1][14]` contenant **14 mesures mathématiques en temps réel** et les injecte dans le réseau de neurones entraîné sur Google Colab :
+À chaque fois que le bot envisage d'ouvrir une position, la fonction [`EvaluateColabOnnxSurvivalProbability()`](../src/mql5/DerivBoomCrashHFT_v6.mq5#L165-L246) construit un vecteur `x[1][14]` contenant **14 mesures mathématiques en temps réel** et les injecte dans le réseau de neurones entraîné sur Google Colab :
 
 | Indice C++ | Nom de la Variable (Feature) | Formule Mathématique Exacte dans le Code | Ce que le Réseau de Neurones comprend grâce à elle |
 | :---: | :--- | :--- | :--- |
@@ -401,7 +401,7 @@ $$\text{ai\_prob} = P(\text{Le trade va survivre et encaisser en vert})$$
 ### PILIER 4 : L'Encaissement Ultra-Rapide (`GREEN_CASH_IN`)
 
 Comment le bot sait-il exactement quand fermer une position en gain ?
-Toutes les `50 millisecondes` (`20 fois par seconde`), la fonction [`ManageOpenPositionsAndCashInGreen()`](file:///C:/Users/CHRIST/.gemini/antigravity/scratch/projet_deriv/src/bot/mql5/DerivBoomCrashHFT.mq5#L543-L634) inspecte chaque position ouverte sur votre compte :
+Toutes les `50 millisecondes` (`20 fois par seconde`), la fonction [`ManageOpenPositionsAndCashInGreen()`](../src/mql5/DerivBoomCrashHFT_v6.mq5#L543-L634) inspecte chaque position ouverte sur votre compte :
 
 1. Elle lit le profit réel net en dollars :
    $$\text{profit\_usd} = \text{POSITION\_PROFIT} + \text{POSITION\_SWAP}$$
@@ -450,50 +450,50 @@ sequenceDiagram
 ```
 
 1. **Pas d'exécution au pire tick du spike :** Le Stop-Loss serveur (`InpSlSpikeMultiple = 3.0`) est placé à $3\times$ le spike moyen uniquement comme filet de sécurité contre une panne d'Internet ou une tempête extrême de 3 spikes géants. Un spike isolé ne déclenche donc **jamais** une fermeture panique au pire tick du saut !
-2. **Bascule immédiate en mode Sauvetage (`spikes_while_open > 0`) :** Dès que le bot détecte qu'une position ouverte a subi un spike ([ligne 757](file:///C:/Users/CHRIST/.gemini/antigravity/scratch/projet_deriv/src/bot/mql5/DerivBoomCrashHFT.mq5#L757)), il change immédiatement la mission de cette position : **on ne cherche plus à gagner `+8` ou `+16` ticks !**
-3. **Sortie chirurgicale à `+0.01 $` (`RECOVERY_BE_GREEN`) :** Juste après le spike, l'escalator recommence à monter tick après tick. À la milliseconde précise où la position repasse à **`+0.01 $` (`profit_usd >= 0.01`)**, la fonction `ManageOpenPositionsAndCashInGreen()` ([ligne 581](file:///C:/Users/CHRIST/.gemini/antigravity/scratch/projet_deriv/src/bot/mql5/DerivBoomCrashHFT.mq5#L581)) **coupe immédiatement la position en vert (`RECOVERY_BE_GREEN`)** ! Vous transformez ainsi un spike perdant en une sortie gagnante à `+0.01 $` !
+2. **Bascule immédiate en mode Sauvetage (`spikes_while_open > 0`) :** Dès que le bot détecte qu'une position ouverte a subi un spike ([ligne 757](../src/mql5/DerivBoomCrashHFT_v6.mq5#L757)), il change immédiatement la mission de cette position : **on ne cherche plus à gagner `+8` ou `+16` ticks !**
+3. **Sortie chirurgicale à `+0.01 $` (`RECOVERY_BE_GREEN`) :** Juste après le spike, l'escalator recommence à monter tick après tick. À la milliseconde précise où la position repasse à **`+0.01 $` (`profit_usd >= 0.01`)**, la fonction `ManageOpenPositionsAndCashInGreen()` ([ligne 581](../src/mql5/DerivBoomCrashHFT_v6.mq5#L581)) **coupe immédiatement la position en vert (`RECOVERY_BE_GREEN`)** ! Vous transformez ainsi un spike perdant en une sortie gagnante à `+0.01 $` !
 
 ---
 
 ## CHAPITRE 2.2 — VISITE GUIDÉE DU CODE SOURCE (`DerivBoomCrashHFT.mq5`) BLOC PAR BLOC
 
-Pour que vous puissiez lire et modifier [DerivBoomCrashHFT.mq5](file:///C:/Users/CHRIST/.gemini/antigravity/scratch/projet_deriv/src/bot/mql5/DerivBoomCrashHFT.mq5) comme si vous l'aviez écrit vous-même, voici le rôle exact de chaque partie du fichier :
+Pour que vous puissiez lire et modifier [DerivBoomCrashHFT.mq5](../src/mql5/DerivBoomCrashHFT_v6.mq5) comme si vous l'aviez écrit vous-même, voici le rôle exact de chaque partie du fichier :
 
-### 1. L'intégration Binaire du Cerveau IA ([Ligne 13](file:///C:/Users/CHRIST/.gemini/antigravity/scratch/projet_deriv/src/bot/mql5/DerivBoomCrashHFT.mq5#L13))
+### 1. L'intégration Binaire du Cerveau IA ([Ligne 13](../src/mql5/DerivBoomCrashHFT_v6.mq5#L13))
 ```mql5
 #resource "\\Files\\boom_crash_meta_brain.onnx" as uchar ExtColabOnnxBrain[]
 ```
 * **Explication L1 :** En C++/MQL5, la directive `#resource` prend le fichier `boom_crash_meta_brain.onnx` (`50 986 octets`) issu de Google Colab au moment de la compilation et le copie **octet par octet à l'intérieur du fichier exécutable `DerivBoomCrashHFT.ex5`**. Ainsi, le cerveau IA fait physiquement partie du bot !
 
-### 2. La Structure `SymbolTracker` ([Lignes 64 à 105](file:///C:/Users/CHRIST/.gemini/antigravity/scratch/projet_deriv/src/bot/mql5/DerivBoomCrashHFT.mq5#L64-L105))
+### 2. La Structure `SymbolTracker` ([Lignes 64 à 105](../src/mql5/DerivBoomCrashHFT_v6.mq5#L64-L105))
 * **Explication L1 :** En programmation, une `struct` est une « fiche d'identité » qui regroupe toutes les variables d'un indice. Comme le bot surveille **7 indices en même temps**, il crée un tableau `SymbolTracker g_trackers[7]`.
 * Chaque indice possède sa propre mémoire totalement indépendante :
   * Ses constantes physiques : `abs_drift_per_tick` ($d$), `mean_spike_pts` ($\mu_S$), `mean_tau_ticks` ($\tau$), `breakeven_ticks` ($B$).
   * Ses compteurs en temps réel : `tick_counter` (nombre de ticks vus), `calm_drift_ticks` (nombre de ticks consécutifs de dérive calme sans spike), `spikes_while_open` (nombre de spikes subis par la position actuellement ouverte).
   * Son historique des 32 derniers spikes (`spike_history_ticks[32]` et `spike_history_amps[32]`) pour calculer l'équation de Hawkes.
 
-### 3. L'Auto-Calibration et le Pré-Chauffage au Démarrage : `InitAndCalibrateTracker()` ([Lignes 261 à 415](file:///C:/Users/CHRIST/.gemini/antigravity/scratch/projet_deriv/src/bot/mql5/DerivBoomCrashHFT.mq5#L261-L415))
+### 3. L'Auto-Calibration et le Pré-Chauffage au Démarrage : `InitAndCalibrateTracker()` ([Lignes 261 à 415](../src/mql5/DerivBoomCrashHFT_v6.mq5#L261-L415))
 * **Explication L1 :** Que fait le bot à la première milliseconde où vous cliquez sur « OK » dans MetaTrader 5 ?
-  Au lieu de démarrer avec une mémoire vide (ce qui l'obligerait à attendre 15 minutes pour connaître l'historique récent des spikes), il appelle `CopyTicks(sym, ticks, COPY_TICKS_ALL, 0, 5000)` ([ligne 329](file:///C:/Users/CHRIST/.gemini/antigravity/scratch/projet_deriv/src/bot/mql5/DerivBoomCrashHFT.mq5#L329)).
+  Au lieu de démarrer avec une mémoire vide (ce qui l'obligerait à attendre 15 minutes pour connaître l'historique récent des spikes), il appelle `CopyTicks(sym, ticks, COPY_TICKS_ALL, 0, 5000)` ([ligne 329](../src/mql5/DerivBoomCrashHFT_v6.mq5#L329)).
   Il télécharge instantanément les **5 000 derniers ticks** (~1h30 d'historique) de chacun des 7 indices Golden et :
   1. Mesure la vraie vitesse de dérive actuelle `live_drift` ($d$).
   2. Repère tous les spikes des 5 000 derniers ticks et les range dans `spike_history_ticks[]` pour que la formule de Hawkes soit chaude dès la 1re seconde !
-  3. Calcule combien de ticks calmes se sont déjà écoulés depuis le dernier spike : `tr.calm_drift_ticks = copied - 1 - last_sp_i` ([ligne 389](file:///C:/Users/CHRIST/.gemini/antigravity/scratch/projet_deriv/src/bot/mql5/DerivBoomCrashHFT.mq5#L389)). **C'est grâce à cette ligne que le bot peut prendre ses premières positions dès les premières secondes après son lancement !**
+  3. Calcule combien de ticks calmes se sont déjà écoulés depuis le dernier spike : `tr.calm_drift_ticks = copied - 1 - last_sp_i` ([ligne 389](../src/mql5/DerivBoomCrashHFT_v6.mq5#L389)). **C'est grâce à cette ligne que le bot peut prendre ses premières positions dès les premières secondes après son lancement !**
 
-### 4. Le Caissier & Sauveteur : `ManageOpenPositionsAndCashInGreen()` ([Lignes 543 à 634](file:///C:/Users/CHRIST/.gemini/antigravity/scratch/projet_deriv/src/bot/mql5/DerivBoomCrashHFT.mq5#L543-L634))
+### 4. Le Caissier & Sauveteur : `ManageOpenPositionsAndCashInGreen()` ([Lignes 543 à 634](../src/mql5/DerivBoomCrashHFT_v6.mq5#L543-L634))
 * **Explication L1 :** C'est le gardien de votre portefeuille. Appelé **20 fois par seconde** (`50 ms`), il parcourt toutes les positions ouvertes et applique dans l'ordre :
   1. **Sauvetage Post-Spike (`RECOVERY_BE_GREEN`, ligne 581)** : Si `tr.spikes_while_open > 0` et `profit_usd >= 0.01`, il ferme immédiatement la position en vert.
   2. **Encaissement Normal (`GREEN_CASH_IN`, ligne 599)** : Si `profit_usd > 0` et `net_drift_ticks_gained >= target_net_ticks` (`+8`, `+16` ou `+26` ticks), il ferme immédiatement la position et encaisse les dollars.
   3. **Verrouillage Break-Even (`MovePositionToBreakEven`, ligne 614)** : Si le Palier 1 a encaissé, il déplace le Stop-Loss du Palier 2 sur son prix d'ouverture.
 
-### 5. Le Tireur d'Élite IA : `OpenStagedDriftPositions()` ([Lignes 657 à 758](file:///C:/Users/CHRIST/.gemini/antigravity/scratch/projet_deriv/src/bot/mql5/DerivBoomCrashHFT.mq5#L657-L758))
+### 5. Le Tireur d'Élite IA : `OpenStagedDriftPositions()` ([Lignes 657 à 758](../src/mql5/DerivBoomCrashHFT_v6.mq5#L657-L758))
 * **Explication L1 :** C'est la fonction qui décide d'ouvrir un trade :
   1. Elle vérifie que le spread actuel $B$ ne dépasse pas la limite `InpMaxSpreadDriftMult` (`75.0` ticks).
   2. Elle appelle `EvaluateColabOnnxSurvivalProbability(tr, c60)` pour obtenir `ai_prob` et `last_hawkes_fast`.
   3. Si `c60 >= 2` ou `last_hawkes_fast > 1.25` ou `ai_prob < 0.78`, elle bloque le trade et met l'indice en pause pendant `20` à `25` ticks.
   4. Sinon, elle envoie l'ordre (`BUY` sur Crash, `SELL` sur Boom) en mode ultra-rapide `OrderSendAsync(req, res)`.
 
-### 6. Le Chef d'Orchestre : `ProcessSymbolTick()` & `ScanAllBoomCrashSymbols()` ([Lignes 763 à 955](file:///C:/Users/CHRIST/.gemini/antigravity/scratch/projet_deriv/src/bot/mql5/DerivBoomCrashHFT.mq5#L763-L955))
+### 6. Le Chef d'Orchestre : `ProcessSymbolTick()` & `ScanAllBoomCrashSymbols()` ([Lignes 763 à 955](../src/mql5/DerivBoomCrashHFT_v6.mq5#L763-L955))
 * **Explication L1 :** Toutes les `50 millisecondes` (`OnTimer`), `ScanAllBoomCrashSymbols()` :
   1. Vérifie les coupe-circuits de sécurité (`InpMaxDrawdownPct = 15%`, `InpDailyLossPct = 5%`).
   2. Appelle `ManageOpenPositionsAndCashInGreen()` pour encaisser les gains.
@@ -541,5 +541,5 @@ En tant qu'étudiant en L1 qui maîtrise maintenant le code MQL5 et les mathéma
 * **Comment l'améliorer :** Analyser sur vos prochains trades live en `v6.00` si les entrées faites lorsque `calm_drift_ticks` est compris entre `15` et `450` ticks ont un meilleur Win Rate que celles faites lorsque `calm_drift_ticks > 1200` ticks, et ajouter une borne supérieure `InpMaxCalmDriftTicks` calibrée par indice ($1.5 \times \tau$).
 
 #### 🚀 Piste d'Amélioration #5 : La Boucle d'Auto-Apprentissage Hebdomadaire (`Live MT5` $\rightarrow$ `Colab` $\rightarrow$ `.ONNX`)
-* **Observation actuelle :** Le cerveau [`boom_crash_meta_brain.onnx`](file:///C:/Users/CHRIST/.gemini/antigravity/scratch/projet_deriv/colab/results_from_colab/boom_crash_meta_brain.onnx) a été entraîné sur nos 10 millions de ticks historiques.
-* **Comment l'améliorer :** Chaque semaine, extraire automatiquement tous les nouveaux trades `GREEN_CASH_IN` et `RECOVERY_BE_GREEN` exécutés en direct par la `v6.00` sur votre compte MT5, les ajouter au fichier `.npz`, et relancer le script [`train_boom_crash_l99_onnx.py`](file:///C:/Users/CHRIST/.gemini/antigravity/scratch/projet_deriv/colab/train_boom_crash_l99_onnx.py) sur Google Colab pour que le réseau de neurones s'affine semaine après semaine sur ses propres expériences réelles !
+* **Observation actuelle :** Le cerveau [`boom_crash_meta_brain.onnx`](../src/python/colab_ai/boom_crash_meta_brain.onnx) a été entraîné sur nos 10 millions de ticks historiques.
+* **Comment l'améliorer :** Chaque semaine, extraire automatiquement tous les nouveaux trades `GREEN_CASH_IN` et `RECOVERY_BE_GREEN` exécutés en direct par la `v6.00` sur votre compte MT5, les ajouter au fichier `.npz`, et relancer le script [`train_boom_crash_l99_onnx.py`](../src/python/colab_ai/train_boom_crash_l99_onnx.py) sur Google Colab pour que le réseau de neurones s'affine semaine après semaine sur ses propres expériences réelles !
