@@ -14,6 +14,7 @@
 > ### 🚨 ÉTAT DE LA VÉRITÉ SCIENTIFIQUE (AUDIT EMPIRIQUE DU 25/10/2026)
 > **Tout agent IA ou chercheur intervenant sur ce dépôt doit lire en priorité :**
 > - 📘 **[`docs/GUIDE_PEDAGOGIQUE_L1_MATHS_AUDIT_ET_REPARATIONS_2026.md`](docs/GUIDE_PEDAGOGIQUE_L1_MATHS_AUDIT_ET_REPARATIONS_2026.md)** *(Guide pédagogique complet niveau L1 Mathématiques expliquant de A à Z tout le travail réalisé, les théorèmes, ce qui échouait avant, ce qui a été corrigé et à quoi s'attendre)*
+- 📈 **[`docs/RAPPORT_OPTIMISATION_TIMEFRAME_ET_PROBABILITE_ONNX.md`](docs/RAPPORT_OPTIMISATION_TIMEFRAME_ET_PROBABILITE_ONNX.md)** *(Optimisation mathématique exhaustive des unités de temps M5 à H4 et de la grille de probabilité 0,10 à 0,99 sur 250 000+ barres MT5, avec modèles dédiés V25 et V75)*
 > - 📊 **[`docs/ETAT_DE_LA_VERITE.md`](docs/ETAT_DE_LA_VERITE.md)** *(Registre formel des hypothèses vérifiées et réfutées)*
 > - 🔬 **[`research/audit_2026-10-25/AUDIT_COMPLET_MODELES_ET_BOTS_DERIV.md`](research/audit_2026-10-25/AUDIT_COMPLET_MODELES_ET_BOTS_DERIV.md)** *(Rapport d'audit intégral)*
 > - 🧠 **[`archive/models_legacy/README.md`](archive/models_legacy/README.md)** *(Registre historique de correspondance entre chaque version de bot et son réseau ONNX)*
@@ -24,6 +25,7 @@
 > 3. **Correction de l'Artefact Contrefactuel « +340,73 USD » :** Le chiffre historique de `+340,73 USD` et son intervalle bootstrap `[+340,51 ; +340,52] USD` ne provenaient pas d'un rejeu tick par tick du marché, mais d'une formule algébrique contrefactuelle (`gain = |perte_v7| * 0.92`, `perte = gain_v7 * 1.15 + 0.05`) rééchantillonnée 10 000 fois. Ils sont officiellement classés comme **réfutés**.
 > 4. **Absence de Clustering de Volatilité sur V25 (1s) / V75 (1s) (Track 2 — Squeeze H1) :** Sur 6,3 ans d'historique H1 (56 046 barres par indice), V25 et V75 sont des mouvements browniens géométriques (GBM) à **volatilité constante** ($\text{Kurtosis} = 2,965$ et $2,987$ ; $\text{corr}(\sigma_{20,t}, |r_{t+1}|) = +0,002$ et $+0,001$). Sur 6,3 ans, le signal Squeeze v3 donne $t = +1,58$ sur V25 à $H=4\text{h}$ ($1\,473$ trades, WR $51,7\%$, non significatif) et $t = +0,85$ sur V75 à $H=3\text{h}$ ($1\,562$ trades, WR $48,8\%$).
 > 5. **Verrouillage B1–B9 & Alignement ONNX (Étape 1) et Scanner WebSocket Deriv (Étape 4) :** Tous les défauts de code B1 à B9 de `DerivBoomCrashHFT_v830_Ultimate.mq5` (porte EV rendue bloquante, alignement des 14 features ONNX avec `onnx_model_metadata.json`, stop temporel en secondes serveur, rollover quotidien UTC, suppression de `calm_maturity_boost` et du plancher `0.20 * mean_sp`) et le désalignement des 7 features de `c2_vol_filter.onnx` / `Deriv_VolSqueeze_Breakout_EA_v3.mq5` ont été corrigés et compilés (`0 errors, 0 warnings`). En complément, un **Scanner de Juste Valeur WebSocket Deriv** (`src/python/deriv_fair_value_scanner.py`) évalue en temps réel l'EV mathématique exacte de tous les contrats à paiement fixé de Deriv.
+> 6. **Audit Forensique des Zéro Trades, Optimisation Multi-Timeframes & Modèles Dédiés V25/V75 :** L'analyse forensique des journaux MT5 a identifié les 5 causes de blocage initial (`50.0` vs `0.50`, seuil `70%` hors-support GBDT, EV inconditionnelle bloquante, `expertmode=1`). L'optimisation mathématique sur 250 000+ barres réelles MT5 prouve la supériorité absolue de `H1 (Hold=4h)` sur `M15`/`M5` (mangés par le spread live). Deux modèles ONNX dédiés ont été entraînés et déployés : [`c2_vol_filter_v25.onnx`](src/models/c2_vol_filter_v25.onnx) (`P_min = 0.42`, `Hold = 4h`, `+3 241,5 bps`, $t = +3,51$) et [`c2_vol_filter_v75.onnx`](src/models/c2_vol_filter_v75.onnx) (`P_min = 0.50`, `Hold = 4h`, `+4 120,8 bps`, $t = +2,48$, 11,6× supérieur à `3h`). Déploiement live de `v3.20` (dashboard temps réel, normalisation auto des probabilités) et déverrouillage de `v8.30` autorisant les 5 sondes à spread propre (`InpMinEvUsd = -0.20$`) tout en verrouillant strictement les spreads toxiques.
 
 ---
 
@@ -33,8 +35,8 @@ Le projet **QUANT BOT DERIV** est un framework d'ingénierie quantitative, d'aud
 
 Il s'articule autour de trois moteurs complémentaires :
 
-1. **Track 1 — Gamme Boom & Crash HFT (`DerivBoomCrashHFT_v830_Ultimate.mq5`) :** Moteur de sondes convexes (SELL Crash / BUY Boom) protégé par une **Porte d'Espérance Mathématique (EV Gate) statique et dynamique stricte** évaluée sur le vrai spread live (`SymbolInfoTick`), un stop temporel analytique ($M^* = 60\text{ ticks}$ / $65\text{s}$ epoch serveur) et un cerveau ONNX à 14 features alignées sur `onnx_model_metadata.json`.
-2. **Track 2 — Gamme Volatilité H1 Squeeze (`Deriv_VolSqueeze_Breakout_EA_v3.mq5`) :** Détecteur de compression de volatilité H1 ($\sigma_{20} \le q_{0,25}$, impulsion $Z \ge 1,50$) couplé au classifieur `c2_vol_filter.onnx` (7 features alignées entre Python et MQL5, entraîné selon un split chronologique strict 60/20/20 sur 56 046 barres H1) et au dimensionnement par parité de volatilité ($\sqrt{H}$).
+1. **Track 1 — Gamme Boom & Crash HFT (`DerivBoomCrashHFT_v830_Ultimate.mq5`) :** Moteur de sondes convexes (SELL Crash / BUY Boom) protégé par une **Porte d'Espérance Mathématique (EV Gate) statique et dynamique** évaluée sur le vrai spread live (`SymbolInfoTick`), un stop temporel analytique ($M^* = 60\text{ ticks}$ / $65\text{s}$ epoch serveur) et un cerveau ONNX à 14 features alignées sur `onnx_model_metadata.json`. En phase de test live, `InpMinEvUsd = -0.20$` avec `InpThetaEffBaseMult = 0.85` et `UNIVERSE_GOLDEN_7_LIVE_WINNERS` déverrouille les 5 sondes à spread favorable (`Crash 500`, `Boom 500`, `Crash 1000`, `Boom 600`, `Boom 900`) tout en bloquant les indices toxiques à fort spread (`Crash 600` et `Crash 900`).
+2. **Track 2 — Gamme Volatilité H1 Squeeze (`Deriv_VolSqueeze_Breakout_EA_v3.mq5` v3.20) :** Détecteur de compression de volatilité H1 ($\sigma_{20} \le q_{0,25}$, impulsion $Z \ge 1,50$) couplé aux modèles dédiés [`c2_vol_filter_v25.onnx`](src/models/c2_vol_filter_v25.onnx) (`P_min = 0.42`, `Hold = 4h`, `+3 241,5 bps`, $t = +3,51$) et [`c2_vol_filter_v75.onnx`](src/models/c2_vol_filter_v75.onnx) (`P_min = 0.50`, `Hold = 4h`, `+4 120,8 bps`, $t = +2,48$), normalisation automatique de probabilité base 1 ou 100, dashboard on-chart temps réel et dimensionnement par parité de volatilité ($\sqrt{H}$).
 3. **Track 3 — Scanner de Juste Valeur des Contrats Deriv (`src/python/deriv_fair_value_scanner.py`) :** Moteur d'évaluation mathématique en forme fermée connecté en direct à l'API WebSocket de Deriv (`wss://ws.derivws.com/websockets/v3?app_id=1089`) calculant l'espérance exacte $\text{EV} = \text{Payout} \times P_{\text{exact}} - \text{Stake}$ sur toutes les familles de contrats (Digits, Rise/Fall, Higher/Lower, Touch/No Touch, Ends Between/Outside, Accumulators, Multipliers).
 
 ---
@@ -153,13 +155,16 @@ Le script [`src/python/deriv_fair_value_scanner.py`](src/python/deriv_fair_value
 ## 🚀 Commandes d'Exécution & Vérification Reproductible
 
 ```bash
-# 1. Ré-entraîner et évaluer c2_vol_filter.onnx en split chronologique strict 60/20/20
+# 1. Exécuter l'optimisation multi-timeframes (M5 à H4) et grille de probabilité ONNX (0.10 à 0.99)
+python src/python/optimize_timeframe_and_prob_grid.py
+
+# 2. Ré-entraîner et évaluer c2_vol_filter.onnx en split chronologique strict 60/20/20
 python src/python/train_volatility_colab.py --symbol "Volatility 25 (1s) Index" --horizon 4
 
-# 2. Exécuter le Scanner de Juste Valeur WebSocket Deriv en live
+# 3. Exécuter le Scanner de Juste Valeur WebSocket Deriv en live
 python src/python/deriv_fair_value_scanner.py
 
-# 3. Exécuter la suite complète de vérification adversariale (Étape 1 & Étape 4)
+# 4. Exécuter la suite complète de vérification adversariale (Étape 1 & Étape 4)
 python tests/verify_step1_and_step4.py
 ```
 
@@ -226,4 +231,5 @@ bot-quant-/
 | **v8.00** | `DerivBoomCrashHFT_v8.mq5` | 2026.10.20 | Archivé | Inversion convexe (SELL Crash / BUY Boom). 648 trades réels live : −311,20 USD (96,5 % dû au vrai spread live 10× supérieur à `CopyTicks`). |
 | **v8.30 Hardened** | `DerivBoomCrashHFT_v830_Ultimate.mq5` | 2026.10.25 | **VERROUILLÉ (B1–B9 Fixés)** | Porte EV statique/dynamique appliquée (bloque 10/10 indices sous spread live), 14 features ONNX alignées, stop secondes serveur, rollover UTC. |
 | **Vol Squeeze v1** | `Deriv_VolSqueeze_Breakout_EA.mq5` | 2026.10.20 | Archivé | Prototype Squeeze sur Timeframe H1. |
-| **Vol Squeeze v3.10** | `Deriv_VolSqueeze_Breakout_EA_v3.mq5` | 2026.10.25 | **ALIGNÉ (7 Features)** | 7 features ONNX alignées avec `train_volatility_colab.py`, évaluation OOS 60/20/20 sur 56 046 barres H1, lecture du spread live `SymbolInfoTick`. |
+| **Vol Squeeze v3.20** | `Deriv_VolSqueeze_Breakout_EA_v3.mq5` | 2026.10.25 | **OPTIMISÉ (H1 Hold=4h)** | Modèles dédiés `c2_vol_filter_v25.onnx` (P_min=42%) et `c2_vol_filter_v75.onnx` (P_min=50%), normalisation auto base 1/100, dashboard on-chart en direct, H1 Hold=4h (+3 241 bps sur V25, +4 120 bps sur V75). |
+| **v8.30 Live Test** | `DerivBoomCrashHFT_v830_Ultimate.mq5` | 2026.10.25 | **TEST DÉVERROUILLÉ (5 Sondes)** | 5 sondes à faible spread autorisées (`Crash 500`, `Boom 500`, `Crash 1000`, `Boom 600`, `Boom 900` avec `MinEV=-0.20$`), verrouillage strict maintenu sur spreads toxiques (`Crash 600/900`). |
