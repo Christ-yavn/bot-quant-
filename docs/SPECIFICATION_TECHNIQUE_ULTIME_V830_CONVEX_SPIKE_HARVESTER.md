@@ -2,6 +2,13 @@
 ## Moteur Quantitative Convex Spike Harvester & Hawkes Self-Exciting Engine
 ### Synthèse Algorithmique : Argon Dynamic ONNX + Fable Static EV Gate + Antigravity Microstructure
 
+> [!WARNING]
+> **MISE À JOUR DE VERROUILLAGE POST-AUDIT (25/10/2026 — DÉFAUTS B1 À B9 CORRIGÉS) :**
+> Cette spécification initiale du 21/10/2026 est préservée à titre d'archive. Suite à l'audit empirique du 25/10/2026 ([`docs/ETAT_DE_LA_VERITE.md`](ETAT_DE_LA_VERITE.md)), les 9 défauts B1 à B9 identifiés dans [`src/mql5/DerivBoomCrashHFT_v830_Ultimate.mq5`](../src/mql5/DerivBoomCrashHFT_v830_Ultimate.mq5) ont été corrigés et recompilés (`0 erreur, 0 warning`) :
+> - **B1** : `tr.ev_gate_pass` et `InpEnforcePositivePayoffLock = true` sont désormais strictement appliqués dans `OpenConvexSpikeProbe()` avec plancher de spread live vérifié (`GetLiveExecutableSpreadPts`), bloquant 10/10 indices (`REFUSE`) tant que $\text{EV} < 0$.
+> - **B2, B3, B4** : Suppression du clamp `MathMax(phys_spike_p0, ...)`, passage de `InpThetaEffBaseMult` à `1.00`, alignement exact des 14 features ONNX sur `onnx_model_metadata.json` (`InpUseZeroCheatFeatures = false`), et conversion exacte de la survie ONNX via $1 - P_{\text{surv}}^{M^*/(\text{be\_ticks}+15)}$.
+> - **B5, B6, B7, B8, B9** : Stop temporel en secondes serveur (`POSITION_TIME_MSC`), rollover quotidien UTC (`g_day_start_equity`), suppression de `calm_maturity_boost` et du plancher `0.20 * mean_sp`, désactivation par défaut de `InpEnableHawkesClusterEntry = false`, et correction de la garde d'horodatage du curseur `CopyTicks` (`tick.time_msc < tr.last_time_msc`).
+
 **Fichier Source MQL5 :** [src/mql5/DerivBoomCrashHFT_v830_Ultimate.mq5](src/mql5/DerivBoomCrashHFT_v830_Ultimate.mq5)  
 **Version :** 8.30 Ultimate  
 **Compilation :** Certifiée MetaEditor 64 (0 erreur, 0 warning, 1 417 ms, binaire x64)  

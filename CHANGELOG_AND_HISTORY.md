@@ -326,3 +326,35 @@ L'exécution stricte de `PH2_C1_Sentinel_Validation_S1.py` a scellé le fichier 
   4. *Logging de diagnostic enrichi :* En cas de rejet résiduel, affichage complet des valeurs `price`, `tp`, `sl`, `min_stop`, `bid`, `ask`.
 * **Compilation & Synchronisation MT5 :** `DerivBoomCrashHFT_v8.mq5` compilé avec succès (0 erreur, 0 warning, 116 606 octets) et déployé dans `MQL5/Experts/`.
 * **Archivage Exhaustif des Conversations Fable 5 :** Rédaction de [`docs/ARCHIVE_RECHERCHES_ET_CONVERSATIONS_FABLE_5.md`](docs/ARCHIVE_RECHERCHES_ET_CONVERSATIONS_FABLE_5.md) intégrant les trois sessions d'Ashna AI (`6ad691c5a83de54d569d8c5a`, `6ad75c564b55dd601aa09d82`, `6ad7ef4cfd29d02fc4aaef4c`).
+
+---
+
+## 14. AUDIT EMPIRIQUE INDÉPENDANT DU 25/10/2026, VERROUILLAGE B1–B9 & SCANNER WEBSOCKET DERIV (ÉTAPES 1, 2 & 4)
+
+> **Corrigendum Scientifique Officiel** : Les affirmations optimistes des sections 11 à 13 ci-dessus sont conservées à titre d'archive historique intacte, mais sont formellement rectifiées par l'Audit Empirique Indépendant du 25/10/2026 ([`research/audit_2026-10-25/AUDIT_COMPLET_MODELES_ET_BOTS_DERIV.md`](research/audit_2026-10-25/AUDIT_COMPLET_MODELES_ET_BOTS_DERIV.md)) et par [`docs/ETAT_DE_LA_VERITE.md`](docs/ETAT_DE_LA_VERITE.md).
+
+### 14.1 Étape 1A — Verrouillage & Réparation de `DerivBoomCrashHFT_v830_Ultimate.mq5` (Défauts B1 à B9 + Correctifs d'Exécution)
+1. **B1 (`tr.ev_gate_pass` ignorée)** : `OpenConvexSpikeProbe()` ré-évalue `ComputeSymbolEvGate(tr, tr.name, false)` et bloque immédiatement tout ordre lorsque `InpEnableStaticEvGate && !tr.ev_gate_pass` (10/10 indices Boom/Crash verrouillés à `REFUSE` sous spread live).
+2. **B2 & B4 (Probabilité ONNX non bloquante & polarité de survie)** : Suppression du clamp `MathMax(phys_spike_p0, ...)` et conversion exacte de la probabilité de survie ONNX (`out_proba[0][1]`) de l'horizon d'entraînement $H_{\text{train}} = \text{be\_ticks} + 15$ vers $M^* = 60\text{ ticks}$ via $P_{\text{ONNX}}(\text{Spike}, M^*) = 1 - P_{\text{surv}}^{M^* / (\text{be\_ticks} + 15)}$.
+3. **B3 (Mismatch des 14 features ONNX)** : Alignement exact du vecteur `float x[1][14]` avec [`src/models/onnx_model_metadata.json`](src/models/onnx_model_metadata.json) (`symbol_id`, `is_boom`, `spike_amp_norm`, `tau1..3`, `h_fast`, `h_med`, `h_slow`, `c60`, `c300`, `post3_vel`, `be_ticks`, `cost_ratio`).
+4. **B5 (Time-Stop `elapsed_sec` en secondes Unix)** : Remplacement de `(tick.time_msc - tr.entry_time_msc) / 1000` par la différence exacte `PositionGetInteger(POSITION_TIME_MSC)` vs `SymbolInfoTick(psym, live_pos_tick).time_msc`.
+5. **B6 (Coupe-circuit journalier calculé sur `g_initial_equity`)** : Ajout de `g_day_start_equity` et `g_current_day` avec réinitialisation quotidienne UTC.
+6. **B7 & B8 (Suppression des biais artificiels)** : Suppression complète de `calm_maturity_boost` (processus géométrique sans mémoire $p = 1/\tau$) et du plancher fictif `0.20 * mean_sp`, avec intégration du spread live vérifié (`GetLiveExecutableSpreadPts` ancré sur [`src/python/colab_ai/real_live_spreads_mt5.json`](src/python/colab_ai/real_live_spreads_mt5.json)).
+7. **B9 (`InpEnableHawkesClusterEntry = false` par défaut)** : Désactivation par défaut après preuve d'auto-excitation nulle ($r_{k,k+1} \in [-0.025, +0.025]$ sur 6,8M ticks).
+8. **Correctif du curseur `CopyTicks`** : Correction de la garde d'horodatage dans `ProcessSingleTick` (`tick.time_msc < tr.last_time_msc` au lieu de `<=`) qui bloquait auparavant les ticks issus de la boucle `CopyTicks`, et préservation des paramètres structurels 6,8M ticks dans `InitAndCalibrateTracker`.
+9. **Compilation `metaeditor64.exe`** : **0 erreur, 0 avertissement** (`54 222 octets`).
+
+### 14.2 Étape 1B — Alignement des 7 Features ONNX (`Deriv_VolSqueeze_Breakout_EA_v3.mq5` v3.10 & `c2_vol_filter.onnx`)
+* Alignement 1-pour-1 des 7 features entre [`src/python/train_volatility_colab.py`](src/python/train_volatility_colab.py), [`src/python/analytics/PH2_C2_Train_ONNX_Filter.py`](src/python/analytics/PH2_C2_Train_ONNX_Filter.py) et [`src/mql5/Deriv_VolSqueeze_Breakout_EA_v3.mq5`](src/mql5/Deriv_VolSqueeze_Breakout_EA_v3.mq5) : `['vol_ratio', 'impulse_z', 'direction', 'levy_area', 'spread_to_atr', 'skew20', 'kurt20']` avec `ATR(20)` en unités de prix et le spread historique exact de chaque barre H1 (sans fuite du futur par plaquage du spread nominal en dollars de 2026 sur 2020–2025).
+* Ré-entraînement chronologique strict **60% Train / 20% Validation / 20% OOS** sur les 56 048 barres H1 :
+  - **`Volatility 25 (1s) Index` ($H=4\text{h}$, $N=1\,473$ signaux)** : Validation `ROC-AUC = 0.5733`, OOS `ROC-AUC = 0.4666`, `WR = 55.64%`, `PF = 1.309`, `Net = +5.468 bps/trade` ($t = +1.231 < 1.96$, non significatif sous un GBM à volatilité constante).
+  - **`Volatility 75 (1s) Index` ($H=3\text{h}$, $N=1\,562$ signaux)** : Validation `ROC-AUC = 0.5416`, OOS `ROC-AUC = 0.5212`, `WR = 50.00%`, `PF = 0.951`, `Net = -3.112 bps/trade` ($t = -0.112$).
+* Export `c2_vol_filter.onnx` avec `options={"zipmap": False}` (`[1, 7] -> label [1], probabilities [1, 2]`) et compilation `metaeditor64.exe` de `Deriv_VolSqueeze_Breakout_EA_v3.mq5` avec **0 erreur, 0 avertissement** (`31 854 octets`).
+
+### 14.3 Étape 2 — Archivage de l'Audit & Mise à jour de la Vérité Scientifique
+* Archivage intégral du rapport et des 5 scripts de vérification empirique dans [`research/audit_2026-10-25/`](research/audit_2026-10-25/).
+* Création et mise à jour de [`docs/ETAT_DE_LA_VERITE.md`](docs/ETAT_DE_LA_VERITE.md), [`docs/RAPPORT_SCANNER_EV_CONTRATS_DERIV.md`](docs/RAPPORT_SCANNER_EV_CONTRATS_DERIV.md) et [`README.md`](README.md) tout en conservant 100 % des fichiers historiques intacts.
+
+### 14.4 Étape 4 — Scanner de Juste Valeur WebSocket Deriv (`src/python/deriv_fair_value_scanner.py`)
+* Évaluation mathématique en forme fermée de **349 contrats** répartis en **9 familles** (`Digits`, `Rise/Fall`, `Higher/Lower`, `Touch/NoTouch`, `Ends Between/Outside`, `Accumulators`, `Multipliers`, `Turbos`, et `Boom/Crash 1/tau`) sur le flux WebSocket live Deriv (`wss://red.derivws.com/websockets/v3?app_id=1089`).
+* **Verdict empirique** : **0 contrat sur 349** ne possède une espérance mathématique positive ($\text{EV}_{\max} = -0.450\%$ sur `MULTUP`/`MULTDOWN` `1HZ25V`, $\text{EV}_{\text{moy}} = -6.582\%$, $\text{EV}_{\min} = -87.752\%$).

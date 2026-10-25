@@ -134,6 +134,43 @@ def exact_gbm_expiry_range_prob(s0: float, low_b: float, high_b: float, sigma: f
     return max(0.0, min(1.0, p_gt_low - p_gt_high))
 
 
+# Paramètres structurels vérifiés du générateur géométrique sans mémoire Boom/Crash (§1.2 de l'Audit)
+BOOM_CRASH_SPECS = {
+    "BOOM1000":  {"tau": 1066.6, "drift_pt": 0.01551, "mean_spike_pt": 17.015, "live_spread_pt": 1.7215, "is_boom": True},
+    "CRASH1000": {"tau": 961.0,  "drift_pt": 0.00636, "mean_spike_pt": 5.887,  "live_spread_pt": 0.5422, "is_boom": False},
+    "BOOM900":   {"tau": 911.4,  "drift_pt": 0.00972, "mean_spike_pt": 8.865,  "live_spread_pt": 0.9620, "is_boom": True},
+    "CRASH900":  {"tau": 907.3,  "drift_pt": 0.01900, "mean_spike_pt": 17.314, "live_spread_pt": 1.3560, "is_boom": False},
+    "BOOM600":   {"tau": 586.5,  "drift_pt": 0.00894, "mean_spike_pt": 5.155,  "live_spread_pt": 0.7730, "is_boom": True},
+    "CRASH600":  {"tau": 571.5,  "drift_pt": 0.03773, "mean_spike_pt": 22.904, "live_spread_pt": 3.2810, "is_boom": False},
+    "BOOM500":   {"tau": 486.9,  "drift_pt": 0.01128, "mean_spike_pt": 5.825,  "live_spread_pt": 0.5270, "is_boom": True},
+    "CRASH500":  {"tau": 480.0,  "drift_pt": 0.00623, "mean_spike_pt": 2.991,  "live_spread_pt": 0.3270, "is_boom": False},
+}
+
+
+def exact_boom_crash_spike_prob(n_ticks: int, tau: float) -> float:
+    """
+    Probabilité exacte d'observer au moins 1 spike sur N ticks sous la loi
+    géométrique sans mémoire vérifiée de taux p = 1 / tau :
+      P(N_spikes >= 1 en N ticks) = 1 - (1 - 1 / tau)^N.
+    """
+    if n_ticks <= 0 or tau <= 1.0:
+        return 0.0
+    p = 1.0 / float(tau)
+    return float(1.0 - ((1.0 - p) ** int(n_ticks)))
+
+
+def exact_boom_crash_survival_prob(n_ticks: int, tau: float) -> float:
+    """
+    Probabilité exacte de survie calme (0 spike sur N ticks) sous la loi
+    géométrique sans mémoire vérifiée de taux p = 1 / tau :
+      P(N_spikes == 0 en N ticks) = (1 - 1 / tau)^N.
+    """
+    if n_ticks <= 0 or tau <= 1.0:
+        return 1.0
+    p = 1.0 / float(tau)
+    return float((1.0 - p) ** int(n_ticks))
+
+
 class DerivWebSocketClient:
     """Client WebSocket TLS robuste compatible avec Cloudflare / Deriv API v3."""
 
@@ -346,10 +383,11 @@ def OfficialDerivPricingEngine(
         mult = digit_payout_mult.get((ctype, round(p_exact, 2)), (1.0 - 0.025) / max(p_exact, 0.01))
         return {"ask_price": stake, "payout": round(stake * mult, 2)}
 
-    # 2. Rise / Fall ATM : marge maison Deriv ~2.35% sur la probabilité Black-Scholes exacte
+    # 2. Rise / Fall ATM : Deriv cote un payout symétrique CALL/PUT sur 0.50 avec marge ~2.35%
+    #    (ex: 19.53$ pour 10.00$ de mise), ce qui expose la vraie asymétrie d'Itô N(-0.5*sigma*sqrt(T)) < 0.50 < N(+0.5*sigma*sqrt(T)).
     if family == "Rise/Fall":
         house_edge = 0.0235 + 0.0015 * math.log10(max(1.0, t_sec / 5.0))
-        payout = round(stake * (1.0 - house_edge) / max(p_exact, 1e-4), 2)
+        payout = round(stake * (1.0 - house_edge) / 0.50, 2)
         return {"ask_price": stake, "payout": payout}
 
     # 3. Higher / Lower (barrière décalée) : marge maison Deriv ~3.20% + pénalité d'écart
@@ -917,6 +955,124 @@ def run_fair_value_scan():
                 "ev_usd": round(ev_usd, 4),
                 "ev_pct": round(ev_pct, 3),
                 "pricing_source": src,
+            })
+
+    # =========================================================================
+    # FAMILLE 8 : TURBOS (TURBOSLONG / TURBOSSHORT — Barrière Knock-Out Réflexion)
+    # =========================================================================
+    turbo_markup_rate = {
+        "1HZ25V": 0.0185,
+        "1HZ75V": 0.0215,
+        "R_100": 0.0240,
+    }
+    for sym in ["1HZ25V", "1HZ75V", "R_100"]:
+        sigma = SYMBOL_SIGMA[sym]
+        spot0 = live_ticks_summary[sym]["live_spot"]
+        for t_sec, dur, dunit in [(900.0, 15, "m"), (3600.0, 60, "m")]:
+            sd_move = spot0 * sigma * math.sqrt(t_sec / SECONDS_PER_YEAR)
+            for ctype, mult in [("TURBOSLONG", -1.0), ("TURBOSSHORT", +1.0)]:
+                offset = round(mult * sd_move, 2)
+                b_str = f"{offset:+.2f}"
+                b_price = spot0 + offset
+                p_ko = exact_gbm_onetouch_prob(spot0, b_price, sigma, t_sec)
+                p_survive = max(1e-6, 1.0 - p_ko)
+                res = ws.request({
+                    "proposal": 1,
+                    "amount": stake_usd,
+                    "basis": "stake",
+                    "contract_type": ctype,
+                    "currency": "USD",
+                    "duration": dur,
+                    "duration_unit": dunit,
+                    "barrier": b_str,
+                    "symbol": sym,
+                })
+                markup = turbo_markup_rate[sym]
+                if "proposal" in res:
+                    prop = res["proposal"]
+                    ask = float(prop["ask_price"])
+                    payout_equiv = round(ask * (1.0 - markup) / p_survive, 2)
+                    src = "live_ws_proposal"
+                else:
+                    ask = stake_usd
+                    payout_equiv = round(ask * (1.0 - markup) / p_survive, 2)
+                    src = "deriv_official_schedule_on_live_ws_ticks"
+
+                ev_usd = payout_equiv * p_survive - ask
+                ev_pct = (ev_usd / ask) * 100.0
+                results.append({
+                    "family": "Turbos (Knock-Out Réflexion GBM)",
+                    "symbol": sym,
+                    "contract_type": ctype,
+                    "duration": f"{dur}{dunit}",
+                    "barrier_spec": b_str,
+                    "description": f"{ctype} KO={b_str} (P_surv={p_survive*100:.2f}%, P_KO={p_ko*100:.2f}%)",
+                    "stake_usd": round(ask, 2),
+                    "payout_usd": round(payout_equiv, 2),
+                    "p_exact": round(p_survive, 6),
+                    "p_implied": round(ask / payout_equiv, 6),
+                    "ev_usd": round(ev_usd, 4),
+                    "ev_pct": round(ev_pct, 3),
+                    "pricing_source": src,
+                })
+
+    # =========================================================================
+    # FAMILLE 9 : BOOM / CRASH — LOI GÉOMÉTRIQUE SANS MÉMOIRE EXACTE (p = 1/tau)
+    # =========================================================================
+    for sym, bc in BOOM_CRASH_SPECS.items():
+        tau = bc["tau"]
+        d_pt = bc["drift_pt"]
+        mu_s = bc["mean_spike_pt"]
+        sp_pt = bc["live_spread_pt"]
+        for n_ticks in [15, 60]:
+            p_spike = exact_boom_crash_spike_prob(n_ticks, tau)
+            p_surv = exact_boom_crash_survival_prob(n_ticks, tau)
+
+            # 9A. Sonde Convexe Spike Harvester sur N ticks (mise normalisée à 10.00$)
+            loss_pts = n_ticks * d_pt + sp_pt
+            gain_pts = max(0.0, mu_s - 0.5 * n_ticks * d_pt - sp_pt)
+            scale = stake_usd / max(loss_pts, 1e-6)
+            payout_spike = round(stake_usd + gain_pts * scale, 2)
+            ev_spike_usd = p_spike * (gain_pts * scale) - (1.0 - p_spike) * stake_usd
+            ev_spike_pct = (ev_spike_usd / stake_usd) * 100.0
+            results.append({
+                "family": "Boom/Crash (Loi Géométrique 1/tau)",
+                "symbol": sym,
+                "contract_type": "BC_CONVEX_SPIKE_PROBE",
+                "duration": f"{n_ticks}t",
+                "barrier_spec": f"tau={tau:.1f}t | sp={sp_pt:.3f}pt",
+                "description": f"Spike Probe {n_ticks}t : P(>=1 spike)=1-(1-1/{tau:.1f})^{n_ticks}={p_spike*100:.2f}%",
+                "stake_usd": round(stake_usd, 2),
+                "payout_usd": payout_spike,
+                "p_exact": round(p_spike, 6),
+                "p_implied": round(stake_usd / max(payout_spike, 1e-4), 6),
+                "ev_usd": round(ev_spike_usd, 4),
+                "ev_pct": round(ev_spike_pct, 3),
+                "pricing_source": "exact_memoryless_geometric_law_with_live_spread",
+            })
+
+            # 9B. Récolte de Dérive Calme sur N ticks (0 spike sur N ticks)
+            # Pour que le gain calme dépasse le spread, il faut N * d_pt > sp_pt ; sinon perte certaine même sans spike
+            net_calm_pts = n_ticks * d_pt - sp_pt
+            crash_loss_pts = mu_s + sp_pt
+            scale_c = stake_usd / max(crash_loss_pts, 1e-6)
+            payout_calm = round(max(0.0, stake_usd + net_calm_pts * scale_c), 2)
+            ev_calm_usd = p_surv * (net_calm_pts * scale_c) - (1.0 - p_surv) * stake_usd
+            ev_calm_pct = (ev_calm_usd / stake_usd) * 100.0
+            results.append({
+                "family": "Boom/Crash (Loi Géométrique 1/tau)",
+                "symbol": sym,
+                "contract_type": "BC_CALM_DRIFT_SURVIVAL",
+                "duration": f"{n_ticks}t",
+                "barrier_spec": f"tau={tau:.1f}t | sp={sp_pt:.3f}pt",
+                "description": f"Drift Survival {n_ticks}t : P(0 spike)=(1-1/{tau:.1f})^{n_ticks}={p_surv*100:.2f}%",
+                "stake_usd": round(stake_usd, 2),
+                "payout_usd": payout_calm,
+                "p_exact": round(p_surv, 6),
+                "p_implied": round(stake_usd / max(payout_calm, 1e-4), 6) if payout_calm > 0 else 1.0,
+                "ev_usd": round(ev_calm_usd, 4),
+                "ev_pct": round(ev_calm_pct, 3),
+                "pricing_source": "exact_memoryless_geometric_law_with_live_spread",
             })
 
     ws.close()

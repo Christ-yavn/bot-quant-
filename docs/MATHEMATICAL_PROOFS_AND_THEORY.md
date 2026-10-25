@@ -1,5 +1,11 @@
 # MATHEMATICAL FOUNDATIONS, STOCHASTIC MODELING & RIGOROUS THEORETICAL PROOFS
 
+> [!WARNING]
+> **RECTIFICATIF SCIENTIFIQUE POST-AUDIT (25/10/2026) — LIRE [`docs/ETAT_DE_LA_VERITE.md`](ETAT_DE_LA_VERITE.md) EN PREMIER :**
+> Ce document historique est intégralement préservé à titre d'archive. L'audit empirique indépendant sur 6,8 millions de ticks ([`audit_boomcrash_micro.py`](../research/audit_2026-10-25/audit_boomcrash_micro.py)) a démontré que :
+> 1. Les sauts Boom/Crash suivent une **loi géométrique sans mémoire** ($\text{CV} \in [0,96 ; 1,03]$, autocorrélation $\text{ACF}(1) \approx 0$, fonction de hasard plate) : l'hypothèse d'auto-excitation de Hawkes (§3 ci-dessous) et le « lift de hasard $\times 2$ » (§6 ci-dessous) sont **empiriquement réfutés**.
+> 2. En vertu du **Théorème d'Arrêt Optionnel de Doob** sur une martingale sans mémoire, l'espérance mathématique de toute stratégie (v7 ou v8 inversée) vaut exactement $\mathbb{E}[\text{PnL}] = -\text{Spread}_{\text{réel}} \times \text{Lot} < 0$.
+
 ## 1. The Synthetic Jump-Diffusion Process
 Deriv Boom and Crash indices represent synthetic, algorithmically generated asset prices governed by a discrete-time jump-diffusion process:
 

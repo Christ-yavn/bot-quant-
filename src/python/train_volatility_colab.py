@@ -70,10 +70,15 @@ def fetch_mt5_h1_history(symbol: str, max_bars: int = 99999) -> pd.DataFrame:
         raise RuntimeError(f"Aucune barre H1 reçue pour {symbol}: {mt5.last_error()}")
     df = pd.DataFrame(rates)
     df["point"] = float(info.point) if info.point > 0 else 0.01
-    live_spread_price = float(tick.ask - tick.bid) if (tick is not None and tick.ask > tick.bid) else 0.0
     hist_spread_price = df["spread"].values.astype(np.float64) * df["point"].values
-    # Utiliser le max entre le spread barre et le spread live exécutable pour éviter tout biais optimiste
-    df["spread_price"] = np.maximum(hist_spread_price, live_spread_price)
+    # Utiliser le spread historique exact enregistré par MT5 sur chaque barre H1 (proportionnel au niveau de prix de l'époque)
+    # sans plaquer le spread nominal en dollars de 2026 sur les prix de 2020 (fuite du futur / covariate shift).
+    if tick is not None and tick.ask > tick.bid and tick.bid > 0:
+        live_rel_spread = float(tick.ask - tick.bid) / float(tick.bid)
+    else:
+        live_rel_spread = 0.00025
+    fallback_spread_price = df["close"].values.astype(np.float64) * live_rel_spread
+    df["spread_price"] = np.where(hist_spread_price > 0.0, hist_spread_price, fallback_spread_price)
     return df
 
 

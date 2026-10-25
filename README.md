@@ -100,12 +100,12 @@ flowchart TD
 | **Loi Mathématique** | Supposait un « lift de hasard » $\times 2$ | **Théorème de Doob :** $\mathbb{E}[\text{PnL}] = -\text{Spread}_{\text{réel}} \times \text{Lot}$ | Processus géométrique sans mémoire ($\text{CV} \approx 1,0$) |
 
 ### 2. Réparations B1 à B9 Implémentées dans `DerivBoomCrashHFT_v830_Ultimate.mq5`
-1. **B1 — Porte EV Statique & Dynamique Appliquée :** `OpenConvexSpikeProbe()` bloque désormais strictement toute sonde dès que `!tr.ev_gate_pass` ou `tr.last_expected_payoff_usd < InpMinExpectedPayoffUsd`. Avec les spreads live réels, la porte verrouille 10/10 indices (`REFUSE`), protégeant intégralement le capital.
+1. **B1 — Porte EV Statique & Dynamique Appliquée :** `OpenConvexSpikeProbe()` ré-évalue `ComputeSymbolEvGate()` sur le spread live (`GetLiveExecutableSpreadPts`) et bloque strictement toute sonde dès que `!tr.ev_gate_pass` ou `tr.last_expected_payoff_usd < InpMinExpectedPayoffUsd`. Avec les spreads live réels, la porte verrouille 10/10 indices (`REFUSE`), protégeant intégralement le capital.
 2. **B2 — Filtre IA Réellement Bloquant :** Suppression du `MathMax(phys_spike_p0, ...)` et réglage de `InpThetaEffBaseMult = 1.00`.
-3. **B3 & B4 — Alignement des 14 Features ONNX & Échelle Temporelle :** Le vecteur `[1, 14]` transmis à `boom_crash_meta_brain.onnx` correspond exactement aux 14 variables de [`src/models/onnx_model_metadata.json`](src/models/onnx_model_metadata.json) (`InpUseZeroCheatFeatures = false`), et la probabilité de survie à 15 ticks est mise à l'échelle de l'horizon $M^*$ via $P_{\text{spike}}(M^*) = 1 - P_{\text{surv},15}^{M^*/15}$.
+3. **B3 & B4 — Alignement des 14 Features ONNX & Échelle Temporelle :** Le vecteur `[1, 14]` transmis à `boom_crash_meta_brain.onnx` correspond exactement aux 14 variables de [`src/models/onnx_model_metadata.json`](src/models/onnx_model_metadata.json) (`InpUseZeroCheatFeatures = false`), et la probabilité de survie sur l'horizon d'entraînement $H_{\text{train}} = \text{be\_ticks} + 15$ (`out_proba[0][1]`) est mise à l'échelle de l'horizon $M^*$ via $P_{\text{spike}}(M^*) = 1 - P_{\text{surv}, H_{\text{train}}}^{M^* / (\text{be\_ticks} + 15)}$.
 4. **B5 — Stop Temporel en Secondes Serveur :** Remplacement de `GetTickCount64()` (horloge PC) par l'horodatage serveur (`live_pos_tick.time_msc - pos_time_msc` et `TimeCurrent() - POSITION_TIME`).
 5. **B6 — Suivi de Perte Journalière UTC :** Calcul sur `g_day_start_equity` avec réinitialisation automatique à 00:00 UTC.
-6. **B7, B8, B9 — Suppression des Biais Artificiels :** Suppression de `calm_maturity_boost` (sophisme du joueur), suppression du plancher `0.20 * mean_sp`, prise en compte du spread réel dans `loss_usd`, et désactivation par défaut de `InpEnableHawkesClusterEntry`.
+6. **B7, B8, B9 & Curseur `CopyTicks` — Suppression des Biais Artificiels :** Suppression de `calm_maturity_boost` (sophisme du joueur), suppression du plancher `0.20 * mean_sp`, prise en compte du spread réel dans `loss_usd`, désactivation par défaut de `InpEnableHawkesClusterEntry`, et correction de la garde d'horodatage `tick.time_msc < tr.last_time_msc` dans `ProcessSingleTick()`.
 
 ---
 
@@ -123,25 +123,26 @@ Le script [`src/python/train_volatility_colab.py`](src/python/train_volatility_c
 2. `impulse_z` : $|r_{1\text{h, bps}}| / \sigma_{20}$
 3. `direction` : $+1,0$ (BUY) ou $-1,0$ (SELL)
 4. `levy_area` : Aire de Lévy sur la trajectoire normalisée des 20 dernières clôtures H1
-5. `spread_to_atr` : Ratio du vrai spread live sur l'ATR(20) H1 ($\text{spread\_pts} / (\text{atr\_pts} + 10^{-8})$)
+5. `spread_to_atr` : Ratio du spread exact sur l'ATR(20) H1 ($\text{spread\_pts} / (\text{atr\_pts} + 10^{-8})$)
 6. `skew20` : Skewness des rendements H1 sur 20 barres
 7. `kurt20` : Kurtosis des rendements H1 sur 20 barres
 
-| Indice & Horizon | Signaux Totaux (6,3 ans) | Split Chronologique 60 / 20 / 20 | ROC-AUC Validation | ROC-AUC Out-Of-Sample (OOS) | Bilan Statistique OOS |
+| Indice & Horizon | Signaux Totaux (6,3 ans) | Split Chronologique 60 / 20 / 20 | ROC-AUC Validation | ROC-AUC Out-Of-Sample (OOS) | Bilan Statistique OOS (Filtré $P \ge 0,50$) |
 |---|---:|---|---:|---:|---|
-| **Volatility 25 (1s)** ($H=4\text{h}$) | 1 473 | Train: 883 \| Val: 295 \| OOS: 295 | 0,5557 | **0,4340** | Conforme à un GBM sans mémoire ($\text{AUC} \approx 0,50$) |
-| **Volatility 75 (1s)** ($H=3\text{h}$) | 1 562 | Train: 937 \| Val: 312 \| OOS: 313 | 0,4896 | **0,5122** | Conforme à un GBM sans mémoire ($\text{AUC} \approx 0,50$) |
+| **Volatility 25 (1s)** ($H=4\text{h}$) | 1 473 | Train: 883 \| Val: 295 \| OOS: 295 | 0,5733 | **0,4666** | WR $55,6\%$, PF $1,31$, Net $+5,47\text{ bps}$ ($t = +1,23 < 1,96$, non significatif sous GBM) |
+| **Volatility 75 (1s)** ($H=3\text{h}$) | 1 562 | Train: 937 \| Val: 312 \| OOS: 313 | 0,5416 | **0,5212** | WR $50,0\%$, PF $0,95$, Net $-3,11\text{ bps}$ ($t = -0,11$, conforme à un GBM sans mémoire) |
 
 ---
 
 ## 🧮 TRACK 3 : SCANNER DE JUSTE VALEUR DES CONTRATS DERIV (WEBSOCKET LIVE)
 
-Le script [`src/python/deriv_fair_value_scanner.py`](src/python/deriv_fair_value_scanner.py) interroge en direct l'API WebSocket de Deriv (`wss://ws.derivws.com/websockets/v3?app_id=1089`) et évalue l'espérance mathématique exacte $\text{EV} = \text{Payout} \times P_{\text{exact}} - \text{Stake}$ de chaque contrat à partir des lois génératrices vérifiées :
-- **Digits (`DIGITMATCH`, `DIGITDIFF`, `DIGITEVEN`, `DIGITODD`, `DIGITOVER`, `DIGITUNDER`) :** Loi uniforme discrète exacte sur $\{0..9\}$.
-- **Rise/Fall & Higher/Lower (`CALL`, `PUT`) :** Loi log-normale exacte sous GBM martingale $P_{\text{CALL}} = \Phi(d_2)$.
-- **Touch / No Touch (`ONETOUCH`, `NOTOUCH`) :** Principe de réflexion exact pour mouvement brownien avec dérive $\nu = -\frac{1}{2}\sigma^2$.
-- **Ends Between / Outside (`EXPIRYRANGE`, `EXPIRYMISS`) & Accumulators (`ACCU`) & Multipliers (`MULTUP`, `MULTDOWN`) :** Formules fermées exactes.
-- Rapport complet disponible dans [`docs/RAPPORT_SCANNER_EV_CONTRATS_DERIV.md`](docs/RAPPORT_SCANNER_EV_CONTRATS_DERIV.md) et [`research/audit_2026-10-25/deriv_contracts_ev_report.json`](research/audit_2026-10-25/deriv_contracts_ev_report.json).
+Le script [`src/python/deriv_fair_value_scanner.py`](src/python/deriv_fair_value_scanner.py) interroge en direct l'API WebSocket de Deriv (`wss://ws.derivws.com/websockets/v3?app_id=1089`, repli automatique `red.derivws.com`) et évalue l'espérance mathématique exacte $\text{EV} = \text{Payout} \times P_{\text{exact}} - \text{Stake}$ de **349 contrats** répartis en **9 familles** à partir des lois génératrices vérifiées :
+- **Digits (`DIGITMATCH`, `DIGITDIFF`, `DIGITEVEN`, `DIGITODD`, `DIGITOVER`, `DIGITUNDER`) :** Loi uniforme discrète exacte sur $\{0..9\}$ ($\text{EV} \in [-9,09\% ; -1,09\%]$).
+- **Rise/Fall & Higher/Lower (`CALL`, `PUT`) :** Loi log-normale exacte sous GBM martingale $P_{\text{CALL}} = \Phi(d_2)$ ($\text{EV} \in [-5,03\% ; -0,98\%]$).
+- **Touch / No Touch (`ONETOUCH`, `NOTOUCH`) & Turbos (`TURBOSLONG`, `TURBOSSHORT`) :** Principe de réflexion exact pour mouvement brownien avec dérive $\nu = -\frac{1}{2}\sigma^2$ ($\text{EV} \in [-4,16\% ; -1,85\%]$).
+- **Ends Between / Outside (`EXPIRYRANGE`, `EXPIRYMISS`), Accumulators (`ACCU`) & Multipliers (`MULTUP`, `MULTDOWN`) :** Formules fermées exactes ($\text{EV} \in [-3,94\% ; -0,45\%]$).
+- **Boom / Crash (Loi Géométrique Sans Mémoire $1/\tau$) :** $P(\text{Spike en } N) = 1 - (1 - 1/\tau)^N$ et $P(\text{Survie en } N) = (1 - 1/\tau)^N$ ($\text{EV} \in [-87,75\% ; -7,28\%]$).
+- **Verdict global : `0 / 349` contrats à $\text{EV} > 0$.** Rapport complet dans [`docs/RAPPORT_SCANNER_EV_CONTRATS_DERIV.md`](docs/RAPPORT_SCANNER_EV_CONTRATS_DERIV.md) et [`research/audit_2026-10-25/deriv_contracts_ev_report.json`](research/audit_2026-10-25/deriv_contracts_ev_report.json).
 
 ---
 

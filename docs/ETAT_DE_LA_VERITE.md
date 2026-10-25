@@ -46,25 +46,25 @@ Conformément à la politique d'archivage immuable du projet, **aucun fichier hi
 
 | ID | Hypothèse | Statut | Résultat Empirique Live (`wss://ws.derivws.com/websockets/v3?app_id=1089`) | Script de Preuve |
 |---|---|---|---|---|
-| **S1** | **Existence d'anomalies de tarification ($\text{EV} > 0$) sur les contrats à paiement fixé de Deriv** (Digits, Rise/Fall, Higher/Lower, Touch/No Touch, Ends Between/Outside, Accumulators, Multipliers) | ❌ **RÉFUTÉ (0 / 305 contrats à EV > 0)** | Sur **305 contrats** évalués à travers les **7 familles** (et **40 000 ticks live** vérifiés sur `wss://red.derivws.com/websockets/v3?app_id=1089`), **0 contrat sur 305** n'a une espérance positive : $\text{EV}_{\text{moy}} = \mathbf{-3,285\%}$ (de $-0,450\%$ sur Multipliers `1HZ25V` à $-9,090\%$ sur `DIGITMATCH`). Voir [`docs/RAPPORT_SCANNER_EV_CONTRATS_DERIV.md`](RAPPORT_SCANNER_EV_CONTRATS_DERIV.md) et [`deriv_contracts_ev_report.json`](../research/audit_2026-10-25/deriv_contracts_ev_report.json). | [`src/python/deriv_fair_value_scanner.py`](../src/python/deriv_fair_value_scanner.py) |
+| **S1** | **Existence d'anomalies de tarification ($\text{EV} > 0$) sur les contrats à paiement fixé de Deriv** (Digits, Rise/Fall, Higher/Lower, Touch/No Touch, Ends Between/Outside, Accumulators, Multipliers, Turbos, Boom/Crash $1/\tau$) | ❌ **RÉFUTÉ (0 / 349 contrats à EV > 0)** | Sur **349 contrats** évalués à travers les **9 familles** (et **40 000 ticks live** vérifiés sur `wss://red.derivws.com/websockets/v3?app_id=1089`), **0 contrat sur 349** n'a une espérance positive : $\text{EV}_{\text{moy}} = \mathbf{-6,582\%}$ (de $-0,450\%$ sur Multipliers `1HZ25V` à $-87,752\%$ sur Boom/Crash 15 ticks). Voir [`docs/RAPPORT_SCANNER_EV_CONTRATS_DERIV.md`](RAPPORT_SCANNER_EV_CONTRATS_DERIV.md) et [`deriv_contracts_ev_report.json`](../research/audit_2026-10-25/deriv_contracts_ev_report.json). | [`src/python/deriv_fair_value_scanner.py`](../src/python/deriv_fair_value_scanner.py) |
 
 ---
 
 ## 🛠️ 2. Registre des Réparations Techniques Appliquées (25/10/2026)
 
-### 2.1 Verrouillage et Réparation de `src/mql5/DerivBoomCrashHFT_v830_Ultimate.mq5` (Défauts B1 à B9)
+### 2.1 Verrouillage et Réparation de `src/mql5/DerivBoomCrashHFT_v830_Ultimate.mq5` (Défauts B1 à B9 + Curseur `CopyTicks`)
 
 | Défaut | Problème Identifié lors de l'Audit | Correction Implémentée et Compilée (`0 error, 0 warning`) |
 |---|---|---|
-| **B1** | `tr.ev_gate_pass` calculé dans `ComputeSymbolEvGate()` mais jamais vérifié dans `OpenConvexSpikeProbe()`. | Ajout de `if(InpEnableStaticEvGate && !tr.ev_gate_pass) return false;` en tête de `OpenConvexSpikeProbe()` + activation par défaut de `InpEnforcePositivePayoffLock = true` (`InpMinExpectedPayoffUsd = 0.01`). Avec les spreads live réels, **10/10 indices sont verrouillés** (`REFUSE`), empêchant toute perte certaine. |
+| **B1** | `tr.ev_gate_pass` calculé dans `ComputeSymbolEvGate()` mais jamais vérifié dans `OpenConvexSpikeProbe()`. | Ré-évaluation de `ComputeSymbolEvGate(tr, tr.name, false)` et blocage strict `if(InpEnableStaticEvGate && !tr.ev_gate_pass) return false;` dans `OpenConvexSpikeProbe()` + `InpEnforcePositivePayoffLock = true` (`InpMinExpectedPayoffUsd = 0.01`) + plancher de spread live vérifié (`GetLiveExecutableSpreadPts`). **10/10 indices sont verrouillés** (`REFUSE`). |
 | **B2** | `theta_eff = 0,90 * base_p0` et `spike_prob = MathMax(phys_spike_p0, ...)` empêchaient tout blocage par le filtre IA. | Suppression du `MathMax(phys_spike_p0, ...)` lors de la fusion ONNX et passage de `InpThetaEffBaseMult` à `1.00` pour que toute baisse de probabilité prédite sous `theta_eff` bloque réellement la sonde. |
 | **B3** | `InpUseZeroCheatFeatures=true` envoyait un vecteur de 14 features incompatible avec `boom_crash_meta_brain.onnx`. | Alignement strict du vecteur `x[0][0..13]` sur les 14 features exactes de `src/models/onnx_model_metadata.json` (`InpUseZeroCheatFeatures = false`). |
-| **B4** | `boom_crash_meta_brain.onnx` prédit la survie sur 15 ticks ($P_{\text{surv},15}$), utilisée sans mise à l'échelle pour $M^*=60$ ticks. | Conversion mathématique exacte vers l'horizon $M^*$ : $P_{\text{spike}}(M^*) = 1 - (P_{\text{surv},15})^{M^* / 15}$. |
+| **B4** | `boom_crash_meta_brain.onnx` prédit la survie de dérive sur $H_{\text{train}} = \text{be\_ticks} + 15$ ticks (`out_proba[0][1]`), utilisée sans mise à l'échelle correcte pour $M^*=60$ ticks. | Conversion mathématique exacte vers l'horizon $M^*$ : $P_{\text{spike}}(M^*) = 1 - (P_{\text{surv}, H_{\text{train}}})^{M^* / (\text{be\_ticks} + 15)}$. |
 | **B5** | Stop temporel en secondes inopérant (`GetTickCount64()` comparé à `POSITION_TIME_MSC`). | Calcul de `elapsed_sec` à partir des horodatages epoch serveur (`live_pos_tick.time_msc - pos_time_msc` et repli `TimeCurrent() - POSITION_TIME`). |
 | **B6** | Perte journalière calculée depuis `g_initial_equity` au lieu du début de journée UTC. | Initialisation et rollover quotidien UTC de `g_day_start_equity` dans `OnInit()` et `ScanAllBoomCrashSymbols()`. |
 | **B7** | Sophisme du joueur codé en dur via `calm_maturity_boost`. | Suppression complète de `calm_maturity_boost` ($p_0 = 1 - \exp(-M^*/\tau)$). |
 | **B8** | Plancher artificiel `0,20 * mean_sp` sur le gain de spike et oubli du spread dans la perte time-stop. | Suppression du plancher `0,20 * mean_sp` (`MathMax(0.0, mean_sp - 0.5*horizon*drift - real_spread_pts)`) et inclusion du coût du spread réel dans `loss_usd`. |
-| **B9** | Ré-entrée « cluster Hawkes » activée par défaut alors que $\text{ACF}(1) \approx 0$. | Désactivation par défaut (`InpEnableHawkesClusterEntry = false`) et suppression de `hawkes_boost`. |
+| **B9** | Ré-entrée « cluster Hawkes » activée par défaut alors que $\text{ACF}(1) \approx 0$. | Désactivation par défaut (`InpEnableHawkesClusterEntry = false`), suppression de `hawkes_boost`, et correction de la garde d'horodatage du curseur `CopyTicks` (`tick.time_msc < tr.last_time_msc`). |
 
 ### 2.2 Réalignement et Ré-entraînement Chronologique de `c2_vol_filter.onnx` & `Deriv_VolSqueeze_Breakout_EA_v3.mq5`
 

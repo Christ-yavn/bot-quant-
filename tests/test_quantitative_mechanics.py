@@ -126,5 +126,27 @@ class TestQuantitativeMechanics(unittest.TestCase):
         self.assertIn('NormalizeDouble(req.price + tp_depth, digits)', v8_content, 'BUY TP must be normalized from req.price')
         self.assertIn('NormalizeDouble(req.price - tp_depth, digits)', v8_content, 'SELL TP must be normalized from req.price')
 
+    def test_v830_b1_b9_and_fair_value_closed_form_laws(self):
+        """Vérifie les correctifs B1-B9 de v8.30, l'alignement 7-features de v3.10 et les lois fermées du scanner."""
+        repo_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+        py_dir = os.path.join(repo_root, 'src', 'python')
+        if py_dir not in sys.path:
+            sys.path.insert(0, py_dir)
+        import deriv_fair_value_scanner as dfvs
+
+        v830_path = os.path.join(repo_root, 'src', 'mql5', 'DerivBoomCrashHFT_v830_Ultimate.mq5')
+        with open(v830_path, 'r', encoding='utf-8') as f:
+            v830 = f.read()
+        self.assertIn('GetLiveExecutableSpreadPts(', v830)
+        self.assertIn('tick.time_msc < tr.last_time_msc', v830)
+        self.assertIn('MathPow(surv_train, horizon / train_horizon_ticks)', v830)
+        self.assertIn('if(InpEnableStaticEvGate && !tr.ev_gate_pass)', v830)
+
+        # Conservation des probabilités GBM et Géométriques sans mémoire (1/tau)
+        for tau in [500.0, 1000.0]:
+            p_sp = dfvs.exact_boom_crash_spike_prob(60, tau)
+            p_su = dfvs.exact_boom_crash_survival_prob(60, tau)
+            self.assertAlmostEqual(p_sp + p_su, 1.0, places=12)
+
 if __name__ == '__main__':
     unittest.main()

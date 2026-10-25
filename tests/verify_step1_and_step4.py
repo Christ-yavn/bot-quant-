@@ -111,35 +111,37 @@ def step_1c_adversarial_tests():
     assert "if(InpEnableStaticEvGate && !tr.ev_gate_pass)" in exec_lines, "B1 Fix missing!"
     assert "calm_maturity_boost" not in exec_lines, "B7 calm_maturity_boost still active!"
     assert "0.20 * mean_sp" not in exec_lines, "B8 0.20 * mean_sp floor still active!"
-    assert "MathPow(surv_15, horizon / 15.0)" in exec_lines, "B4 15-tick survival scaling missing!"
+    assert "MathPow(surv_train, horizon / train_horizon_ticks)" in exec_lines, "B4 be_ticks+15 survival scaling missing!"
     assert "MathMax(phys_spike_p0, 0.50" not in exec_lines, "B2 MathMax clamp still blocking ONNX filter!"
     assert "live_pos_tick.time_msc - pos_time_msc" in exec_lines, "B5 epoch seconds time-stop fix missing!"
     assert "g_day_start_equity = eq;" in exec_lines, "B6 daily drawdown rollover missing!"
     assert "input bool   InpEnableHawkesClusterEntry    = false;" in exec_lines, "B9 Hawkes cluster default not false!"
+    assert "tick.time_msc < tr.last_time_msc" in exec_lines, "CopyTicks cursor timestamp guard still using <= and dropping ticks!"
+    assert "GetLiveExecutableSpreadPts(" in exec_lines, "Live executable spread floor missing!"
     passed += 1
-    print("  [PASS 1/5] All B1..B9 structural & mathematical fixes verified in DerivBoomCrashHFT_v830_Ultimate.mq5.")
+    print("  [PASS 1/5] All B1..B9 structural, CopyTicks cursor & live spread floor fixes verified in DerivBoomCrashHFT_v830_Ultimate.mq5.")
 
     # Test 2: Simulate Static & Dynamic EV Gate on all 10 Boom/Crash symbols with live MT5 spreads
     import MetaTrader5 as mt5
     mt5.initialize()
     table = [
-        ("Boom 1000 Index", 0.01551, 17.015, 1066.6),
-        ("Crash 1000 Index", 0.00636, 5.887, 961.0),
-        ("Boom 900 Index", 0.00972, 8.865, 911.4),
-        ("Crash 900 Index", 0.01900, 17.314, 907.3),
-        ("Boom 600 Index", 0.00894, 5.155, 586.5),
-        ("Crash 600 Index", 0.03773, 22.904, 571.5),
-        ("Boom 500 Index", 0.01128, 5.825, 486.9),
-        ("Crash 500 Index", 0.00623, 2.991, 480.0),
-        ("Boom 300 Index", 0.00414, 1.324, 289.3),
-        ("Crash 300 Index", 0.02080, 6.863, 297.3),
+        ("Boom 1000 Index", 0.01551, 17.015, 1066.6, 1.7215),
+        ("Crash 1000 Index", 0.00636, 5.887, 961.0, 0.5422),
+        ("Boom 900 Index", 0.00972, 8.865, 911.4, 0.9620),
+        ("Crash 900 Index", 0.01900, 17.314, 907.3, 1.3560),
+        ("Boom 600 Index", 0.00894, 5.155, 586.5, 0.7730),
+        ("Crash 600 Index", 0.03773, 22.904, 571.5, 3.2810),
+        ("Boom 500 Index", 0.01128, 5.825, 486.9, 0.5270),
+        ("Crash 500 Index", 0.00623, 2.991, 480.0, 0.3270),
+        ("Boom 300 Index", 0.00414, 1.324, 289.3, 0.5030),
+        ("Crash 300 Index", 0.02080, 6.863, 297.3, 1.1130),
     ]
     M = 60.0
     lot = 0.20
-    for sym, drift, mean_sp, tau in table:
+    for sym, drift, mean_sp, tau, min_live_sp in table:
         mt5.symbol_select(sym, True)
         t = mt5.symbol_info_tick(sym)
-        sp = (t.ask - t.bid) if (t and t.ask > t.bid) else 20.0 * drift
+        sp = max(min_live_sp, (t.ask - t.bid) if (t and t.ask > t.bid) else min_live_sp)
         p0 = 1.0 - math.exp(-M / tau)
         L_pts = M * drift + sp
         G_pts = max(0.0, mean_sp - 0.5 * M * drift - sp)
@@ -149,17 +151,27 @@ def step_1c_adversarial_tests():
     passed += 1
     print("  [PASS 2/5] EV Gate simulation on all 10 Boom/Crash symbols with live spreads: 10/10 REFUSED (0 false entries).")
 
-    # Test 3: Verify boom_crash_meta_brain.onnx inference with exact 14 metadata features
+    # Test 3: Verify boom_crash_meta_brain.onnx inference with exact 14 metadata features & out_proba[0][1]
     bc_onnx = os.path.join(REPO_ROOT, "src", "models", "boom_crash_meta_brain.onnx")
     bc_meta = json.load(open(os.path.join(REPO_ROOT, "src", "models", "onnx_model_metadata.json"), "r"))
     assert len(bc_meta["feature_names"]) == 14
     sess_bc = ort.InferenceSession(bc_onnx)
-    x_bc = np.array([[5.0, 0.0, 1.0, 1.0, 1.0, 1.0, 0.5, 0.8, 1.2, 1.0, 1.0, 1.0, 86.9, 0.15]], dtype=np.float32)
+    be_ticks_test = 86.9
+    x_bc = np.array([[5.0, 0.0, 1.0, 1.0, 1.0, 1.0, 0.5, 0.8, 1.2, 1.0, 1.0, 1.0, be_ticks_test, 0.15]], dtype=np.float32)
     out_bc = sess_bc.run(None, {sess_bc.get_inputs()[0].name: x_bc})
-    raw_surv = float(np.array(out_bc[0]).flatten()[0])
-    assert 0.0 <= raw_surv <= 1.0, f"Invalid ONNX survival output: {raw_surv}"
+    assert len(out_bc) >= 2 and out_bc[1].shape == (1, 2), f"Expected 2 outputs with [1,2] proba tensor, got: {[o.shape for o in out_bc]}"
+    raw_surv = float(out_bc[1][0, 1])
+    assert 0.0 < raw_surv < 1.0, f"Invalid ONNX survival probability: {raw_surv}"
+    train_horizon_ticks = max(15.0, be_ticks_test + 15.0)
+    onnx_spike_p60 = 1.0 - (raw_surv ** (60.0 / train_horizon_ticks))
+    phys_p0_crash600 = 1.0 - math.exp(-60.0 / 571.5)
+    fused_p0 = 0.50 * phys_p0_crash600 + 0.50 * onnx_spike_p60
+    assert fused_p0 < phys_p0_crash600, f"B2/B4 failed: high survival ({raw_surv:.4f}) did not reduce spike_prob ({fused_p0:.4f} >= {phys_p0_crash600:.4f})"
     passed += 1
-    print(f"  [PASS 3/5] boom_crash_meta_brain.onnx [1, 14] inference verified (P_surv_15t={raw_surv:.4f} -> P_spike_60t={1.0 - raw_surv**4:.4f}).")
+    print(
+        f"  [PASS 3/5] boom_crash_meta_brain.onnx [1, 14] -> out_proba[0,1]={raw_surv:.4f} "
+        f"(P_spike_60t={onnx_spike_p60:.4f} < base_p0={phys_p0_crash600:.4f} -> B2/B4 blocks trade)."
+    )
 
     # Test 4: Verify c2_vol_filter.onnx [1, 7] inference on nominal + extreme edge cases
     vol_onnx = os.path.join(REPO_ROOT, "src", "models", "c2_vol_filter.onnx")
@@ -180,7 +192,7 @@ def step_1c_adversarial_tests():
     passed += 1
     print("  [PASS 4/5] c2_vol_filter.onnx [1, 7] -> ([1], [1, 2]) verified across nominal, boundary & extreme inputs.")
 
-    # Test 5: Verify closed-form mathematical probability conservation laws for the Fair-Value Scanner
+    # Test 5: Verify closed-form mathematical probability conservation laws for the Fair-Value Scanner (GBM, Reflection, Geometric 1/tau)
     for s0 in [100.0, 1500.0]:
         for sigma in [0.25, 0.75]:
             for t_sec in [60.0, 3600.0, 86400.0]:
@@ -196,8 +208,13 @@ def step_1c_adversarial_tests():
                         assert p_ot >= p_call - 1e-12
                     elif k < s0:
                         assert p_ot >= p_put - 1e-12
+    for tau in [300.0, 500.0, 600.0, 900.0, 1000.0]:
+        for n_ticks in [1, 15, 60, 300]:
+            p_sp = dfvs.exact_boom_crash_spike_prob(n_ticks, tau)
+            p_su = dfvs.exact_boom_crash_survival_prob(n_ticks, tau)
+            assert abs((p_sp + p_su) - 1.0) < 1e-12
     passed += 1
-    print(f"  [PASS 5/5] Closed-form GBM & Reflection Principle invariants verified ({passed}/{total} Proxy Fitness score = 100%).")
+    print(f"  [PASS 5/5] Closed-form GBM, Reflection Principle & Geometric (1/tau) invariants verified ({passed}/{total} Proxy Fitness score = 100%).")
 
 
 if __name__ == "__main__":

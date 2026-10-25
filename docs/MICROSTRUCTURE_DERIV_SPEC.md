@@ -1,5 +1,17 @@
 # DERIV SYNTHETIC MARKET MICROSTRUCTURE SPECIFICATION
 
+> [!WARNING]
+> **RECTIFICATIF SCIENTIFIQUE POST-AUDIT (25/10/2026) — LIRE [`docs/ETAT_DE_LA_VERITE.md`](ETAT_DE_LA_VERITE.md) EN PREMIER :**
+> Ce document historique est intégralement préservé à titre d'archive. Les mesures directes sur 648 trades live v8 ([`forensic_v8_live.py`](../research/audit_2026-10-25/forensic_v8_live.py)) et [`real_live_spreads_mt5.json`](../src/python/colab_ai/real_live_spreads_mt5.json) ont établi les **vrais spreads d'exécution live (`SymbolInfoTick`)** et les vraies vitesses de dérive sur 6,8M ticks :
+> - `Boom 1000` : Spread live $= \mathbf{1,7215\text{ pts}}$ ($d = 0,01551\text{ pt/t} \implies 111,0\text{ ticks}$ de breakeven, contre $0,159\text{ pt}$ dans `CopyTicks`).
+> - `Crash 1000` : Spread live $= \mathbf{0,5422\text{ pt}}$ ($d = 0,00636\text{ pt/t} \implies 85,3\text{ ticks}$ de breakeven).
+> - `Boom 900` : Spread live $= \mathbf{0,9620\text{ pt}}$ ($d = 0,00972\text{ pt/t} \implies 99,0\text{ ticks}$ de breakeven).
+> - `Crash 900` : Spread live $= \mathbf{1,3560\text{ pts}}$ ($d = 0,01900\text{ pt/t} \implies 71,4\text{ ticks}$ de breakeven, contre $0,193\text{ pt}$ dans `CopyTicks`).
+> - `Boom 600` : Spread live $= \mathbf{0,7730\text{ pt}}$ ($d = 0,00894\text{ pt/t} \implies 86,5\text{ ticks}$ de breakeven).
+> - `Crash 600` : Spread live $= \mathbf{3,2810\text{ pts}}$ ($d = 0,03773\text{ pt/t} \implies 87,0\text{ ticks}$ de breakeven, contre $0,297\text{ pt}$ dans `CopyTicks`).
+> - `Boom 500` : Spread live $= \mathbf{0,5270\text{ pt}}$ ($d = 0,01128\text{ pt/t} \implies 46,7\text{ ticks}$ de breakeven).
+> - `Crash 500` : Spread live $= \mathbf{0,3270\text{ pt}}$ ($d = 0,00623\text{ pt/t} \implies 52,5\text{ ticks}$ de breakeven).
+
 ## 1. Tick Stream Dynamics
 * **Tick Frequency:** Exactly 1 tick per second on standard series; 1 tick per second on (1s) series.
 * **Granularity:** Fixed price increment per tick during calm drift periods:

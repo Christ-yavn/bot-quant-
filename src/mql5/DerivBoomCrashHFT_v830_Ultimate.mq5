@@ -436,10 +436,11 @@ double EvaluateConvexSpikeProbability(SymbolTracker &tr, int &out_c60)
 
       if(raw_onnx >= 0.0 && raw_onnx <= 1.0)
       {
-         // Fix B4 : boom_crash_meta_brain.onnx prédit P(Survie de dérive sur 15 ticks).
-         // Conversion à l'horizon M* ticks : P(Spike en M* ticks) = 1 - P(Survie 15t)^(M*/15).
-         double surv_15      = MathMax(1e-6, MathMin(1.0, raw_onnx));
-         double onnx_spike_p = InpOnnxOutputsSurvivalProb ? (1.0 - MathPow(surv_15, horizon / 15.0)) : raw_onnx;
+         // Fix B4 : boom_crash_meta_brain.onnx prédit P(Survie de dérive sur be_ticks + 15 ticks).
+         // Conversion à l'horizon M* ticks : P(Spike en M* ticks) = 1 - P(Survie H_train)^(M* / (be_ticks + 15)).
+         double train_horizon_ticks = MathMax(15.0, be_ticks + 15.0);
+         double surv_train          = MathMax(1e-6, MathMin(1.0, raw_onnx));
+         double onnx_spike_p        = InpOnnxOutputsSurvivalProb ? (1.0 - MathPow(surv_train, horizon / train_horizon_ticks)) : raw_onnx;
          // Fix B2 : Fusion Bayésienne sans MathMax(phys_spike_p0, ...) afin que l'IA puisse réduire spike_prob et bloquer.
          spike_prob = MathMax(0.0, MathMin(0.95, 0.50 * phys_spike_p0 + 0.50 * onnx_spike_p));
       }
@@ -471,12 +472,46 @@ ENUM_ORDER_TYPE_FILLING GetSupportedFillingMode(const string sym)
 }
 
 //+------------------------------------------------------------------+
+//| Plancher de Spread Live Vérifié (real_live_spreads_mt5.json)     |
+//| Empêche CopyTicks ou le Strategy Tester de sous-estimer d'un     |
+//| facteur 10x le spread d'exécution réel facturé par Deriv.        |
+//+------------------------------------------------------------------+
+double GetVerifiedMinLiveSpreadPts(const string sym, double fallback_drift)
+{
+   string s = sym;
+   StringToLower(s);
+   if(StringFind(s, "boom 1000") >= 0)  return 1.7215;
+   if(StringFind(s, "crash 1000") >= 0) return 0.5422;
+   if(StringFind(s, "boom 900") >= 0)   return 0.9620;
+   if(StringFind(s, "crash 900") >= 0)  return 1.3560;
+   if(StringFind(s, "boom 600") >= 0)   return 0.7730;
+   if(StringFind(s, "crash 600") >= 0)  return 3.2810;
+   if(StringFind(s, "boom 500") >= 0)   return 0.5270;
+   if(StringFind(s, "crash 500") >= 0)  return 0.3270;
+   if(StringFind(s, "boom 300") >= 0)   return 0.5030;
+   if(StringFind(s, "crash 300") >= 0)  return 1.1130;
+   return 20.0 * MathMax(fallback_drift, 1e-5);
+}
+
+double GetLiveExecutableSpreadPts(const string sym, double fallback_drift)
+{
+   double min_live_spread = GetVerifiedMinLiveSpreadPts(sym, fallback_drift);
+   MqlTick live_t;
+   if(SymbolInfoTick(sym, live_t) && live_t.ask > live_t.bid)
+      return MathMax(min_live_spread, live_t.ask - live_t.bid);
+   return min_live_spread;
+}
+
+//+------------------------------------------------------------------+
 //| Porte d'Espérance Mathématique Statique (Fable Core - Fix B1)    |
 //| Évaluée au démarrage et ré-appliquée strictement avant chaque    |
 //| ouverture de sonde dans OpenConvexSpikeProbe().                  |
 //+------------------------------------------------------------------+
-void ComputeSymbolEvGate(SymbolTracker &tr, const string sym)
+void ComputeSymbolEvGate(SymbolTracker &tr, const string sym, bool log_gate = true)
 {
+   tr.real_spread_pts = GetLiveExecutableSpreadPts(sym, tr.abs_drift_per_tick);
+   tr.breakeven_ticks = tr.real_spread_pts / MathMax(tr.abs_drift_per_tick, 1e-8);
+
    double tick_val  = SymbolInfoDouble(sym, SYMBOL_TRADE_TICK_VALUE);
    double tick_size = SymbolInfoDouble(sym, SYMBOL_TRADE_TICK_SIZE);
    if(tick_size <= 0.0) tick_size = SymbolInfoDouble(sym, SYMBOL_POINT);
@@ -496,9 +531,12 @@ void ComputeSymbolEvGate(SymbolTracker &tr, const string sym)
 
    tr.ev_gate_pass = (!InpEnableStaticEvGate) || (tr.ev_usd_est >= InpMinEvUsd);
 
-   PrintFormat("[DerivBoomCrashHFT v8.30 EV GATE] %s : p0(60t)=%.2f%% | Gain~+%.2f$ | Perte~-%.2f$ | EV=%.4f$ -> %s",
-               tr.name, p0 * 100.0, tr.gain_usd_est, tr.loss_usd_est, tr.ev_usd_est,
-               tr.ev_gate_pass ? "VALIDE (Trade Autorise)" : "REFUSE (EV Insuffisante - Sonde Verrouillee)");
+   if(log_gate)
+   {
+      PrintFormat("[DerivBoomCrashHFT v8.30 EV GATE] %s : p0(60t)=%.2f%% | Gain~+%.2f$ | Perte~-%.2f$ | EV=%.4f$ -> %s",
+                  tr.name, p0 * 100.0, tr.gain_usd_est, tr.loss_usd_est, tr.ev_usd_est,
+                  tr.ev_gate_pass ? "VALIDE (Trade Autorise)" : "REFUSE (EV Insuffisante - Sonde Verrouillee)");
+   }
 }
 
 //+------------------------------------------------------------------+
@@ -578,68 +616,43 @@ void InitAndCalibrateTracker(SymbolTracker &tr, const string sym)
 
    tr.last_spike_amp = tr.mean_spike_pts;
 
+   // Pré-chauffage de l'historique des spikes et de la dérive calme sur 5 000 ticks
+   // sans écraser les paramètres structurels vérifiés sur 6.8M ticks (identité martingale mu_S = tau * d).
    MqlTick ticks[];
    int copied = CopyTicks(sym, ticks, COPY_TICKS_ALL, 0, 5000);
    if(copied > 200)
    {
-      double sum_drift = 0.0;
-      int    cnt_drift = 0;
+      int last_sp_i = 0;
       for(int i = 1; i < copied; i++)
       {
          double p0 = (ticks[i-1].last > 0.0) ? ticks[i-1].last : 0.5 * (ticks[i-1].bid + ticks[i-1].ask);
          double p1 = (ticks[i].last > 0.0)   ? ticks[i].last   : 0.5 * (ticks[i].bid + ticks[i].ask);
          double d  = p1 - p0;
-         if((tr.is_boom && d < 0.0) || (!tr.is_boom && d > 0.0))
+         if((tr.is_boom && d > 3.5 * tr.abs_drift_per_tick) || (!tr.is_boom && d < -3.5 * tr.abs_drift_per_tick))
          {
-            sum_drift += MathAbs(d);
-            cnt_drift++;
-         }
-      }
-      if(cnt_drift > 100)
-      {
-         double live_drift = sum_drift / cnt_drift;
-         double sum_spike  = 0.0;
-         int    cnt_spike  = 0;
-         int    last_sp_i  = 0;
-         for(int i = 1; i < copied; i++)
-         {
-            double p0 = (ticks[i-1].last > 0.0) ? ticks[i-1].last : 0.5 * (ticks[i-1].bid + ticks[i-1].ask);
-            double p1 = (ticks[i].last > 0.0)   ? ticks[i].last   : 0.5 * (ticks[i].bid + ticks[i].ask);
-            double d  = p1 - p0;
-            if((tr.is_boom && d > 3.5 * live_drift) || (!tr.is_boom && d < -3.5 * live_drift))
-            {
-               sum_spike += MathAbs(d);
-               cnt_spike++;
-               last_sp_i = i;
-               tr.last_spike_amp = MathAbs(d);
+            last_sp_i = i;
+            tr.last_spike_amp = MathAbs(d);
 
-               long rel_tick = (long)(i - copied);
-               if(tr.spike_history_count < 32)
+            long rel_tick = (long)(i - copied);
+            if(tr.spike_history_count < 32)
+            {
+               tr.spike_history_ticks[tr.spike_history_count] = rel_tick;
+               tr.spike_history_amps[tr.spike_history_count]  = MathAbs(d);
+               tr.spike_history_count++;
+            }
+            else
+            {
+               for(int m = 0; m < 31; m++)
                {
-                  tr.spike_history_ticks[tr.spike_history_count] = rel_tick;
-                  tr.spike_history_amps[tr.spike_history_count]  = MathAbs(d);
-                  tr.spike_history_count++;
+                  tr.spike_history_ticks[m] = tr.spike_history_ticks[m+1];
+                  tr.spike_history_amps[m]  = tr.spike_history_amps[m+1];
                }
-               else
-               {
-                  for(int m = 0; m < 31; m++)
-                  {
-                     tr.spike_history_ticks[m] = tr.spike_history_ticks[m+1];
-                     tr.spike_history_amps[m]  = tr.spike_history_amps[m+1];
-                  }
-                  tr.spike_history_ticks[31] = rel_tick;
-                  tr.spike_history_amps[31]  = MathAbs(d);
-               }
+               tr.spike_history_ticks[31] = rel_tick;
+               tr.spike_history_amps[31]  = MathAbs(d);
             }
          }
-         tr.abs_drift_per_tick = live_drift;
-         tr.calm_drift_ticks   = (long)(copied - 1 - last_sp_i);
-         if(cnt_spike >= 3)
-         {
-            tr.mean_spike_pts = sum_spike / cnt_spike;
-            tr.calib_source   = "LIVE_5K_V8";
-         }
       }
+      tr.calm_drift_ticks = (long)(copied - 1 - last_sp_i);
       for(int r = 0; r < 4; r++)
       {
          int idx = copied - 4 + r;
@@ -648,12 +661,7 @@ void InitAndCalibrateTracker(SymbolTracker &tr, const string sym)
       tr.recent_prices_count = 4;
    }
 
-   MqlTick live_t;
-   if(SymbolInfoTick(sym, live_t) && live_t.ask > live_t.bid)
-      tr.real_spread_pts = live_t.ask - live_t.bid;
-   else
-      tr.real_spread_pts = 20.0 * tr.abs_drift_per_tick;
-
+   tr.real_spread_pts = GetLiveExecutableSpreadPts(sym, tr.abs_drift_per_tick);
    tr.breakeven_ticks = tr.real_spread_pts / MathMax(tr.abs_drift_per_tick, 1e-8);
    tr.spike_threshold = MathMax(3.5 * tr.abs_drift_per_tick, 0.25 * tr.mean_spike_pts);
 
@@ -662,7 +670,7 @@ void InitAndCalibrateTracker(SymbolTracker &tr, const string sym)
    tr.rate_window_start_tick = 0;
    tr.ticks_per_sec          = 0.0;
 
-   ComputeSymbolEvGate(tr, sym);
+   ComputeSymbolEvGate(tr, sym, true);
 
    tr.sl_pts = ComputeCatastrophicServerSlPts(sym, tr.lot_per_stage, 180.0 * tr.abs_drift_per_tick);
 
@@ -957,35 +965,38 @@ int ManageConvexPositions()
 //+------------------------------------------------------------------+
 bool OpenConvexSpikeProbe(SymbolTracker &tr, const MqlTick &tick, bool is_cluster_probe)
 {
-   // Fix B1 : Application stricte de la Porte EV Statique
-   if(InpEnableStaticEvGate && !tr.ev_gate_pass)
-   {
-      tr.ai_filtered_count++;
-      g_total_ai_blocked++;
-      return false;
-   }
-
    if(tr.open_positions > 0 || (tick.time_msc - tr.last_order_sent_msc) < 3500)
       return false;
 
    if(!(bool)TerminalInfoInteger(TERMINAL_TRADE_ALLOWED) || !(bool)MQLInfoInteger(MQL_TRADE_ALLOWED))
       return false;
 
-   double spread = tick.ask - tick.bid;
-   tr.real_spread_pts = spread;
-   tr.breakeven_ticks = spread / MathMax(tr.abs_drift_per_tick, 1e-8);
-
-   if(tr.breakeven_ticks > InpMaxSpreadDriftMult)
-      return false;
-
+   // Mise à jour systématique du vrai spread d'exécution live, de la porte EV et de la télémétrie IA
+   ComputeSymbolEvGate(tr, tr.name, false);
    int c60 = 0;
    double spike_p0 = EvaluateConvexSpikeProbability(tr, c60);
+
+   // Fix B1 : Application stricte de la Porte EV Statique
+   if(InpEnableStaticEvGate && !tr.ev_gate_pass)
+   {
+      tr.ai_filtered_count++;
+      g_total_ai_blocked++;
+      tr.cooldown_until_tick = tr.tick_counter + InpCooldownAfterTimeStop;
+      return false;
+   }
+
+   if(tr.breakeven_ticks > InpMaxSpreadDriftMult)
+   {
+      tr.cooldown_until_tick = tr.tick_counter + InpCooldownAfterTimeStop;
+      return false;
+   }
 
    // Fix B2 : Filtre de probabilité réellement bloquant
    if(spike_p0 < tr.last_theta_eff)
    {
       tr.ai_filtered_count++;
       g_total_ai_blocked++;
+      tr.cooldown_until_tick = tr.tick_counter + InpCooldownAfterTimeStop;
       return false;
    }
 
@@ -994,10 +1005,15 @@ bool OpenConvexSpikeProbe(SymbolTracker &tr, const MqlTick &tick, bool is_cluste
    {
       tr.ai_filtered_count++;
       g_total_ai_blocked++;
+      tr.cooldown_until_tick = tr.tick_counter + InpCooldownAfterTimeStop;
       return false;
    }
 
-   tr.last_order_sent_msc = tick.time_msc;
+   MqlTick exec_tick;
+   if(!SymbolInfoTick(tr.name, exec_tick) || exec_tick.bid <= 0.0 || exec_tick.ask <= 0.0)
+      exec_tick = tick;
+
+   tr.last_order_sent_msc = exec_tick.time_msc;
 
    int digits = (int)SymbolInfoInteger(tr.name, SYMBOL_DIGITS);
    ENUM_ORDER_TYPE_FILLING fill_mode = GetSupportedFillingMode(tr.name);
@@ -1021,14 +1037,14 @@ bool OpenConvexSpikeProbe(SymbolTracker &tr, const MqlTick &tick, bool is_cluste
    if(tr.is_boom)
    {
       req.type  = ORDER_TYPE_BUY;
-      req.price = NormalizeDouble(tick.ask, digits);
-      req.sl    = (server_sl_pts > 0.0) ? NormalizeDouble(tick.bid - server_sl_pts, digits) : 0.0;
+      req.price = NormalizeDouble(exec_tick.ask, digits);
+      req.sl    = (server_sl_pts > 0.0) ? NormalizeDouble(exec_tick.bid - server_sl_pts, digits) : 0.0;
    }
    else
    {
       req.type  = ORDER_TYPE_SELL;
-      req.price = NormalizeDouble(tick.bid, digits);
-      req.sl    = (server_sl_pts > 0.0) ? NormalizeDouble(tick.ask + server_sl_pts, digits) : 0.0;
+      req.price = NormalizeDouble(exec_tick.bid, digits);
+      req.sl    = (server_sl_pts > 0.0) ? NormalizeDouble(exec_tick.ask + server_sl_pts, digits) : 0.0;
    }
 
    bool sent = false;
@@ -1040,7 +1056,7 @@ bool OpenConvexSpikeProbe(SymbolTracker &tr, const MqlTick &tick, bool is_cluste
    if(sent)
    {
       tr.entry_tick_counter   = tr.tick_counter;
-      tr.entry_time_msc       = tick.time_msc;
+      tr.entry_time_msc       = exec_tick.time_msc;
       tr.spikes_while_open    = 0;
       tr.last_open_spike_tick = 0;
       tr.peak_profit_usd      = -1e9;
@@ -1068,11 +1084,11 @@ bool OpenConvexSpikeProbe(SymbolTracker &tr, const MqlTick &tick, bool is_cluste
 //+------------------------------------------------------------------+
 void ProcessSingleTick(SymbolTracker &tr, const MqlTick &tick, int &active_symbols_count)
 {
-   if(tick.bid <= 0.0 || tick.time_msc <= tr.last_time_msc)
+   if(tick.bid <= 0.0 || tick.time_msc < tr.last_time_msc)
       return;
 
    tr.last_time_msc   = tick.time_msc;
-   tr.real_spread_pts = tick.ask - tick.bid;
+   tr.real_spread_pts = GetLiveExecutableSpreadPts(tr.name, tr.abs_drift_per_tick);
    tr.breakeven_ticks = tr.real_spread_pts / MathMax(tr.abs_drift_per_tick, 1e-8);
    tr.tick_counter++;
    g_total_ticks_all++;
@@ -1198,7 +1214,7 @@ void ProcessSymbolTick(SymbolTracker &tr, int &active_symbols_count)
    if(!InpUseCopyTicksCursor)
    {
       MqlTick tick;
-      if(!SymbolInfoTick(tr.name, tick))
+      if(!SymbolInfoTick(tr.name, tick) || tick.time_msc <= tr.last_time_msc)
          return;
       ProcessSingleTick(tr, tick, active_symbols_count);
       return;

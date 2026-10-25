@@ -11,14 +11,14 @@
 
 | Modèle ONNX | Taille | Architecture | Actif(s) Cible(s) | Bot MQL5 Associé | Tenseur Entrée | Tenseur Sortie | Bilan Hors Échantillon (OOS) Vérifié | Statut |
 | :--- | :---: | :---: | :--- | :--- | :---: | :---: | :---: | :---: |
-| **`boom_crash_meta_brain.onnx`** | 50.9 Ko | DeepSurvival MLP (14 features) | Boom & Crash (10 indices) | [`DerivBoomCrashHFT_v830_Ultimate.mq5`](../src/mql5/DerivBoomCrashHFT_v830_Ultimate.mq5) | `[1, 14]` float | `[1, 1]` ou `[1, 2]` | Prédit $P(\text{Survie } 15\text{t})$. PnL test dans `onnx_model_metadata.json` négatif sur 9/10 indices ($-18\,728$ unités) car les sauts sont sans mémoire ($\text{CV}\approx 1$). Converti en $1 - P_{\text{surv}}^{M^*/15}$ dans v8.30. | **ALIGNÉ (Porte EV Active)** |
-| **`c2_vol_filter.onnx`** | 10.1 Ko | Gradient Boosting Flat (`zipmap=False`) | Volatility 25 (1s)<br>Volatility 75 (1s) | [`Deriv_VolSqueeze_Breakout_EA_v3.mq5`](../src/mql5/Deriv_VolSqueeze_Breakout_EA_v3.mq5) | `[1, 7]` float | `[1]` label<br>`[1, 2]` probas | Ré-entraîné sur 56 046 barres H1 (split 60/20/20) avec les 7 features exactes de l'EA. Val ROC-AUC $= 0,556$ (V25) / $0,490$ (V75) ; OOS ROC-AUC $= 0,434$ (V25) / $0,512$ (V75). Zéro erreur 5808 MT5. | **ALIGNÉ & RE-ENTRAÎNÉ** |
+| **`boom_crash_meta_brain.onnx`** | 50.9 Ko | DeepSurvival MLP (14 features) | Boom & Crash (10 indices) | [`DerivBoomCrashHFT_v830_Ultimate.mq5`](../src/mql5/DerivBoomCrashHFT_v830_Ultimate.mq5) | `[1, 14]` float | `[1]` label<br>`[1, 2]` probas | Prédit $P(\text{Survie sur } \text{be\_ticks} + 15\text{t})$. PnL test dans `onnx_model_metadata.json` négatif sur 9/10 indices ($-18\,728$ unités) car les sauts sont sans mémoire ($\text{CV}\approx 1$). Converti en $1 - P_{\text{surv}}^{M^*/(\text{be\_ticks}+15)}$ dans v8.30. | **ALIGNÉ (Porte EV Active)** |
+| **`c2_vol_filter.onnx`** | 12.7 Ko | Gradient Boosting Flat (`zipmap=False`) | Volatility 25 (1s)<br>Volatility 75 (1s) | [`Deriv_VolSqueeze_Breakout_EA_v3.mq5`](../src/mql5/Deriv_VolSqueeze_Breakout_EA_v3.mq5) | `[1, 7]` float | `[1]` label<br>`[1, 2]` probas | Ré-entraîné sur 56 048 barres H1 (split 60/20/20 sans fuite du spread futur) avec les 7 features exactes de l'EA. Val ROC-AUC $= 0,573$ (V25) / $0,542$ (V75) ; OOS ROC-AUC $= 0,467$ (V25, Net $+5,47\text{ bps}$, $t=+1,23$) / $0,521$ (V75). Zéro erreur 5808 MT5. | **ALIGNÉ & RE-ENTRAÎNÉ** |
 
 ---
 
 ## 2. Fiche Technique Détaillée : `boom_crash_meta_brain.onnx`
 
-* **Rôle initial :** Prédire la probabilité de survie de la dérive sur 15 ticks ($P(\text{pas de spike sur 15 ticks})$), convertie dans v8.30 en probabilité de saut sur $M^*$ ticks via $P_{\text{spike}}(M^*) = 1 - P_{\text{surv},15}^{M^*/15}$.
+* **Rôle initial :** Prédire la probabilité de survie de la dérive sur $H_{\text{train}} = \text{be\_ticks} + 15$ ticks (`out_proba[0][1]`), convertie dans v8.30 en probabilité de saut sur $M^*$ ticks via $P_{\text{spike}}(M^*) = 1 - P_{\text{surv}, H_{\text{train}}}^{M^* / (\text{be\_ticks} + 15)}$.
 * **Correction B3 & B2 (25/10/2026) :** Suppression du mode `InpUseZeroCheatFeatures=true` qui envoyait un vecteur incompatible, et suppression du `MathMax(phys_spike_p0, ...)` qui empêchait le modèle de réduire la probabilité sous le seuil `theta_eff`.
 * **Vecteur Exact des 14 Caractéristiques (`src/models/onnx_model_metadata.json`) :**
   1. `symbol_id` (`0` à `9` selon l'indice Boom/Crash)
@@ -47,9 +47,9 @@
   2. `impulse_z` : $|r_{1\text{h, bps}}| / \sigma_{20}$
   3. `direction` : $+1,0$ (BUY) ou $-1,0$ (SELL)
   4. `levy_area` : Aire de Lévy sur la trajectoire normalisée des 20 dernières clôtures H1
-  5. `spread_to_atr` : Ratio du spread réel sur l'ATR(20) H1 ($\text{spread\_pts} / \text{atr\_pts}$)
+  5. `spread_to_atr` : Ratio du spread exact sur l'ATR(20) H1 ($\text{spread\_pts} / \text{atr\_pts}$)
   6. `skew20` : Skewness des rendements H1 sur 20 barres
   7. `kurt20` : Kurtosis des rendements H1 sur 20 barres
-* **Résultats Chronologiques 60/20/20 (56 046 barres H1, 2020–2026) :** Documentés dans [`src/models/c2_vol_filter_metadata.json`](../src/models/c2_vol_filter_metadata.json). Sur un mouvement brownien géométrique à volatilité constante, le ROC-AUC hors échantillon oscille autour de $0,50$ ($0,434$ sur V25 OOS, $0,512$ sur V75 OOS).
+* **Résultats Chronologiques 60/20/20 (56 048 barres H1, 2020–2026) :** Documentés dans [`src/models/c2_vol_filter_metadata.json`](../src/models/c2_vol_filter_metadata.json). Sur V25 ($H=4\text{h}$), le modèle obtient un ROC-AUC de validation de $0,5733$ et un PnL OOS filtré de $+5,47\text{ bps/trade}$ ($t = +1,23$, WR $55,6\%$, PF $1,31$, ROC-AUC OOS $= 0,4666$), demeurant sous le seuil de significativité $t \ge 1,96$ d'un mouvement brownien géométrique à volatilité constante.
 * **Compatibilité MT5 :** Sérialisé via `skl2onnx` avec `options={'zipmap': False}` (`[1, 7]` $\rightarrow$ `[1]`, `[1, 2]`).
 * **Emplacement Dépôt GitHub :** [`src/models/c2_vol_filter.onnx`](../src/models/c2_vol_filter.onnx)
