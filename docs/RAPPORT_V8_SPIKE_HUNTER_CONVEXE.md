@@ -1,7 +1,13 @@
 # Rapport d'Ingénierie Quantitative — V8 « Spike Hunter Convexe »
-**Réf. : V8-REVERSE-CONVEXITY-001 | Architrcte Quantitatif | 2026-10-20**
+**Réf. : V8-REVERSE-CONVEXITY-001 | Architecte Quantitatif | 2026-10-20**
 
-> **Avertissement de méthode (à lire avant tout le reste).** Le P&L inversé de +$340.73 est une **simulation contrefactuelle** : elle suppose que chaque trade inversé se serait rempli exactement au miroir des fills v7. Elle n'a jamais subi d'exécution réelle. Tout ce qui suit vise à transformer cette hypothèse en moteur vérifiable — et à identifier précisément où elle peut casser.
+> [!CAUTION]
+> **RECTIFICATIF POST-EXÉCUTION LIVE & AUDIT DU 25/10/2026 (Voir [`docs/ETAT_DE_LA_VERITE.md`](ETAT_DE_LA_VERITE.md)) :**
+> Ce document historique est conservé intégralement. Lors du test réel en live de v8 (`magic=20261020`, 648 trades) et de l'audit sur 6,8 millions de ticks ([`research/audit_2026-10-25/`](../research/audit_2026-10-25/)), l'hypothèse de rentabilité de l'inversion convexe (+340,73 USD contrefactuels) a été **réfutée** :
+> 1. La perte v7 de 175 trades sur 1 242 provenait du fait que les positions v7 étaient tenues bien au-delà de 60 ticks (jusqu'à 110–150 ticks pour couvrir le vrai spread live, qui est **7× à 11× supérieur au spread historique `CopyTicks`**), et non d'un « lift de hasard » prédictif.
+> 2. En exécution réelle live, v8 a enregistré **−311,20 USD sur 648 trades** (−0,480 USD/trade, dont **96,5 % dû au spread réel**), conformément au Théorème d'Arrêt Optionnel de Doob ($\mathbb{E}[\text{PnL}] = -\text{Spread}_{\text{réel}} \times \text{Lot}$).
+
+> **Avertissement de méthode (texte original du 20/10/2026).** Le P&L inversé de +$340.73 est une **simulation contrefactuelle** : elle suppose que chaque trade inversé se serait rempli exactement au miroir des fills v7. Elle n'a jamais subi d'exécution réelle. Tout ce qui suit vise à transformer cette hypothèse en moteur vérifiable — et à identifier précisément où elle peut casser.
 
 ---
 

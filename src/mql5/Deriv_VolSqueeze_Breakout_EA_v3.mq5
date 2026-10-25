@@ -1,14 +1,14 @@
 //+------------------------------------------------------------------+
 //|                             Deriv_VolSqueeze_Breakout_EA_v3.mq5 |
 //|        Quantitative Production Blueprint - Deriv Synthetic Audit |
-//|   Target Symbol: Volatility 25 (1s) Index (Sentinel C1 Certified)|
-//|   Timeframe: H1 (Hourly Close Execution, 4h Non-Overlapping Hold)|
-//|   Features : Real Spread Reader + C2 Machine Learning ONNX Filter |
+//|   Target Symbol: Volatility 25 (1s) & Volatility 75 (1s) Index   |
+//|   Timeframe: H1 (Hourly Close Execution, Non-Overlapping Hold)   |
+//|   Features : Live Tick Spread + Aligned 7-Feature C2 ONNX Filter |
 //+------------------------------------------------------------------+
-#property copyright "Quantitative Research & Algorithmic Systems"
+#property copyright "Quantitative Research & Algorithmic Systems (Audit-Hardened)"
 #property link      "https://github.com/Christ-yavn/bot-quant-"
-#property version   "3.00"
-#property description "Phase 2 Quant EA v3.00 - Volatility Compression & C2 ONNX Filter (H1)"
+#property version   "3.10"
+#property description "Phase 2 Quant EA v3.10 - Volatility Compression & Aligned 7-Feature C2 ONNX Filter (H1)"
 #property strict
 
 #include <Trade\Trade.mqh>
@@ -22,17 +22,17 @@ input int             InpVolLookback        = 20;          // Rolling Volatility
 input int             InpQuantileWindow     = 100;         // Squeeze Percentile Lookback (Bars, M=100)
 input double          InpSqueezeQuantile    = 0.25;        // Bandwidth Squeeze Quantile (0.25 = 25th pct)
 input double          InpBreakoutZScore     = 1.50;        // Impulse Breakout Z-Score Threshold (1.50)
-input int             InpMaxHoldBars        = 4;           // Non-Overlapping Time-Stop Horizon (4 H1 Bars = 4h)
+input int             InpMaxHoldBars        = 4;           // Non-Overlapping Time-Stop Horizon (H1 Bars, e.g. 4h)
 
 //--- Input Parameters: C2 Machine Learning ONNX Filter
-input group "=== 2. C2 Machine Learning / ONNX Filter ==="
-input bool            InpUseONNXFilter      = true;        // Enable C2 ONNX Neural / GBDT Filter
+input group "=== 2. C2 Machine Learning / ONNX Filter (7 Aligned Features) ==="
+input bool            InpUseONNXFilter      = true;        // Enable C2 ONNX GBDT Filter
 input string          InpONNXModelName      = "c2_vol_filter.onnx"; // ONNX Model File (in MQL5\Files)
 input double          InpMinWinProbability  = 0.50;        // Min Predicted Win Probability to Enter (0.50 = 50%)
 
 //--- Input Parameters: Excursion Guardrails & Real Spread Filter
 input group "=== 3. Excursion Guardrails & Dynamic Spread Filter ==="
-input bool            InpUseHardTPSL        = false;       // Enable Hard ATR Stop-Loss / Take-Profit (Default: Pure 4h Time-Stop)
+input bool            InpUseHardTPSL        = false;       // Enable Hard ATR Stop-Loss / Take-Profit (Default: Pure Time-Stop)
 input int             InpATRPeriod          = 20;          // ATR Period for Hard Stops & Spread Ratio
 input double          InpHardSL_ATR         = 2.00;        // Hard Disaster Stop-Loss (Multiples of ATR20)
 input double          InpHardTP_ATR         = 3.50;        // Hard Take-Profit Target (Multiples of ATR20)
@@ -41,9 +41,9 @@ input double          InpMaxSpreadBps       = 4.50;        // Max Allowed Spread
 
 //--- Input Parameters: Dynamic Volatility-Parity Position Sizing
 input group "=== 4. Risk Management & Volatility-Parity Sizing ==="
-input double          InpRiskPerSDPct       = 0.50;        // Account Equity Risk (%) per 1-SD (4-Hour) Move
+input double          InpRiskPerSDPct       = 0.50;        // Account Equity Risk (%) per 1-SD (H-Hour) Move
 input double          InpMaxDailyLossPct    = 3.00;        // Daily Drawdown Circuit Breaker (% of Start-of-Day Equity)
-input ulong           InpMagicNumber        = 20261022;    // Strategy Magic Number (v3.00)
+input ulong           InpMagicNumber        = 20261022;    // Strategy Magic Number (v3)
 input int             InpSlippagePoints     = 10;          // Max Permissible Slippage (Points)
 
 //--- Internal State & Architecture Variables
@@ -65,15 +65,16 @@ int OnInit()
 {
    if(!ExtSymbol.Name(_Symbol))
    {
-      PrintFormat("[v3.00 ERROR] Symbol %s could not be initialized.", _Symbol);
+      PrintFormat("[v3.10 ERROR] Symbol %s could not be initialized.", _Symbol);
       return INIT_FAILED;
    }
    ExtSymbol.Refresh();
-   
-   //--- Validate Symbol: Volatility 25 (1s) Index is the Certified Asset
+   ExtSymbol.RefreshRates();
+
    if(StringFind(_Symbol, "Volatility 25 (1s)") < 0 && StringFind(_Symbol, "25 (1s)") < 0)
    {
-      PrintFormat("[v3.00 WARNING] %s was NOT validated in Phase 2 Sentinel C1. Certified asset is 'Volatility 25 (1s) Index'.", _Symbol);
+      PrintFormat("[v3.10 NOTICE] Running on %s (Magic=%I64u, Hold=%dh). Ensure distinct Magic Number per symbol.",
+                  _Symbol, InpMagicNumber, InpMaxHoldBars);
    }
 
    ExtTrade.SetExpertMagicNumber(InpMagicNumber);
@@ -84,7 +85,7 @@ int OnInit()
    ExtATRHandle = iATR(_Symbol, InpTimeframe, InpATRPeriod);
    if(ExtATRHandle == INVALID_HANDLE)
    {
-      PrintFormat("[v3.00 ERROR] Failed to create ATR(%d) handle. Error = %d", InpATRPeriod, GetLastError());
+      PrintFormat("[v3.10 ERROR] Failed to create ATR(%d) handle. Error = %d", InpATRPeriod, GetLastError());
       return INIT_FAILED;
    }
 
@@ -101,11 +102,11 @@ int OnInit()
          OnnxSetOutputShape(ExtOnnxHandle, 0, out_shape_0);
          OnnxSetOutputShape(ExtOnnxHandle, 1, out_shape_1);
          ExtModelLoaded = true;
-         PrintFormat("[v3.00 ONNX] Model '%s' successfully loaded and ready for inference.", InpONNXModelName);
+         PrintFormat("[v3.10 ONNX] Model '%s' successfully loaded (7 aligned features: vol_ratio, impulse_z, direction, levy_area, spread_to_atr, skew20, kurt20).", InpONNXModelName);
       }
       else
       {
-         PrintFormat("[v3.00 ONNX NOTICE] Model '%s' not loaded (Code=%d). Operating in Pure S1 Quant mode.", InpONNXModelName, GetLastError());
+         PrintFormat("[v3.10 ONNX NOTICE] Model '%s' not loaded (Code=%d). Operating in Pure S1 Quant mode.", InpONNXModelName, GetLastError());
          ExtModelLoaded = false;
       }
    }
@@ -113,7 +114,7 @@ int OnInit()
    ExtDayStartEq = AccountInfoDouble(ACCOUNT_EQUITY);
    ExtCurrentDay = iTime(_Symbol, PERIOD_D1, 0);
 
-   PrintFormat("[v3.00 INIT SUCCESS] %s | TF=%s | VolLookback=%d | SqueezeQ=%.2f | BreakoutZ=%.2f | Hold=%dh | ONNX=%s",
+   PrintFormat("[v3.10 INIT SUCCESS] %s | TF=%s | VolLookback=%d | SqueezeQ=%.2f | BreakoutZ=%.2f | Hold=%dh | ONNX=%s",
                _Symbol, EnumToString(InpTimeframe), InpVolLookback, InpSqueezeQuantile, InpBreakoutZScore, InpMaxHoldBars,
                (ExtModelLoaded ? "ACTIVE" : "BYPASS"));
 
@@ -135,7 +136,7 @@ void OnDeinit(const int reason)
       OnnxRelease(ExtOnnxHandle);
       ExtOnnxHandle = INVALID_HANDLE;
    }
-   PrintFormat("[v3.00 DEINIT] Shutdown clean. Reason = %d", reason);
+   PrintFormat("[v3.10 DEINIT] Shutdown clean. Reason = %d", reason);
 }
 
 //+------------------------------------------------------------------+
@@ -186,10 +187,17 @@ double CalcLevyArea(const double &p_norm[], int n)
 }
 
 //+------------------------------------------------------------------+
-//| Inference function for C2 ONNX Model                             |
+//| Inference function for C2 ONNX Model (7 Exact Features)          |
+//| [0] vol_ratio      = current_std20 / (squeeze_threshold + 1e-8)  |
+//| [1] impulse_z      = abs(impulse_return_bps) / current_std20     |
+//| [2] direction      = +1.0 or -1.0                                |
+//| [3] levy_area      = CalcLevyArea(p_norm, 20)                    |
+//| [4] spread_to_atr  = spread_pts / (atr_pts + 1e-8)               |
+//| [5] skew20         = 20-bar return skewness                      |
+//| [6] kurt20         = 20-bar return kurtosis                      |
 //+------------------------------------------------------------------+
 bool EvaluateONNXFilter(double vol_ratio, double impulse_z, double direction,
-                        double levy_area, double spread_atr, double skew20, double kurt20,
+                        double levy_area, double spread_to_atr, double skew20, double kurt20,
                         double &out_prob)
 {
    if(!ExtModelLoaded || ExtOnnxHandle == INVALID_HANDLE)
@@ -197,36 +205,37 @@ bool EvaluateONNXFilter(double vol_ratio, double impulse_z, double direction,
       out_prob = 1.0;
       return true; // Bypass filter if model not active
    }
-   
+
    float in_features[7];
    in_features[0] = (float)vol_ratio;
    in_features[1] = (float)impulse_z;
    in_features[2] = (float)direction;
    in_features[3] = (float)levy_area;
-   in_features[4] = (float)spread_atr;
+   in_features[4] = (float)spread_to_atr;
    in_features[5] = (float)skew20;
    in_features[6] = (float)kurt20;
-   
+
    long out_label[1];
    float out_probs[2];
-   
+
    ResetLastError();
    if(!OnnxRun(ExtOnnxHandle, ONNX_NO_CONVERSION, in_features, out_label, out_probs))
    {
-      PrintFormat("[v3.00 ONNX RUN ERROR] Code = %d. Bypassing filter.", GetLastError());
-      out_prob = 1.0;
-      return true;
+      PrintFormat("[v3.10 ONNX RUN ERROR] Code = %d. Rejecting trade on inference failure.", GetLastError());
+      out_prob = 0.0;
+      return false;
    }
-   
+
    out_prob = (double)out_probs[1]; // Probability of win (Class 1)
    return (out_prob >= InpMinWinProbability);
 }
 
 //+------------------------------------------------------------------+
-//| Position Management & Strict 4-Hour Time-Stop Engine             |
+//| Position Management & Strict H-Hour Time-Stop Engine             |
 //+------------------------------------------------------------------+
 bool ManageOpenPositions(datetime current_bar_time)
 {
+   ExtSymbol.RefreshRates();
    for(int i = PositionsTotal() - 1; i >= 0; i--)
    {
       if(ExtPosition.SelectByIndex(i))
@@ -235,13 +244,13 @@ bool ManageOpenPositions(datetime current_bar_time)
          {
             datetime open_time = (datetime)ExtPosition.Time();
             int bars_elapsed = iBarShift(_Symbol, InpTimeframe, open_time, false);
-            
-            // Exit immediately if 4 or more H1 bars have elapsed
+
+            // Exit immediately if InpMaxHoldBars or more H1 bars have elapsed
             if(bars_elapsed >= InpMaxHoldBars)
             {
-               double exit_price = (ExtPosition.PositionType() == POSITION_TYPE_BUY) ? 
+               double exit_price = (ExtPosition.PositionType() == POSITION_TYPE_BUY) ?
                                    ExtSymbol.Bid() : ExtSymbol.Ask();
-               PrintFormat("[v3.00 TIME-STOP EXIT] Ticket #%I64u | Bars Held = %d/%d | OpenPrice=%.2f | ExitPrice=%.2f | PnL=%.2f USD",
+               PrintFormat("[v3.10 TIME-STOP EXIT] Ticket #%I64u | Bars Held = %d/%d | OpenPrice=%.2f | ExitPrice=%.2f | PnL=%.2f USD",
                            ExtPosition.Ticket(), bars_elapsed, InpMaxHoldBars, ExtPosition.PriceOpen(), exit_price, ExtPosition.Profit());
                ExtTrade.PositionClose(ExtPosition.Ticket());
                return false;
@@ -260,16 +269,17 @@ double CalculateVolParityLot(double std20_bps, double current_price)
 {
    double equity = AccountInfoDouble(ACCOUNT_EQUITY);
    double risk_cash = equity * (InpRiskPerSDPct / 100.0);
-   
-   double four_hour_sd_pts = (std20_bps / 10000.0) * current_price * 2.0; // 2 * 1-hour SD = 4-hour SD
-   if(four_hour_sd_pts <= 0.0) four_hour_sd_pts = current_price * 0.001;
+
+   double horizon_sqrt = MathSqrt((double)MathMax(1, InpMaxHoldBars));
+   double horizon_sd_pts = (std20_bps / 10000.0) * current_price * horizon_sqrt;
+   if(horizon_sd_pts <= 0.0) horizon_sd_pts = current_price * 0.001;
 
    double tick_size  = SymbolInfoDouble(_Symbol, SYMBOL_TRADE_TICK_SIZE);
    double tick_value = SymbolInfoDouble(_Symbol, SYMBOL_TRADE_TICK_VALUE);
    if(tick_size <= 0.0) tick_size = _Point;
    if(tick_value <= 0.0) tick_value = 1.0;
 
-   double dollar_loss_per_lot = (four_hour_sd_pts / tick_size) * tick_value;
+   double dollar_loss_per_lot = (horizon_sd_pts / tick_size) * tick_value;
    if(dollar_loss_per_lot <= 0.0) return SymbolInfoDouble(_Symbol, SYMBOL_VOLUME_MIN);
 
    double raw_lot = risk_cash / dollar_loss_per_lot;
@@ -296,7 +306,7 @@ void OnTick()
       ExtCurrentDay = today;
       ExtDayStartEq = AccountInfoDouble(ACCOUNT_EQUITY);
    }
-   
+
    double current_eq = AccountInfoDouble(ACCOUNT_EQUITY);
    if(ExtDayStartEq > 0.0 && ((ExtDayStartEq - current_eq) / ExtDayStartEq) * 100.0 >= InpMaxDailyLossPct)
    {
@@ -307,15 +317,15 @@ void OnTick()
    datetime bar_time = iTime(_Symbol, InpTimeframe, 0);
    if(bar_time == ExtLastBarTime || bar_time == 0)
       return;
-      
-   //--- 3. Check Non-Overlapping Position State & Enforce 4-Hour Time-Stop
+
+   //--- 3. Check Non-Overlapping Position State & Enforce Time-Stop
    bool is_positioned = ManageOpenPositions(bar_time);
    if(is_positioned)
    {
       ExtLastBarTime = bar_time;
       return;
    }
-   
+
    //--- 4. Fetch Historical Close Prices
    int needed_closes = InpQuantileWindow + InpVolLookback + 2;
    double closes[];
@@ -323,7 +333,7 @@ void OnTick()
    int copied = CopyClose(_Symbol, InpTimeframe, 1, needed_closes, closes);
    if(copied < needed_closes)
       return;
-      
+
    //--- 5. Compute 1-Bar Returns in Basis Points
    double r_bps[];
    ArrayResize(r_bps, InpQuantileWindow + InpVolLookback);
@@ -331,7 +341,7 @@ void OnTick()
    {
       r_bps[k] = (closes[k] - closes[k+1]) / closes[k+1] * 10000.0;
    }
-   
+
    //--- 6. Compute Rolling Standard Deviations
    double rolling_std[];
    ArrayResize(rolling_std, InpQuantileWindow);
@@ -341,7 +351,7 @@ void OnTick()
       for(int j = 0; j < InpVolLookback; j++)
          sum += r_bps[m + j];
       double mean = sum / InpVolLookback;
-      
+
       double sum_sq = 0.0;
       for(int j = 0; j < InpVolLookback; j++)
       {
@@ -350,9 +360,9 @@ void OnTick()
       }
       rolling_std[m] = MathSqrt(sum_sq / (InpVolLookback - 1));
    }
-   
+
    double current_std20 = rolling_std[0]; // Squeeze candidate
-   
+
    //--- 7. Compute Quantile Cutoff Threshold
    double sorted_std[];
    ArrayCopy(sorted_std, rolling_std);
@@ -361,14 +371,14 @@ void OnTick()
    if(q_index < 0) q_index = 0;
    if(q_index >= InpQuantileWindow) q_index = InpQuantileWindow - 1;
    double squeeze_threshold = sorted_std[q_index];
-   
+
    //--- 8. Evaluate Squeeze Compression Condition
    if(current_std20 > squeeze_threshold || current_std20 <= 1e-6)
    {
       ExtLastBarTime = bar_time;
       return;
    }
-   
+
    //--- 9. Evaluate Impulse Breakout Condition
    double impulse_return_bps = r_bps[0];
    double breakout_z = MathAbs(impulse_return_bps) / current_std20;
@@ -377,12 +387,14 @@ void OnTick()
       ExtLastBarTime = bar_time;
       return;
    }
-   
-   //--- 10. Check Microstructure Real Spread Filter
+
+   //--- 10. Check Microstructure Real Live Spread Filter
    ExtSymbol.Refresh();
-   double spread_pts = (double)SymbolInfoInteger(_Symbol, SYMBOL_SPREAD);
-   double ask = ExtSymbol.Ask();
-   double bid = ExtSymbol.Bid();
+   ExtSymbol.RefreshRates();
+   MqlTick live_tick;
+   bool has_tick = SymbolInfoTick(_Symbol, live_tick);
+   double ask = has_tick ? live_tick.ask : ExtSymbol.Ask();
+   double bid = has_tick ? live_tick.bid : ExtSymbol.Bid();
    double mid_price = (ask + bid) / 2.0;
    if(mid_price <= 0.0 && ArraySize(closes) > 0) mid_price = closes[0];
    if(mid_price <= 0.0)
@@ -391,27 +403,28 @@ void OnTick()
       return;
    }
    double pt = (_Point > 0.0) ? _Point : 0.01;
+   double spread_pts = (ask > bid && pt > 0.0) ? ((ask - bid) / pt) : (double)SymbolInfoInteger(_Symbol, SYMBOL_SPREAD);
    double spread_bps = (spread_pts * pt / mid_price) * 10000.0;
-   
+
    double atr_vals[];
    ArraySetAsSeries(atr_vals, true);
    int atr_cnt = CopyBuffer(ExtATRHandle, 0, 1, 1, atr_vals);
    double atr_val = (atr_cnt > 0 && atr_vals[0] > 0.0) ? atr_vals[0] : (mid_price * 0.005);
    double atr_pts = (pt > 0.0) ? (atr_val / pt) : 100.0;
-   
-   double spread_to_atr = (atr_pts > 0.0) ? (spread_pts / atr_pts) : 1.0;
+
+   double spread_to_atr = (atr_pts > 0.0) ? (spread_pts / (atr_pts + 1e-8)) : 1.0;
    if(spread_to_atr > InpMaxSpreadToATR || spread_bps > InpMaxSpreadBps)
    {
-      PrintFormat("[v3.00 SPREAD REJECT] Spread=%.2f bps (%.1f%% of ATR) exceeds threshold (%.2f bps / %.1f%% ATR)",
+      PrintFormat("[v3.10 SPREAD REJECT] Spread=%.2f bps (%.1f%% of ATR) exceeds threshold (%.2f bps / %.1f%% ATR)",
                   spread_bps, spread_to_atr * 100.0, InpMaxSpreadBps, InpMaxSpreadToATR * 100.0);
       ExtLastBarTime = bar_time;
       return;
    }
-   
-   //--- 11. Compute C2 ONNX Features & Execute Inference
+
+   //--- 11. Compute Aligned 7 C2 ONNX Features & Execute Inference
    double direction = (impulse_return_bps > 0.0) ? 1.0 : -1.0;
    double vol_ratio = current_std20 / (squeeze_threshold + 1e-8);
-   
+
    // Compute normalized price path & Levy Area
    double p_win[];
    ArrayResize(p_win, InpVolLookback);
@@ -427,14 +440,14 @@ void OnTick()
       p_sq += (p_win[k] - p_mean) * (p_win[k] - p_mean);
    double p_std = MathSqrt(p_sq / InpVolLookback);
    if(p_std <= 1e-8) p_std = 1.0;
-   
+
    double p_norm[];
    ArrayResize(p_norm, InpVolLookback);
    for(int k = 0; k < InpVolLookback; k++)
       p_norm[k] = (p_win[k] - p_mean) / p_std;
-      
+
    double levy_area = CalcLevyArea(p_norm, InpVolLookback);
-   
+
    // Compute return skewness and kurtosis
    double ret_sub[];
    ArrayResize(ret_sub, InpVolLookback);
@@ -447,26 +460,25 @@ void OnTick()
    double r_mean = r_sum / InpVolLookback;
    double skew20 = CalcSkewness(ret_sub, InpVolLookback, r_mean, current_std20);
    double kurt20 = CalcKurtosis(ret_sub, InpVolLookback, r_mean, current_std20);
-   double spread_atr_ratio = (atr_pts > 0.0) ? (spread_pts / (atr_pts * 100.0 + 1e-8)) : 0.01;
-   
+
    double out_prob = 1.0;
    if(InpUseONNXFilter && ExtModelLoaded)
    {
       bool pass_filter = EvaluateONNXFilter(vol_ratio, breakout_z, direction,
-                                            levy_area, spread_atr_ratio, skew20, kurt20,
+                                            levy_area, spread_to_atr, skew20, kurt20,
                                             out_prob);
       if(!pass_filter)
       {
-         PrintFormat("[v3.00 ONNX FILTER REJECT] S1 Triggered but C2 P(Win)=%.2f%% < %.2f%% minimum. Trade Filtered Out!",
+         PrintFormat("[v3.10 ONNX FILTER REJECT] S1 Triggered but C2 P(Win)=%.2f%% < %.2f%% minimum. Trade Filtered Out!",
                      out_prob * 100.0, InpMinWinProbability * 100.0);
          ExtLastBarTime = bar_time;
          return;
       }
    }
-   
+
    //--- 12. Execute S1 Trade with Dynamic Vol-Parity Sizing
    double lot = CalculateVolParityLot(current_std20, mid_price);
-   
+
    double sl = 0.0;
    double tp = 0.0;
    if(InpUseHardTPSL && atr_vals[0] > 0.0)
@@ -492,12 +504,12 @@ void OnTick()
 
    if(success)
    {
-      PrintFormat("[v3.00 ENTRY EXECUTED] %s %s %.2f lots | Close=%.2f | std20=%.2f bps | Z=%.2f | P(Win)=%.2f%% | Ticket=#%I64u",
+      PrintFormat("[v3.10 ENTRY EXECUTED] %s %s %.2f lots | Close=%.2f | std20=%.2f bps | Z=%.2f | P(Win)=%.2f%% | Ticket=#%I64u",
                   (direction > 0.0 ? "BUY" : "SELL"), _Symbol, lot, closes[0], current_std20, breakout_z, out_prob * 100.0, ExtTrade.ResultOrder());
    }
    else
    {
-      PrintFormat("[v3.00 EXECUTION FAILED] Error = %d", GetLastError());
+      PrintFormat("[v3.10 EXECUTION FAILED] Error = %d", GetLastError());
    }
 
    ExtLastBarTime = bar_time;
