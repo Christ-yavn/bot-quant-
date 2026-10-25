@@ -12,7 +12,11 @@
 
 > [!IMPORTANT]
 > ### 🚨 ÉTAT DE LA VÉRITÉ SCIENTIFIQUE (AUDIT EMPIRIQUE DU 25/10/2026)
-> **Tout agent IA ou chercheur intervenant sur ce dépôt doit lire en priorité [`docs/ETAT_DE_LA_VERITE.md`](docs/ETAT_DE_LA_VERITE.md) et [`research/audit_2026-10-25/AUDIT_COMPLET_MODELES_ET_BOTS_DERIV.md`](research/audit_2026-10-25/AUDIT_COMPLET_MODELES_ET_BOTS_DERIV.md).**
+> **Tout agent IA ou chercheur intervenant sur ce dépôt doit lire en priorité :**
+> - 📘 **[`docs/GUIDE_PEDAGOGIQUE_L1_MATHS_AUDIT_ET_REPARATIONS_2026.md`](docs/GUIDE_PEDAGOGIQUE_L1_MATHS_AUDIT_ET_REPARATIONS_2026.md)** *(Guide pédagogique complet niveau L1 Mathématiques expliquant de A à Z tout le travail réalisé, les théorèmes, ce qui échouait avant, ce qui a été corrigé et à quoi s'attendre)*
+> - 📊 **[`docs/ETAT_DE_LA_VERITE.md`](docs/ETAT_DE_LA_VERITE.md)** *(Registre formel des hypothèses vérifiées et réfutées)*
+> - 🔬 **[`research/audit_2026-10-25/AUDIT_COMPLET_MODELES_ET_BOTS_DERIV.md`](research/audit_2026-10-25/AUDIT_COMPLET_MODELES_ET_BOTS_DERIV.md)** *(Rapport d'audit intégral)*
+> - 🧠 **[`archive/models_legacy/README.md`](archive/models_legacy/README.md)** *(Registre historique de correspondance entre chaque version de bot et son réseau ONNX)*
 >
 > Conformément à la règle d'archivage additif du projet, **100 % des versions historiques (`v6`, `v7`, `v8`, `v8.30`, `VolSqueeze v1`, `v3`), des manuels (Tome I et Tome II) et des scripts sont intégralement conservés**. L'audit empirique mené sur **6,8 millions de ticks Boom/Crash**, **648 trades live v8** et **56 046 barres H1 (6,3 ans)** de Volatility 25 (1s) / 75 (1s) a établi les vérités suivantes :
 > 1. **Loi de Martingale & Théorème de Doob (Track 1 — Boom/Crash) :** Les indices Boom & Crash sont des **martingales exactes** ($\mathbb{E}[\Delta\text{Mid}] \approx 0$) dont les sauts suivent un processus géométrique **sans mémoire** ($\text{CV} \in [0,96 ; 1,03]$, autocorrélation $\text{ACF}(1) \in [-0,035 ; +0,033]$, fonction de hasard plate). Le Théorème d'Arrêt Optionnel de Doob s'applique autant à l'inversion convexe (v8) qu'à la récolte de dérive (v7) : toute règle d'entrée/sortie fondée sur les prix passés a une espérance mathématique égale à **$\mathbb{E}[\text{PnL}] = -\text{Spread}_{\text{réel}} \times \text{Lot}$**.
@@ -179,13 +183,18 @@ bot-quant-/
 │       ├── audit_longrun_drift.py             <- Dérive D1 long terme et coûts de swaps annuels
 │       └── deriv_contracts_ev_report.json     <- Résultats JSON complets du scanner WebSocket Deriv
 │
-├── docs/                                      <- Vérité scientifique, manuels historiques & rapports
+├── docs/                                      <- Vérité scientifique, guide L1, manuels historiques & rapports
+│   ├── GUIDE_PEDAGOGIQUE_L1_MATHS_AUDIT_ET_REPARATIONS_2026.md      <- Guide pédagogique complet (niveau L1 Maths)
 │   ├── ETAT_DE_LA_VERITE.md                   <- SOURCE DE VÉRITÉ UNIQUE : hypothèses vérifiées vs réfutées
 │   ├── RAPPORT_SCANNER_EV_CONTRATS_DERIV.md   <- Rapport détaillé du Scanner de Juste Valeur WebSocket Deriv
 │   ├── ENCYCLOPEDIE_COMPLETE_BOT_HFT_DERIV_V1_A_V6.md               <- Manuel Tome I (Archive historique v1-v6)
 │   ├── ENCYCLOPEDIE_TOME_2_SYSTEME_DUAL_HFT_ET_ONNX_VOLATILITE.md    <- Manuel Tome II (avec rectificatif d'audit)
 │   ├── REGISTRE_MODELES_IA_ONNX.md                                  <- Registre ONNX aligné post-audit
 │   └── ... (100% des rapports et transcriptions historiques préservés)
+│
+├── archive/
+│   ├── models_legacy/                         <- Historique des anciens modèles ONNX classés par bot (v6, v7, v3.00)
+│   └── profiles_legacy/                       <- Historique des anciens profils de graphiques MT5
 │
 ├── src/
 │   ├── models/
