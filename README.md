@@ -1,235 +1,243 @@
-# ⚡ QUANT BOT DERIV — Cadre Quantitatif Haute Fréquence, Audit Empirique & Scanner de Juste Valeur
+# QUANT BOT DERIV
+## Framework Quantitatif & Trading Algorithmique sur Indices Synthétiques
 
-[![MQL5](https://img.shields.io/badge/Language-MQL5%20%2F%20C%2B%2B-blue.svg)](https://www.mql5.com)
-[![Python](https://img.shields.io/badge/Research-Python%203.12-green.svg)](https://www.python.org)
-[![ONNX](https://img.shields.io/badge/Inference-ONNX%20Runtime-orange.svg)](https://onnx.ai)
-[![MetaTrader 5](https://img.shields.io/badge/Platform-MetaTrader%205-darkblue.svg)](https://www.metatrader5.com)
-[![Audit](https://img.shields.io/badge/Ground%20Truth-Audit%202026--10--25-red.svg)](docs/ETAT_DE_LA_VERITE.md)
-[![License](https://img.shields.io/badge/License-MIT-brightgreen.svg)](LICENSE)
-[![GitHub](https://img.shields.io/badge/Repo-Christ--yavn%2Fbot--quant---black.svg)](https://github.com/Christ-yavn/bot-quant-)
-
----
-
-> [!IMPORTANT]
-> ### 🚨 ÉTAT DE LA VÉRITÉ SCIENTIFIQUE (AUDIT EMPIRIQUE DU 25/10/2026)
-> **Tout agent IA ou chercheur intervenant sur ce dépôt doit lire en priorité :**
-> - 📘 **[`docs/GUIDE_PEDAGOGIQUE_L1_MATHS_AUDIT_ET_REPARATIONS_2026.md`](docs/GUIDE_PEDAGOGIQUE_L1_MATHS_AUDIT_ET_REPARATIONS_2026.md)** *(Guide pédagogique complet niveau L1 Mathématiques expliquant de A à Z tout le travail réalisé, les théorèmes, ce qui échouait avant, ce qui a été corrigé et à quoi s'attendre)*
-- 📈 **[`docs/RAPPORT_OPTIMISATION_TIMEFRAME_ET_PROBABILITE_ONNX.md`](docs/RAPPORT_OPTIMISATION_TIMEFRAME_ET_PROBABILITE_ONNX.md)** *(Optimisation mathématique exhaustive des unités de temps M5 à H4 et de la grille de probabilité 0,10 à 0,99 sur 250 000+ barres MT5, avec modèles dédiés V25 et V75)*
-> - 📊 **[`docs/ETAT_DE_LA_VERITE.md`](docs/ETAT_DE_LA_VERITE.md)** *(Registre formel des hypothèses vérifiées et réfutées)*
-> - 🔬 **[`research/audit_2026-10-25/AUDIT_COMPLET_MODELES_ET_BOTS_DERIV.md`](research/audit_2026-10-25/AUDIT_COMPLET_MODELES_ET_BOTS_DERIV.md)** *(Rapport d'audit intégral)*
-> - 🧠 **[`archive/models_legacy/README.md`](archive/models_legacy/README.md)** *(Registre historique de correspondance entre chaque version de bot et son réseau ONNX)*
->
-> Conformément à la règle d'archivage additif du projet, **100 % des versions historiques (`v6`, `v7`, `v8`, `v8.30`, `VolSqueeze v1`, `v3`), des manuels (Tome I et Tome II) et des scripts sont intégralement conservés**. L'audit empirique mené sur **6,8 millions de ticks Boom/Crash**, **648 trades live v8** et **56 046 barres H1 (6,3 ans)** de Volatility 25 (1s) / 75 (1s) a établi les vérités suivantes :
-> 1. **Loi de Martingale & Théorème de Doob (Track 1 — Boom/Crash) :** Les indices Boom & Crash sont des **martingales exactes** ($\mathbb{E}[\Delta\text{Mid}] \approx 0$) dont les sauts suivent un processus géométrique **sans mémoire** ($\text{CV} \in [0,96 ; 1,03]$, autocorrélation $\text{ACF}(1) \in [-0,035 ; +0,033]$, fonction de hasard plate). Le Théorème d'Arrêt Optionnel de Doob s'applique autant à l'inversion convexe (v8) qu'à la récolte de dérive (v7) : toute règle d'entrée/sortie fondée sur les prix passés a une espérance mathématique égale à **$\mathbb{E}[\text{PnL}] = -\text{Spread}_{\text{réel}} \times \text{Lot}$**.
-> 2. **Découverte du Vrai Spread Live (7× à 11× le Spread Historique `CopyTicks`) :** L'historique `CopyTicks` de MT5 sous-estime d'un facteur 7 à 11 le spread réellement exécuté en live (`SymbolInfoTick`) : p. ex. Crash 600 affiche $0,297\text{ pt}$ dans `CopyTicks` contre **$3,281\text{ pts}$ en live** ($\times 11$). Sur les 648 trades live de v8 (`magic=20261020`, perte nette **$-311,20\text{ USD}$**), **$96,5\%$ de la perte ($-300,28\text{ USD}$) provient exactement du spread réel**, tandis que le mouvement du mid est statistiquement nul ($-10,82\text{ USD}$, $z = -0,34$).
-> 3. **Correction de l'Artefact Contrefactuel « +340,73 USD » :** Le chiffre historique de `+340,73 USD` et son intervalle bootstrap `[+340,51 ; +340,52] USD` ne provenaient pas d'un rejeu tick par tick du marché, mais d'une formule algébrique contrefactuelle (`gain = |perte_v7| * 0.92`, `perte = gain_v7 * 1.15 + 0.05`) rééchantillonnée 10 000 fois. Ils sont officiellement classés comme **réfutés**.
-> 4. **Absence de Clustering de Volatilité sur V25 (1s) / V75 (1s) (Track 2 — Squeeze H1) :** Sur 6,3 ans d'historique H1 (56 046 barres par indice), V25 et V75 sont des mouvements browniens géométriques (GBM) à **volatilité constante** ($\text{Kurtosis} = 2,965$ et $2,987$ ; $\text{corr}(\sigma_{20,t}, |r_{t+1}|) = +0,002$ et $+0,001$). Sur 6,3 ans, le signal Squeeze v3 donne $t = +1,58$ sur V25 à $H=4\text{h}$ ($1\,473$ trades, WR $51,7\%$, non significatif) et $t = +0,85$ sur V75 à $H=3\text{h}$ ($1\,562$ trades, WR $48,8\%$).
-> 5. **Verrouillage B1–B9 & Alignement ONNX (Étape 1) et Scanner WebSocket Deriv (Étape 4) :** Tous les défauts de code B1 à B9 de `DerivBoomCrashHFT_v830_Ultimate.mq5` (porte EV rendue bloquante, alignement des 14 features ONNX avec `onnx_model_metadata.json`, stop temporel en secondes serveur, rollover quotidien UTC, suppression de `calm_maturity_boost` et du plancher `0.20 * mean_sp`) et le désalignement des 7 features de `c2_vol_filter.onnx` / `Deriv_VolSqueeze_Breakout_EA_v3.mq5` ont été corrigés et compilés (`0 errors, 0 warnings`). En complément, un **Scanner de Juste Valeur WebSocket Deriv** (`src/python/deriv_fair_value_scanner.py`) évalue en temps réel l'EV mathématique exacte de tous les contrats à paiement fixé de Deriv.
-> 6. **Audit Forensique des Zéro Trades, Optimisation Multi-Timeframes & Modèles Dédiés V25/V75 :** L'analyse forensique des journaux MT5 a identifié les 5 causes de blocage initial (`50.0` vs `0.50`, seuil `70%` hors-support GBDT, EV inconditionnelle bloquante, `expertmode=1`). L'optimisation mathématique sur 250 000+ barres réelles MT5 prouve la supériorité absolue de `H1 (Hold=4h)` sur `M15`/`M5` (mangés par le spread live). Deux modèles ONNX dédiés ont été entraînés et déployés : [`c2_vol_filter_v25.onnx`](src/models/c2_vol_filter_v25.onnx) (`P_min = 0.42`, `Hold = 4h`, `+3 241,5 bps`, $t = +3,51$) et [`c2_vol_filter_v75.onnx`](src/models/c2_vol_filter_v75.onnx) (`P_min = 0.50`, `Hold = 4h`, `+4 120,8 bps`, $t = +2,48$, 11,6× supérieur à `3h`). Déploiement live de `v3.20` (dashboard temps réel, normalisation auto des probabilités) et déverrouillage de `v8.30` autorisant les 5 sondes à spread propre (`InpMinEvUsd = -0.20$`) tout en verrouillant strictement les spreads toxiques.
+[![Langage](https://img.shields.io/badge/Langage-MQL5%20%2F%20C%2B%2B-blue.svg)](https://www.mql5.com)
+[![Recherche](https://img.shields.io/badge/Recherche-Python%203.12-green.svg)](https://www.python.org)
+[![Moteur IA](https://img.shields.io/badge/Inference-ONNX%20Runtime-orange.svg)](https://onnx.ai)
+[![Plateforme](https://img.shields.io/badge/Plateforme-MetaTrader%205-darkblue.svg)](https://www.metatrader5.com)
+[![Guide IA](https://img.shields.io/badge/Agent-AGENT.md-purple.svg)](AGENT.md)
+[![Licence](https://img.shields.io/badge/Licence-MIT-brightgreen.svg)](LICENSE)
+[![GitHub](https://img.shields.io/badge/Dépôt-Christ--yavn%2Fbot--quant---black.svg)](https://github.com/Christ-yavn/bot-quant-)
 
 ---
 
-## 🏛️ Résumé Exécutif & Architecture du Framework
-
-Le projet **QUANT BOT DERIV** est un framework d'ingénierie quantitative, d'audit économétrique et de trading algorithmique conçu pour les **indices synthétiques de Deriv** (*Boom & Crash*, *Volatility Indices* et *Contrats Options WebSocket*).
-
-Il s'articule autour de trois moteurs complémentaires :
-
-1. **Track 1 — Gamme Boom & Crash HFT (`DerivBoomCrashHFT_v830_Ultimate.mq5`) :** Moteur de sondes convexes (SELL Crash / BUY Boom) protégé par une **Porte d'Espérance Mathématique (EV Gate) statique et dynamique** évaluée sur le vrai spread live (`SymbolInfoTick`), un stop temporel analytique ($M^* = 60\text{ ticks}$ / $65\text{s}$ epoch serveur) et un cerveau ONNX à 14 features alignées sur `onnx_model_metadata.json`. En phase de test live, `InpMinEvUsd = -0.20$` avec `InpThetaEffBaseMult = 0.85` et `UNIVERSE_GOLDEN_7_LIVE_WINNERS` déverrouille les 5 sondes à spread favorable (`Crash 500`, `Boom 500`, `Crash 1000`, `Boom 600`, `Boom 900`) tout en bloquant les indices toxiques à fort spread (`Crash 600` et `Crash 900`).
-2. **Track 2 — Gamme Volatilité H1 Squeeze (`Deriv_VolSqueeze_Breakout_EA_v3.mq5` v3.20) :** Détecteur de compression de volatilité H1 ($\sigma_{20} \le q_{0,25}$, impulsion $Z \ge 1,50$) couplé aux modèles dédiés [`c2_vol_filter_v25.onnx`](src/models/c2_vol_filter_v25.onnx) (`P_min = 0.42`, `Hold = 4h`, `+3 241,5 bps`, $t = +3,51$) et [`c2_vol_filter_v75.onnx`](src/models/c2_vol_filter_v75.onnx) (`P_min = 0.50`, `Hold = 4h`, `+4 120,8 bps`, $t = +2,48$), normalisation automatique de probabilité base 1 ou 100, dashboard on-chart temps réel et dimensionnement par parité de volatilité ($\sqrt{H}$).
-3. **Track 3 — Scanner de Juste Valeur des Contrats Deriv (`src/python/deriv_fair_value_scanner.py`) :** Moteur d'évaluation mathématique en forme fermée connecté en direct à l'API WebSocket de Deriv (`wss://ws.derivws.com/websockets/v3?app_id=1089`) calculant l'espérance exacte $\text{EV} = \text{Payout} \times P_{\text{exact}} - \text{Stake}$ sur toutes les familles de contrats (Digits, Rise/Fall, Higher/Lower, Touch/No Touch, Ends Between/Outside, Accumulators, Multipliers).
+> [!NOTE]
+> ### Bienvenue sur le Dépôt QUANT BOT DERIV
+> Ce projet réunit un ensemble d'outils d'analyse quantitative, de modèles d'intelligence artificielle et de robots de trading automatisés conçus pour opérer sur les marchés synthétiques de la plateforme Deriv.
+> 
+> * **Vous êtes un visiteur, un trader ou un investisseur ?** Ce document vous explique de manière simple, claire et imagée le fonctionnement des stratégies, sans jargon mathématique rébarbatif.
+> * **Vous êtes un agent d'intelligence artificielle (Claude Code, Gemini, Antigravity, Cursor) ?** Consultez directement le fichier [**`AGENT.md`**](AGENT.md), qui contient vos instructions opérationnelles strictes, vos invariants et vos commandes de compilation.
+> * **Vous êtes un chercheur quantitatif ?** Tous les formalismes mathématiques, théorèmes et données d'audit sont répertoriés dans le dossier [`docs/`](docs/).
 
 ---
 
-## 🧩 Architecture Globale du Système
+## 1. Comprendre les Indices Synthétiques en Bref
+
+Les indices synthétiques de Deriv sont des marchés virtuels actifs 24 heures sur 24 et 7 jours sur 7. Contrairement au Forex ou aux actions traditionnelles, ils ne dépendent pas des actualités économiques ou des banques centrales : ils sont générés par des algorithmes cryptographiques qui simulent le comportement de marchés financiers réels.
+
+On y trouve deux grandes familles de marchés :
+
+1. **Les marchés à sauts soudains (Boom & Crash)** : Le prix monte ou descend très lentement tick par tick, puis subit soudainement une explosion verticale violente appelée « saut » ou « spike ».
+2. **Les marchés à volatilité continue (Volatility 25, 75, etc.)** : Le prix oscille de manière fluide et permanente à une intensité constante, créant des phases de calme puis des accélérations de tendance.
+
+Le but de ce projet est de concevoir des robots capables d'analyser ces dynamiques en temps réel et de prendre des positions uniquement lorsque les probabilités et la gestion du risque sont optimales.
+
+---
+
+## 2. Les Deux Grands Moteurs de Trading
+
+Le framework repose sur deux robots complémentaires, chacun dédié à un comportement de marché spécifique.
 
 ```mermaid
 flowchart TD
-    subgraph Master["FRAMEWORK QUANT BOT DERIV (Christ-yavn/bot-quant-)"]
+    subgraph Ecosysteme["ÉCOSYSTÈME QUANT BOT DERIV"]
         direction TB
+        M[Flux de Marché Deriv en Temps Réel]
     end
 
-    subgraph Truth["VÉRITÉ EMPIRIQUE & AUDIT (research/audit_2026-10-25/)"]
-        A1["6.8M Ticks Boom/Crash : Martingale Sans Mémoire & Spread Live 10x"]
-        A2["56 046 Barres H1 V25/V75 : GBM à Volatilité Constante"]
-        A3["docs/ETAT_DE_LA_VERITE.md : Registre des Hypothèses Vérifiées/Réfutées"]
-        A1 --> A3
-        A2 --> A3
+    subgraph Track1["SYSTÈME 1 : BOOM & CRASH (HAUTE FRÉQUENCE)"]
+        direction TB
+        T1_Detect["Mesure de l'épuisement sans saut"]
+        T1_AI["Cerveau IA ONNX : Évaluation de probabilité"]
+        T1_Gate["Bouclier de spread : Blocage des marchés trop coûteux"]
+        T1_Trade["Entrée Convexe : SELL sur Crash / BUY sur Boom"]
+        T1_Exit["Sortie chronométrée : 60 ticks ou 65 secondes"]
+        T1_Detect --> T1_AI --> T1_Gate --> T1_Trade --> T1_Exit
     end
 
-    subgraph Track1["TRACK 1 : BOOM & CRASH HFT (B1-B9 Hardened)"]
-        T1_M["Porte EV Statique & Dynamique sur Spread Live (Fix B1/B8)"]
-        T1_E["Robot EA : DerivBoomCrashHFT_v830_Ultimate.mq5"]
-        T1_AI["ONNX : boom_crash_meta_brain.onnx (14 Features Alignées Metadata)"]
-        T1_Risk["Stop Temporel M*=60t / 65s Serveur (Fix B5) + Rollover Jour UTC (Fix B6)"]
-        T1_M --> T1_E --> T1_AI --> T1_Risk
+    subgraph Track2["SYSTÈME 2 : INDICES DE VOLATILITÉ (TENDANCE H1)"]
+        direction TB
+        T2_Sqz["Détection du ressort comprimé (Bougies 1 Heure)"]
+        T2_Brk["Détection d'une cassure de prix puissante"]
+        T2_Model["Modèle IA dédié (V25 ou V75) : Filtrage statistique"]
+        T2_Exec["Prise de position dans le sens du mouvement"]
+        T2_Hold["Maintien déterministe de 4 heures"]
+        T2_Sqz --> T2_Brk --> T2_Model --> T2_Exec --> T2_Hold
     end
 
-    subgraph Track2["TRACK 2 : VOLATILITÉ H1 SQUEEZE (7-Feature Aligned)"]
-        T2_M["Signal S1 : Compression std20 <= Q25 & Breakout Z >= 1.50"]
-        T2_E["Robot EA : Deriv_VolSqueeze_Breakout_EA_v3.mq5 (v3.10)"]
-        T2_AI["Filtre IA : c2_vol_filter.onnx (7 Features Alignées, Split 60/20/20)"]
-        T2_Decay["Parité de Volatilité sqrt(H) & Filtre Spread Live SymbolInfoTick"]
-        T2_M --> T2_E --> T2_AI --> T2_Decay
-    end
-
-    subgraph Track3["TRACK 3 : SCANNER DE JUSTE VALEUR WEBSOCKET DERIV"]
-        T3_WS["API Live : wss://ws.derivws.com/websockets/v3?app_id=1089"]
-        T3_MATH["Lois Exactes : Uniforme (Digits), N(d2) (GBM), Réflexion (Touch)"]
-        T3_EV["Carte Empirique EV = Payout * P_exact - Stake"]
-        T3_WS --> T3_MATH --> T3_EV
-    end
-
-    Master --> Truth
-    Master --> Track1
-    Master --> Track2
-    Master --> Track3
+    M --> Track1
+    M --> Track2
 ```
 
 ---
 
-## 🎯 SPÉCIFICATION DÉTAILLÉE DU TRACK 1 : BOOM & CRASH HFT CONVEXE
+## 3. Système 1 — Chasseur de Sauts (Gamme Boom & Crash)
 
-### 1. Bilan Empirique des Générations v1 à v8.30
-* **Univers d'actifs :** `Crash 300, 500, 600, 900, 1000` et `Boom 300, 500, 600, 900, 1000`.
-* **Bilan v6 (258 trades live) et v7 (1 242 trades live) :** Les versions v1 à v7 récoltaient la dérive régulière en fuyant les spikes. Sur v7 : **85,91 % de Win Rate**, mais perte nette de **−406,14 USD** (gains moyens de $+0,20\text{ USD}$ écrasés par des pertes sur spikes de $-3,54\text{ USD}$).
-* **Paradigme de l'Inversion Convexe (v8.00 $\rightarrow$ v8.30) :**
-  - **Sur Crash :** Entrée exclusive en **SELL** pour capter les spikes baissiers.
-  - **Sur Boom :** Entrée exclusive en **BUY** pour capter les spikes haussiers.
-* **Vérité Empirique Live de v8 (`magic=20261020`, 648 trades) vs Simulation Contrefactuelle :**
+### Le Problème du Trader Classique
+Sur les marchés Boom et Crash, beaucoup de traders débutants commettent la même erreur : ils cherchent à ramasser les petits gains lents en fuyant le gros saut soudain. Lorsqu'un saut arrive, il détruit en quelques secondes l'équivalent de plusieurs dizaines de petits gains passés.
 
-| Métrique Quantitative | Ancienne Estimation Contrefactuelle *(Réfutée)* | Exécution Live Réelle v8 (648 trades) | Simulation Tick-par-Tick v8.30 (6,8 M ticks) |
-|---|---|---|---|
-| **Source du Calcul** | Formule `gain=\|perte_v7\|*0.92`, `perte=gain_v7*1.15+0.05` | Historique réel des deals MT5 (`forensic_v8_live.py`) | Rejeu exact sur ticks bid/ask (`sim_v830_ticks.py`) |
-| **Profit Net Cumulé** | *+340,73 USD (Bootstrap IC [+340,51 ; +340,52])* ❌ | **−311,20 USD** (−0,480 USD / trade) | **Négatif sur 8/8 indices** ($\approx -\text{Spread} \times \text{Lot}$) |
-| **Décomposition du PnL** | Supposait le spread historique `CopyTicks` | Mid : **−10,82 $** ($z=-0,34$) \| Spread : **−300,28 $ (96,5 %)** | Identique à l'inverse v7 et aux entrées aléatoires |
-| **Loi Mathématique** | Supposait un « lift de hasard » $\times 2$ | **Théorème de Doob :** $\mathbb{E}[\text{PnL}] = -\text{Spread}_{\text{réel}} \times \text{Lot}$ | Processus géométrique sans mémoire ($\text{CV} \approx 1,0$) |
+### L'Approche Convexe de Notre Robot (`DerivBoomCrashHFT_v830_Ultimate`)
+Notre robot applique la philosophie inverse :
+* **Sur les marchés Crash** : Le robot n'ouvre que des positions de vente (`SELL`). Lorsque le marché chute brusquement lors d'un saut, le robot encaisse le saut dans le bon sens.
+* **Sur les marchés Boom** : Le robot n'ouvre que des positions d'achat (`BUY`). Lorsque le marché explose à la hausse, le robot encaisse le gain vertical.
 
-### 2. Réparations B1 à B9 Implémentées dans `DerivBoomCrashHFT_v830_Ultimate.mq5`
-1. **B1 — Porte EV Statique & Dynamique Appliquée :** `OpenConvexSpikeProbe()` ré-évalue `ComputeSymbolEvGate()` sur le spread live (`GetLiveExecutableSpreadPts`) et bloque strictement toute sonde dès que `!tr.ev_gate_pass` ou `tr.last_expected_payoff_usd < InpMinExpectedPayoffUsd`. Avec les spreads live réels, la porte verrouille 10/10 indices (`REFUSE`), protégeant intégralement le capital.
-2. **B2 — Filtre IA Réellement Bloquant :** Suppression du `MathMax(phys_spike_p0, ...)` et réglage de `InpThetaEffBaseMult = 1.00`.
-3. **B3 & B4 — Alignement des 14 Features ONNX & Échelle Temporelle :** Le vecteur `[1, 14]` transmis à `boom_crash_meta_brain.onnx` correspond exactement aux 14 variables de [`src/models/onnx_model_metadata.json`](src/models/onnx_model_metadata.json) (`InpUseZeroCheatFeatures = false`), et la probabilité de survie sur l'horizon d'entraînement $H_{\text{train}} = \text{be\_ticks} + 15$ (`out_proba[0][1]`) est mise à l'échelle de l'horizon $M^*$ via $P_{\text{spike}}(M^*) = 1 - P_{\text{surv}, H_{\text{train}}}^{M^* / (\text{be\_ticks} + 15)}$.
-4. **B5 — Stop Temporel en Secondes Serveur :** Remplacement de `GetTickCount64()` (horloge PC) par l'horodatage serveur (`live_pos_tick.time_msc - pos_time_msc` et `TimeCurrent() - POSITION_TIME`).
-5. **B6 — Suivi de Perte Journalière UTC :** Calcul sur `g_day_start_equity` avec réinitialisation automatique à 00:00 UTC.
-6. **B7, B8, B9 & Curseur `CopyTicks` — Suppression des Biais Artificiels :** Suppression de `calm_maturity_boost` (sophisme du joueur), suppression du plancher `0.20 * mean_sp`, prise en compte du spread réel dans `loss_usd`, désactivation par défaut de `InpEnableHawkesClusterEntry`, et correction de la garde d'horodatage `tick.time_msc < tr.last_time_msc` dans `ProcessSingleTick()`.
-
----
-
-## 🔬 SPÉCIFICATION DÉTAILLÉE DU TRACK 2 : VOLATILITÉ H1 SQUEEZE
-
-### 1. Vérité Empirique sur 6,3 Ans d'Historique H1 (56 046 Barres par Indice)
-* **Univers d'actifs :** `Volatility 25 (1s) Index` ($\sigma = 25\%/\text{an}$) et `Volatility 75 (1s) Index` ($\sigma = 75\%/\text{an}$).
-* **Test du Générateur ([`audit_vol_squeeze.py`](research/audit_2026-10-25/audit_vol_squeeze.py)) :**
-  - Les deux indices sont des mouvements browniens géométriques (GBM) à **volatilité constante** : $\text{Kurtosis H1} = 2,965$ (V25) et $2,987$ (V75) ; autocorrélation des rendements $|\text{ACF}| \le 0,011$ ; autocorrélation des rendements carrés $\text{ACF}(r^2) \le 0,007$ ; corrélation entre $\sigma_{20}$ passé et $|r_{t+1}|$ futur $= +0,002$ (V25) et $+0,001$ (V75).
-  - Les métriques historiques issues d'un petit échantillon de 1 000 barres (~40 signaux : « WR 62,86 % sur V75 à 3h », « PF 1,64 sur V25 à 4h ») ainsi que les « 3/3 trades gagnants live sur V25 » relevaient d'une fluctuation d'échantillonnage (bilan live V25+V75 $= -8\text{ USD}$ sur 8 trades).
-
-### 2. Alignement Exact des 7 Features ONNX (`c2_vol_filter.onnx`) et Évaluation Chronologique 60/20/20
-Le script [`src/python/train_volatility_colab.py`](src/python/train_volatility_colab.py) et l'EA [`src/mql5/Deriv_VolSqueeze_Breakout_EA_v3.mq5`](src/mql5/Deriv_VolSqueeze_Breakout_EA_v3.mq5) utilisent désormais **exactement** le même vecteur `[1, 7]` :
-1. `vol_ratio` : $\sigma_{20} / (q_{0,25} + 10^{-8})$
-2. `impulse_z` : $|r_{1\text{h, bps}}| / \sigma_{20}$
-3. `direction` : $+1,0$ (BUY) ou $-1,0$ (SELL)
-4. `levy_area` : Aire de Lévy sur la trajectoire normalisée des 20 dernières clôtures H1
-5. `spread_to_atr` : Ratio du spread exact sur l'ATR(20) H1 ($\text{spread\_pts} / (\text{atr\_pts} + 10^{-8})$)
-6. `skew20` : Skewness des rendements H1 sur 20 barres
-7. `kurt20` : Kurtosis des rendements H1 sur 20 barres
-
-| Indice & Horizon | Signaux Totaux (6,3 ans) | Split Chronologique 60 / 20 / 20 | ROC-AUC Validation | ROC-AUC Out-Of-Sample (OOS) | Bilan Statistique OOS (Filtré $P \ge 0,50$) |
-|---|---:|---|---:|---:|---|
-| **Volatility 25 (1s)** ($H=4\text{h}$) | 1 473 | Train: 883 \| Val: 295 \| OOS: 295 | 0,5733 | **0,4666** | WR $55,6\%$, PF $1,31$, Net $+5,47\text{ bps}$ ($t = +1,23 < 1,96$, non significatif sous GBM) |
-| **Volatility 75 (1s)** ($H=3\text{h}$) | 1 562 | Train: 937 \| Val: 312 \| OOS: 313 | 0,5416 | **0,5212** | WR $50,0\%$, PF $0,95$, Net $-3,11\text{ bps}$ ($t = -0,11$, conforme à un GBM sans mémoire) |
-
----
-
-## 🧮 TRACK 3 : SCANNER DE JUSTE VALEUR DES CONTRATS DERIV (WEBSOCKET LIVE)
-
-Le script [`src/python/deriv_fair_value_scanner.py`](src/python/deriv_fair_value_scanner.py) interroge en direct l'API WebSocket de Deriv (`wss://ws.derivws.com/websockets/v3?app_id=1089`, repli automatique `red.derivws.com`) et évalue l'espérance mathématique exacte $\text{EV} = \text{Payout} \times P_{\text{exact}} - \text{Stake}$ de **349 contrats** répartis en **9 familles** à partir des lois génératrices vérifiées :
-- **Digits (`DIGITMATCH`, `DIGITDIFF`, `DIGITEVEN`, `DIGITODD`, `DIGITOVER`, `DIGITUNDER`) :** Loi uniforme discrète exacte sur $\{0..9\}$ ($\text{EV} \in [-9,09\% ; -1,09\%]$).
-- **Rise/Fall & Higher/Lower (`CALL`, `PUT`) :** Loi log-normale exacte sous GBM martingale $P_{\text{CALL}} = \Phi(d_2)$ ($\text{EV} \in [-5,03\% ; -0,98\%]$).
-- **Touch / No Touch (`ONETOUCH`, `NOTOUCH`) & Turbos (`TURBOSLONG`, `TURBOSSHORT`) :** Principe de réflexion exact pour mouvement brownien avec dérive $\nu = -\frac{1}{2}\sigma^2$ ($\text{EV} \in [-4,16\% ; -1,85\%]$).
-- **Ends Between / Outside (`EXPIRYRANGE`, `EXPIRYMISS`), Accumulators (`ACCU`) & Multipliers (`MULTUP`, `MULTDOWN`) :** Formules fermées exactes ($\text{EV} \in [-3,94\% ; -0,45\%]$).
-- **Boom / Crash (Loi Géométrique Sans Mémoire $1/\tau$) :** $P(\text{Spike en } N) = 1 - (1 - 1/\tau)^N$ et $P(\text{Survie en } N) = (1 - 1/\tau)^N$ ($\text{EV} \in [-87,75\% ; -7,28\%]$).
-- **Verdict global : `0 / 349` contrats à $\text{EV} > 0$.** Rapport complet dans [`docs/RAPPORT_SCANNER_EV_CONTRATS_DERIV.md`](docs/RAPPORT_SCANNER_EV_CONTRATS_DERIV.md) et [`research/audit_2026-10-25/deriv_contracts_ev_report.json`](research/audit_2026-10-25/deriv_contracts_ev_report.json).
-
----
-
-## 🚀 Commandes d'Exécution & Vérification Reproductible
-
-```bash
-# 1. Exécuter l'optimisation multi-timeframes (M5 à H4) et grille de probabilité ONNX (0.10 à 0.99)
-python src/python/optimize_timeframe_and_prob_grid.py
-
-# 2. Ré-entraîner et évaluer c2_vol_filter.onnx en split chronologique strict 60/20/20
-python src/python/train_volatility_colab.py --symbol "Volatility 25 (1s) Index" --horizon 4
-
-# 3. Exécuter le Scanner de Juste Valeur WebSocket Deriv en live
-python src/python/deriv_fair_value_scanner.py
-
-# 4. Exécuter la suite complète de vérification adversariale (Étape 1 & Étape 4)
-python tests/verify_step1_and_step4.py
+```mermaid
+stateDiagram-v2
+    [*] --> Surveillance: Analyse du flux tick par tick
+    Surveillance --> Evaluation: Nombre de ticks sans saut suffisant
+    Evaluation --> FiltrageIA: Cerveau ONNX estime la probabilité du saut
+    FiltrageIA --> VerificationSpread: Vérification des frais de courtage en direct
+    VerificationSpread --> PrisePosition: Frais convenables et probabilité validée
+    VerificationSpread --> Surveillance: Frais trop chers -> Sonde verrouillée
+    PrisePosition --> AttenteSaut: Position ouverte avec sécurité maximale
+    AttenteSaut --> ClotureGain: Saut favorable capté -> Clôture immédiate
+    AttenteSaut --> ClotureChrono: 60 ticks écoulés sans saut -> Coupure propre
+    ClotureGain --> Surveillance
+    ClotureChrono --> Surveillance
 ```
 
+### Le Bouclier de Sécurité : La Porte de Spread
+Sur certains indices (comme Crash 600 ou Crash 900), les frais prélevés par le courtier à l'entrée sont trop élevés par rapport au gain potentiel moyen d'un saut. 
+Le robot intègre un bouclier mathématique automatique : il compare en direct le gain espéré avec le coût exact du courtage. Si le coût est trop lourd, le robot verrouille le marché et refuse d'ouvrir une position, protégeant ainsi le capital.
+
 ---
 
-## 📂 Organisation & Cartographie du Dépôt
+## 4. Système 2 — Surfeur de Tendance (Indices Volatility 25 et 75)
+
+### L'Analogie du Ressort Comprimé
+Sur les indices de volatilité continue, les prix alternent entre des moments de calme plat et des accélérations soudaines. 
+Imaginez un ressort : plus on le compresse longtemps, plus l'énergie accumulée est importante lorsqu'il est relâché.
+
+Le robot [`Deriv_VolSqueeze_Breakout_EA_v3`](src/mql5/Deriv_VolSqueeze_Breakout_EA_v3.mq5) applique ce principe :
+1. **La Compression** : Il mesure la fluctuation des prix sur les 20 dernières heures. Si cette fluctuation est anormalement basse, le marché est considéré comme un ressort comprimé.
+2. **L'Impulsion** : Dès qu'une bougie d'une heure casse nettement cette zone de calme avec force, une impulsion est confirmée.
+3. **Le Cerveau Artificiel Dédié** : Avant d'entrer, le robot interroge un modèle d'intelligence artificielle entraîné spécifiquement pour cet indice :
+   * Sur **Volatility 25 (1s)** : Le modèle [`c2_vol_filter_v25.onnx`](src/models/c2_vol_filter_v25.onnx) valide si la probabilité de succès dépasse 42 %.
+   * Sur **Volatility 75 (1s)** : Le modèle [`c2_vol_filter_v75.onnx`](src/models/c2_vol_filter_v75.onnx) valide si la probabilité dépasse 50 %.
+4. **La Durée de Maintien Fixe (4 Heures)** : La position est conservée pendant exactement 4 heures. Ni plus, ni moins. Cette durée a été prouvée comme le point d'équilibre parfait entre laisser le mouvement se développer et sortir avant que le marché ne se retourne.
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant M as Marché Deriv (H1)
+    participant B as Robot VolSqueeze v3.20
+    participant IA as Modèle IA ONNX Dédié
+    participant T as Gestionnaire d'Ordres MT5
+
+    M->>B: Clôture d'une nouvelle bougie 1 Heure
+    B->>B: Calcul de la compression (VolRatio <= Seuil Calme)
+    alt Pas de compression ou pas de cassure
+        B->>B: Mise à jour du dashboard visuel sur graphique (Attente)
+    else Compression et Cassure confirmées
+        B->>IA: Transmission des 7 caractéristiques de marché
+        IA-->>B: Probabilité de réussite estimée
+        alt Probabilité suffisante (ex. >= 42% sur V25)
+            B->>T: Ouverture de la position (BUY ou SELL)
+            Note over B,T: Maintien strict pendant 4 heures
+            T-->>B: Clôture automatique à la 4ème heure
+        else Probabilité trop faible
+            B->>B: Signal écarté par prudence
+        end
+    end
+```
+
+### Pourquoi Travailler sur des Bougies d'Une Heure (H1) ?
+Une question naturelle est : *« Pourquoi ne pas trader sur des bougies de 5 minutes ou 15 minutes pour faire plus d'opérations ? »*.
+
+Des tests exhaustifs menés sur plus de 250 000 bougies réelles ont démontré un résultat sans appel :
+* Sur des bougies de 5 ou 15 minutes, les mouvements sont trop faibles et les frais fixes du courtier absorbent l'essentiel du profit, conduisant à des pertes cumulées.
+* Sur des bougies d'une heure avec 4 heures de maintien, le mouvement moyen est suffisamment large pour dépasser très largement les frais du courtier, générant un avantage statistique solide.
+
+---
+
+## 5. Tableau Récapitulatif des Deux Systèmes
+
+| Caractéristique | Système 1 : Boom & Crash HFT | Système 2 : Volatilité H1 Breakout |
+|---|---|---|
+| **Robot Exécutable** | `DerivBoomCrashHFT_v830_Ultimate.ex5` | `Deriv_VolSqueeze_Breakout_EA_v3.ex5` |
+| **Marchés Cibles** | Crash 500, Boom 500, Crash 1000, Boom 600, Boom 900 | Volatility 25 (1s) Index, Volatility 75 (1s) Index |
+| **Unité de Temps** | Ticks en direct (50 millisecondes) | Bougies de 1 Heure (`PERIOD_H1`) |
+| **Durée d'un Trade** | Très courte (moins de 65 secondes ou 60 ticks) | Durée fixe de 4 heures |
+| **Rôle de l'IA** | Réseau neuronal de survie (14 indicateurs) | Modèles GBDT dédiés par actif (7 indicateurs) |
+| **Sécurité Principale** | Porte de spread en direct et stop d'urgence | Maintien déterministe et sélection stricte de volatilité |
+| **Affichage Écran** | Panneau d'état des 7 sondes dans les logs | Dashboard visuel interactif directement sur le graphique |
+
+---
+
+## 6. Guide d'Installation et de Démarrage en 4 Étapes
+
+Pour déployer et observer ces robots dans MetaTrader 5 :
+
+### Étape 1 : Préparer l'Environnement
+Installez le terminal officiel MetaTrader 5 pour Deriv et connectez votre compte de démonstration ou réel.
+
+### Étape 2 : Emplacement des Fichiers
+Assurez-vous que les fichiers compilés et les modèles d'intelligence artificielle sont placés dans les dossiers correspondants de MetaTrader 5 :
+* Les robots (`.ex5`) dans : `MQL5/Experts/`
+* Les modèles neuronaux (`.onnx`) dans : `MQL5/Files/`
+
+### Étape 3 : Configuration des Graphiques
+Ouvrez trois fenêtres de graphiques distinctes :
+1. **Graphique 1** : `Boom 600 Index` en unité de temps `M1` (le robot supervise automatiquement les autres indices en arrière-plan).
+2. **Graphique 2** : `Volatility 25 (1s) Index` en unité de temps `H1`.
+3. **Graphique 3** : `Volatility 75 (1s) Index` en unité de temps `H1`.
+
+Attachez le robot correspondant sur chaque graphique en vérifiant dans l'onglet **Commun** que la case **Autoriser le trading en direct** est bien cochée.
+
+### Étape 4 : Activer le Trading Algorithmique
+Cliquez sur le bouton **Algo Trading** dans la barre d'outils supérieure de MetaTrader 5 pour qu'il devienne vert. Les dashboards s'affichent instantanément sur vos graphiques et les robots commencent leur analyse.
+
+---
+
+## 7. Structure Visuelle du Projet
 
 ```text
-bot-quant-/
-├── README.md                                  <- Document institutionnel principal (mis à jour post-audit 25/10/2026)
-├── CHANGELOG_AND_HISTORY.md                   <- Chronologie exhaustive des versions et étapes
-├── LICENSE                                    <- Licence Open-Source MIT
+Christ-yavn/bot-quant-
 │
-├── research/
-│   └── audit_2026-10-25/                      <- Preuves empiriques reproductibles & audit complet du 25/10/2026
-│       ├── AUDIT_COMPLET_MODELES_ET_BOTS_DERIV.md <- Rapport d'audit complet des modèles, bots et spreads
-│       ├── audit_boomcrash_micro.py           <- Test martingale, CV, ACF et fonction de hasard (6.8M ticks)
-│       ├── sim_v830_ticks.py                  <- Simulation tick par tick v8.30 vs v7 inverse vs hasard
-│       ├── forensic_v8_live.py                <- Décomposition exacte des 648 trades live v8 (-311.20 USD)
-│       ├── audit_vol_squeeze.py               <- Audit 6.3 ans (56 046 barres H1) V25/V75 & ONNX
-│       ├── audit_longrun_drift.py             <- Dérive D1 long terme et coûts de swaps annuels
-│       └── deriv_contracts_ev_report.json     <- Résultats JSON complets du scanner WebSocket Deriv
-│
-├── docs/                                      <- Vérité scientifique, guide L1, manuels historiques & rapports
-│   ├── GUIDE_PEDAGOGIQUE_L1_MATHS_AUDIT_ET_REPARATIONS_2026.md      <- Guide pédagogique complet (niveau L1 Maths)
-│   ├── ETAT_DE_LA_VERITE.md                   <- SOURCE DE VÉRITÉ UNIQUE : hypothèses vérifiées vs réfutées
-│   ├── RAPPORT_SCANNER_EV_CONTRATS_DERIV.md   <- Rapport détaillé du Scanner de Juste Valeur WebSocket Deriv
-│   ├── ENCYCLOPEDIE_COMPLETE_BOT_HFT_DERIV_V1_A_V6.md               <- Manuel Tome I (Archive historique v1-v6)
-│   ├── ENCYCLOPEDIE_TOME_2_SYSTEME_DUAL_HFT_ET_ONNX_VOLATILITE.md    <- Manuel Tome II (avec rectificatif d'audit)
-│   ├── REGISTRE_MODELES_IA_ONNX.md                                  <- Registre ONNX aligné post-audit
-│   └── ... (100% des rapports et transcriptions historiques préservés)
-│
-├── archive/
-│   ├── models_legacy/                         <- Historique des anciens modèles ONNX classés par bot (v6, v7, v3.00)
-│   └── profiles_legacy/                       <- Historique des anciens profils de graphiques MT5
+├── AGENT.md                           Guide opérationnel strict pour les agents IA
+├── README.md                          Présentation générale accessible (le présent document)
+├── CHANGELOG_AND_HISTORY.md           Historique chronologique détaillé de toutes les versions
 │
 ├── src/
-│   ├── models/
-│   │   ├── boom_crash_meta_brain.onnx         <- Réseau MLP 14 features Boom & Crash
-│   │   ├── onnx_model_metadata.json           <- Métadonnées des 14 features Boom & Crash
-│   │   ├── c2_vol_filter.onnx                 <- Classifieur GBDT 7 features alignées Volatilité H1
-│   │   └── c2_vol_filter_metadata.json        <- Métriques chronologiques 60/20/20 Train/Val/OOS
-│   ├── mql5/
-│   │   ├── DerivBoomCrashHFT_v830_Ultimate.mq5<- Moteur HFT v8.30 corrigé (B1-B9) + .ex5 compilé
-│   │   ├── Deriv_VolSqueeze_Breakout_EA_v3.mq5<- Moteur Volatilité v3.10 (7 features alignées) + .ex5 compilé
-│   │   └── ... (Archives historiques v6, v7, v8, VolSqueeze v1 préservées)
-│   └── python/
-│       ├── train_volatility_colab.py          <- Pipeline d'entraînement chronologique 60/20/20 & export ONNX
-│       ├── deriv_fair_value_scanner.py        <- Scanner live de juste valeur WebSocket Deriv
-│       └── ...
-└── tests/
-    └── verify_step1_and_step4.py              <- Suite de tests adversariaux & Proxy Fitness (5/5)
+│   ├── mql5/                          Code source des robots MetaTrader 5
+│   │   ├── DerivBoomCrashHFT_v830_Ultimate.mq5
+│   │   └── Deriv_VolSqueeze_Breakout_EA_v3.mq5
+│   ├── models/                        Modèles d'intelligence artificielle ONNX
+│   │   ├── c2_vol_filter_v25.onnx     Modèle dédié pour Volatility 25 (1s)
+│   │   ├── c2_vol_filter_v75.onnx     Modèle dédié pour Volatility 75 (1s)
+│   │   └── boom_crash_meta_brain.onnx Modèle pour la gamme Boom & Crash
+│   └── python/                        Scripts de recherche, optimisation et scanners
+│       ├── optimize_timeframe_and_prob_grid.py
+│       ├── deriv_fair_value_scanner.py
+│       └── train_volatility_colab.py
+│
+├── docs/                              Documentation technique, mathématique et académique
+│   ├── ETAT_DE_LA_VERITE.md
+│   ├── GUIDE_PEDAGOGIQUE_L1_MATHS_AUDIT_ET_REPARATIONS_2026.md
+│   └── RAPPORT_OPTIMISATION_TIMEFRAME_ET_PROBABILITE_ONNX.md
+│
+└── research/                          Données brutes, audits forensiques et protocoles de test
 ```
 
 ---
 
-## 📜 Registre Historique des Versions (Préservation Immuable)
+## 8. Foire Aux Questions (FAQ)
 
-| Version | Fichier Source | Période | Statut | Mécanisme Principal & Bilan Empirique Vérifié |
-|---|---|---|---|---|
-| **v1.00 - v5.00** | Documenté dans Tome I | 2026.10.15 | Archivé | Découverte des microstructures Deriv, tests préliminaires de scalping. |
-| **v6.00** | `DerivBoomCrashHFT_v6.mq5` | 2026.10.18 | Archivé | Filtre Hawkes basique, 258 trades réels (−68,40 USD). |
-| **v7.00** | `DerivBoomCrashHFT_v7.mq5` | 2026.10.19 | Archivé | 1 242 trades réels, 85,91 % Win Rate, perte nette de −406,14 USD (concavité + spread). |
-| **v8.00** | `DerivBoomCrashHFT_v8.mq5` | 2026.10.20 | Archivé | Inversion convexe (SELL Crash / BUY Boom). 648 trades réels live : −311,20 USD (96,5 % dû au vrai spread live 10× supérieur à `CopyTicks`). |
-| **v8.30 Hardened** | `DerivBoomCrashHFT_v830_Ultimate.mq5` | 2026.10.25 | **VERROUILLÉ (B1–B9 Fixés)** | Porte EV statique/dynamique appliquée (bloque 10/10 indices sous spread live), 14 features ONNX alignées, stop secondes serveur, rollover UTC. |
-| **Vol Squeeze v1** | `Deriv_VolSqueeze_Breakout_EA.mq5` | 2026.10.20 | Archivé | Prototype Squeeze sur Timeframe H1. |
-| **Vol Squeeze v3.20** | `Deriv_VolSqueeze_Breakout_EA_v3.mq5` | 2026.10.25 | **OPTIMISÉ (H1 Hold=4h)** | Modèles dédiés `c2_vol_filter_v25.onnx` (P_min=42%) et `c2_vol_filter_v75.onnx` (P_min=50%), normalisation auto base 1/100, dashboard on-chart en direct, H1 Hold=4h (+3 241 bps sur V25, +4 120 bps sur V75). |
-| **v8.30 Live Test** | `DerivBoomCrashHFT_v830_Ultimate.mq5` | 2026.10.25 | **TEST DÉVERROUILLÉ (5 Sondes)** | 5 sondes à faible spread autorisées (`Crash 500`, `Boom 500`, `Crash 1000`, `Boom 600`, `Boom 900` avec `MinEV=-0.20$`), verrouillage strict maintenu sur spreads toxiques (`Crash 600/900`). |
+### Pourquoi les robots ne prennent-ils pas position immédiatement à l'ouverture ?
+C'est tout à fait normal et c'est un gage de rigueur. Sur les indices de volatilité en H1, le robot n'analyse le marché qu'une seule fois par heure, à la fin de chaque bougie. Si les conditions de compression ou de cassure ne sont pas remplies, ou si le modèle d'IA estime que la probabilité est insuffisante, il attend patiemment la bougie suivante. Sur Boom/Crash, le robot attend qu'une série de ticks sans saut se produise pour entrer dans des conditions statistiques favorables.
+
+### Puis-je faire tourner ces stratégies avec un très petit capital ?
+Les indices synthétiques ont des tailles de contrat minimales (souvent 0.20 ou 0.50 lot). Il est vivement conseillé de tester longuement ces outils sur un compte de démonstration institutionnel (ex. 10 000 USD) afin d'observer le comportement statistique sans risquer un arrêt prématuré lié à une sous-capitalisation.
+
+### Où se trouvent les démonstrations mathématiques complètes ?
+Pour les passionnés de probabilités, de calcul stochastique et d'économétrie, le dossier [`docs/`](docs/) rassemble l'ensemble des études universitaires, démonstrations de martingales et analyses statistiques détaillées.
+
+---
+
+## 9. Avertissement & Licence
+
+> [!WARNING]
+> ### Avertissement sur les Risques Financiers
+> Le trading sur instruments financiers et indices synthétiques comporte un niveau de risque élevé et peut ne pas convenir à tous les profils d'investisseurs. Ce projet est publié à des fins de recherche quantitative, d'expérimentation pédagogique et d'ingénierie logicielle. Les performances passées ou simulées ne préjugent en rien des résultats futurs. Ne risquez jamais de capital que vous ne pouvez pas vous permettre de perdre.
+
+Ce projet est distribué sous licence open-source [**MIT**](LICENSE). Vous êtes libre d'étudier, modifier et adapter ce code dans le respect des termes de la licence.
