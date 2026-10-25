@@ -1,0 +1,28 @@
+[20261020.log] EP	0	18:15:06.677	Deriv_VolSqueeze_Breakout_EA_v3 (Volatility 25 (1s) Index,H1)	ONNX: CPU selected
+[20261020.log] IH	0	18:15:06.770	Deriv_VolSqueeze_Breakout_EA_v3 (Volatility 25 (1s) Index,H1)	[v3.00 ONNX] Model 'c2_vol_filter.onnx' successfully loaded and ready for inference.
+[20261020.log] QL	0	18:15:06.787	Deriv_VolSqueeze_Breakout_EA_v3 (Volatility 25 (1s) Index,H1)	[v3.00 INIT SUCCESS] Volatility 25 (1s) Index | TF=PERIOD_H1 | VolLookback=20 | SqueezeQ=0.25 | BreakoutZ=1.50 | Hold=4h | ONNX=ACTIVE
+[20261020.log] QK	2	18:15:07.552	Deriv_VolSqueeze_Breakout_EA_v3 (Volatility 25 (1s) Index,H1)	zero divide, check divider to avoid this error in 'Deriv_VolSqueeze_Breakout_EA_v3.mq5' (389,45)
+[20261020.log] DL	0	18:15:18.358	Deriv_VolSqueeze_Breakout_EA (Volatility 75 (1s) Index,H1)	Deriv_VolSqueeze_Breakout_EA initialized on Volatility 75 (1s) Index (PERIOD_H1). SqueezeQ=0.25, BreakZ=1.50, Hold=4 bars.
+[20261020.log] NE	0	18:15:35.489	Deriv_VolSqueeze_Breakout_EA_v3 (Volatility 25 (1s) Index,H1)	ONNX: CPU selected
+[20261020.log] CD	0	18:15:35.491	Deriv_VolSqueeze_Breakout_EA_v3 (Volatility 25 (1s) Index,H1)	[v3.00 ONNX] Model 'c2_vol_filter.onnx' successfully loaded and ready for inference.
+[20261020.log] CP	0	18:15:35.491	Deriv_VolSqueeze_Breakout_EA_v3 (Volatility 25 (1s) Index,H1)	[v3.00 INIT SUCCESS] Volatility 25 (1s) Index | TF=PERIOD_H1 | VolLookback=20 | SqueezeQ=0.25 | BreakoutZ=1.50 | Hold=4h | ONNX=ACTIVE
+[20261020.log] IG	2	18:15:35.540	Deriv_VolSqueeze_Breakout_EA_v3 (Volatility 25 (1s) Index,H1)	zero divide, check divider to avoid this error in 'Deriv_VolSqueeze_Breakout_EA_v3.mq5' (389,45)
+[20261020.log] CI	0	18:17:47.559	Deriv_VolSqueeze_Breakout_EA_v3 (Volatility 25 (1s) Index,H1)	ONNX: CPU selected
+[20261020.log] LP	0	18:17:47.561	Deriv_VolSqueeze_Breakout_EA_v3 (Volatility 25 (1s) Index,H1)	[v3.00 ONNX] Model 'c2_vol_filter.onnx' successfully loaded and ready for inference.
+[20261020.log] LD	0	18:17:47.561	Deriv_VolSqueeze_Breakout_EA_v3 (Volatility 25 (1s) Index,H1)	[v3.00 INIT SUCCESS] Volatility 25 (1s) Index | TF=PERIOD_H1 | VolLookback=20 | SqueezeQ=0.25 | BreakoutZ=1.50 | Hold=4h | ONNX=ACTIVE
+[20261020.log] DQ	2	18:17:47.578	Deriv_VolSqueeze_Breakout_EA_v3 (Volatility 25 (1s) Index,H1)	ONNX: output parameter #0 tensor has wrong dimension[0], try to use OnnxSetOutputShape ['Experts\Deriv_VolSqueeze_Breakout_EA_v3.mq5':216:64]
+[20261020.log] NM	0	18:17:47.578	Deriv_VolSqueeze_Breakout_EA_v3 (Volatility 25 (1s) Index,H1)	[v3.00 ONNX RUN ERROR] Code = 5808. Bypassing filter.
+[20261020.log] NL	0	18:17:48.310	Deriv_VolSqueeze_Breakout_EA_v3 (Volatility 25 (1s) Index,H1)	[v3.00 ENTRY EXECUTED] BUY Volatility 25 (1s) Index 0.01 lots | Close=892094.59 | std20=17.90 bps | Z=1.59 | P(Win)=100.00% | Ticket=#8804827667
+[20261020.log] DQ	0	18:18:05.515	Deriv_VolSqueeze_Breakout_EA (Volatility 75 (1s) Index,H1)	Deriv_VolSqueeze_Breakout_EA initialized on Volatility 75 (1s) Index (PERIOD_H1). SqueezeQ=0.25, BreakZ=1.50, Hold=4 bars.
+[20261020.log] FF	0	18:54:47.299	Deriv_VolSqueeze_Breakout_EA (Volatility 75 (1s) Index,H1)	SHORT Executed on Volatility 75 (1s) Index: Lots=0.71, Bid=4868.22, r1=-131.52 bps, std20=68.88 bps (<= q25=69.67 bps), Spr=3.37 bps
+[20261020.log] KS	0	21:54:46.537	Deriv_VolSqueeze_Breakout_EA_v3 (Volatility 25 (1s) Index,H1)	[v3.00 TIME-STOP EXIT] Ticket #8804827667 | Bars Held = 4/4 | OpenPrice=890410.31 | ExitPrice=0.00 | PnL=42.59 USD
+[20261020.log] FL	0	22:54:46.537	Deriv_VolSqueeze_Breakout_EA (Volatility 75 (1s) Index,H1)	Time-Stop Reached (4 bars >= 4). Closing Ticket #8804855105 at Market.
+[20261021.log] CN	2	03:54:46.434	Deriv_VolSqueeze_Breakout_EA_v3 (Volatility 25 (1s) Index,H1)	ONNX: output parameter #0 tensor has wrong dimension[0], try to use OnnxSetOutputShape ['Experts\Deriv_VolSqueeze_Breakout_EA_v3.mq5':216:64]
+[20261021.log] MJ	0	03:54:46.434	Deriv_VolSqueeze_Breakout_EA_v3 (Volatility 25 (1s) Index,H1)	[v3.00 ONNX RUN ERROR] Code = 5808. Bypassing filter.
+[20261021.log] RJ	0	03:54:47.142	Deriv_VolSqueeze_Breakout_EA_v3 (Volatility 25 (1s) Index,H1)	[v3.00 ENTRY EXECUTED] BUY Volatility 25 (1s) Index 0.02 lots | Close=898310.40 | std20=16.18 bps | Z=2.81 | P(Win)=100.00% | Ticket=#8805131619
+[20261021.log] QE	0	07:54:46.402	Deriv_VolSqueeze_Breakout_EA_v3 (Volatility 25 (1s) Index,H1)	[v3.00 TIME-STOP EXIT] Ticket #8805131619 | Bars Held = 4/4 | OpenPrice=898403.64 | ExitPrice=0.00 | PnL=14.62 USD
+[20261021.log] LL	0	21:54:44.626	Deriv_VolSqueeze_Breakout_EA (Volatility 75 (1s) Index,H1)	LONG Executed on Volatility 75 (1s) Index: Lots=0.87, Ask=4923.87, r1=82.00 bps, std20=54.64 bps (<= q25=70.57 bps), Spr=3.33 bps
+[20261022.log] ﻿MM	0	01:54:43.897	Deriv_VolSqueeze_Breakout_EA (Volatility 75 (1s) Index,H1)	Time-Stop Reached (4 bars >= 4). Closing Ticket #8806005731 at Market.
+[20261022.log] EP	0	01:54:45.320	Deriv_VolSqueeze_Breakout_EA (Volatility 75 (1s) Index,H1)	LONG Executed on Volatility 75 (1s) Index: Lots=1.05, Ask=4945.51, r1=67.69 bps, std20=45.09 bps (<= q25=69.65 bps), Spr=3.32 bps
+[20261022.log] NI	0	05:54:43.824	Deriv_VolSqueeze_Breakout_EA (Volatility 75 (1s) Index,H1)	Time-Stop Reached (4 bars >= 4). Closing Ticket #8806133277 at Market.
+[20261022.log] HF	0	07:54:44.522	Deriv_VolSqueeze_Breakout_EA (Volatility 75 (1s) Index,H1)	LONG Executed on Volatility 75 (1s) Index: Lots=0.76, Ask=4943.99, r1=103.17 bps, std20=61.87 bps (<= q25=67.97 bps), Spr=3.32 bps
