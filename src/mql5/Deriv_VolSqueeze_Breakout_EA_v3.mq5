@@ -27,8 +27,8 @@ input int             InpMaxHoldBars        = 4;           // Non-Overlapping Ti
 //--- Input Parameters: C2 Machine Learning ONNX Filter
 input group "=== 2. C2 Machine Learning / ONNX Filter (7 Aligned Features) ==="
 input bool            InpUseONNXFilter      = true;        // Enable C2 ONNX GBDT Filter
-input string          InpONNXModelName      = "c2_vol_filter.onnx"; // ONNX Model File (in MQL5\Files)
-input double          InpMinWinProbability  = 0.50;        // Min Predicted Win Probability to Enter (0.50 = 50%)
+input string          InpONNXModelName      = "c2_vol_filter.onnx"; // ONNX Model File (Auto-selects v25/v75 dedicated model)
+input double          InpMinWinProbability  = 0.42;        // Min Predicted Win Probability (0.42 = 42% on V25, 0.50 = 50% on V75; auto-normalizes if >1)
 
 //--- Input Parameters: Excursion Guardrails & Real Spread Filter
 input group "=== 3. Excursion Guardrails & Dynamic Spread Filter ==="
@@ -57,6 +57,59 @@ datetime       ExtLastBarTime       = 0;
 datetime       ExtCurrentDay        = 0;
 double         ExtDayStartEq        = 0.0;
 bool           ExtModelLoaded       = false;
+string         ExtActiveModelFile   = "";
+double         ExtEffMinProb        = 0.42;
+double         ExtLastStd20         = 0.0;
+double         ExtLastSqueezeQ      = 0.0;
+double         ExtLastBreakoutZ     = 0.0;
+double         ExtLastOnnxProb      = 0.0;
+double         ExtLastSpreadBps     = 0.0;
+long           ExtTotalSignals      = 0;
+long           ExtTotalTrades       = 0;
+
+//+------------------------------------------------------------------+
+//| Normalize probability threshold (handles both 0.42 and 42.0)     |
+//+------------------------------------------------------------------+
+double GetNormalizedMinWinProb()
+{
+   double p = InpMinWinProbability;
+   if(p > 1.0)
+      p = p / 100.0;
+   return MathMax(0.05, MathMin(0.95, p));
+}
+
+//+------------------------------------------------------------------+
+//| Render Real-Time Telemetry Dashboard on Chart                    |
+//+------------------------------------------------------------------+
+void RenderVolSqueezeDashboard()
+{
+   bool term_ok = (bool)TerminalInfoInteger(TERMINAL_TRADE_ALLOWED);
+   bool mql_ok  = (bool)MQLInfoInteger(MQL_TRADE_ALLOWED);
+   bool sqz_now = (ExtLastStd20 > 0.0 && ExtLastStd20 <= ExtLastSqueezeQ);
+   string dash = StringFormat(
+      "=================================================================\n"
+      " DERIV VOL SQUEEZE BREAKOUT EA v3.20 — OPTIMISATION MATHÉMATIQUE\n"
+      "=================================================================\n"
+      " Symbole & TF    : %s | %s | Maintien Optimal H = %d barres\n"
+      " Autorisation MT5: %s (Terminal=%s | Graphique MQL=%s)\n"
+      " Modèle IA ONNX  : %s (%s | Seuil Optimal P_min = %.1f%%)\n"
+      " État Compression: std20 = %.2f bps vs Q%.0f = %.2f bps -> %s\n"
+      " Dernière Bougie : Impulse Z = %.2f (Seuil=%.2f) | P(Win) IA = %.1f%%\n"
+      " Spread Live     : %.2f bps (Max=%.2f bps) | Signaux=%I64d | Trades=%I64d\n"
+      "=================================================================",
+      _Symbol, EnumToString(InpTimeframe), InpMaxHoldBars,
+      (term_ok && mql_ok) ? "ACTIF & PRÊT À TRADER" : "BLOQUÉ (Vérifier Algo Trading)",
+      term_ok ? "OUI" : "NON", mql_ok ? "OUI" : "NON",
+      ExtModelLoaded ? ExtActiveModelFile : "BYPASS",
+      ExtModelLoaded ? "7 Features Alignées" : "Sans Filtre",
+      ExtEffMinProb * 100.0,
+      ExtLastStd20, InpSqueezeQuantile * 100.0, ExtLastSqueezeQ,
+      sqz_now ? "EN COMPRESSION (SQUEEZE ACTIF !)" : "ATTENTE COMPRESSION (Volatilité Normale)",
+      ExtLastBreakoutZ, InpBreakoutZScore, ExtLastOnnxProb * 100.0,
+      ExtLastSpreadBps, InpMaxSpreadBps, ExtTotalSignals, ExtTotalTrades
+   );
+   Comment(dash);
+}
 
 //+------------------------------------------------------------------+
 //| Expert Initialization Function                                   |
@@ -90,9 +143,27 @@ int OnInit()
    }
 
    //--- Initialize C2 ONNX Model if enabled
+   ExtEffMinProb = GetNormalizedMinWinProb();
+   ExtActiveModelFile = InpONNXModelName;
    if(InpUseONNXFilter)
    {
-      ExtOnnxHandle = OnnxCreate(InpONNXModelName, ONNX_DEFAULT);
+      string preferred_model = InpONNXModelName;
+      if(preferred_model == "c2_vol_filter.onnx" || preferred_model == "AUTO" || preferred_model == "")
+      {
+         if(StringFind(_Symbol, "25 (1s)") >= 0)
+            preferred_model = "c2_vol_filter_v25.onnx";
+         else if(StringFind(_Symbol, "75 (1s)") >= 0)
+            preferred_model = "c2_vol_filter_v75.onnx";
+      }
+
+      ExtOnnxHandle = OnnxCreate(preferred_model, ONNX_DEFAULT);
+      if(ExtOnnxHandle == INVALID_HANDLE && preferred_model != InpONNXModelName)
+      {
+         ExtOnnxHandle = OnnxCreate(InpONNXModelName, ONNX_DEFAULT);
+         if(ExtOnnxHandle != INVALID_HANDLE)
+            preferred_model = InpONNXModelName;
+      }
+
       if(ExtOnnxHandle != INVALID_HANDLE)
       {
          const long in_shape[] = {1, 7};
@@ -102,11 +173,13 @@ int OnInit()
          OnnxSetOutputShape(ExtOnnxHandle, 0, out_shape_0);
          OnnxSetOutputShape(ExtOnnxHandle, 1, out_shape_1);
          ExtModelLoaded = true;
-         PrintFormat("[v3.10 ONNX] Model '%s' successfully loaded (7 aligned features: vol_ratio, impulse_z, direction, levy_area, spread_to_atr, skew20, kurt20).", InpONNXModelName);
+         ExtActiveModelFile = preferred_model;
+         PrintFormat("[v3.20 ONNX] Model '%s' successfully loaded (7 aligned features | P_min=%.1f%%).",
+                     ExtActiveModelFile, ExtEffMinProb * 100.0);
       }
       else
       {
-         PrintFormat("[v3.10 ONNX NOTICE] Model '%s' not loaded (Code=%d). Operating in Pure S1 Quant mode.", InpONNXModelName, GetLastError());
+         PrintFormat("[v3.20 ONNX NOTICE] Model '%s' not loaded (Code=%d). Operating in Pure S1 Quant mode.", preferred_model, GetLastError());
          ExtModelLoaded = false;
       }
    }
@@ -114,10 +187,14 @@ int OnInit()
    ExtDayStartEq = AccountInfoDouble(ACCOUNT_EQUITY);
    ExtCurrentDay = iTime(_Symbol, PERIOD_D1, 0);
 
-   PrintFormat("[v3.10 INIT SUCCESS] %s | TF=%s | VolLookback=%d | SqueezeQ=%.2f | BreakoutZ=%.2f | Hold=%dh | ONNX=%s",
+   bool term_ok = (bool)TerminalInfoInteger(TERMINAL_TRADE_ALLOWED);
+   bool mql_ok  = (bool)MQLInfoInteger(MQL_TRADE_ALLOWED);
+   PrintFormat("[v3.20 INIT SUCCESS] %s | TF=%s | VolLookback=%d | SqueezeQ=%.2f | BreakoutZ=%.2f | Hold=%dh | ONNX=%s (P_min=%.1f%%) | TradeAllowed=(Term:%s, MQL:%s)",
                _Symbol, EnumToString(InpTimeframe), InpVolLookback, InpSqueezeQuantile, InpBreakoutZScore, InpMaxHoldBars,
-               (ExtModelLoaded ? "ACTIVE" : "BYPASS"));
+               (ExtModelLoaded ? ExtActiveModelFile : "BYPASS"), ExtEffMinProb * 100.0,
+               term_ok ? "YES" : "NO", mql_ok ? "YES" : "NO");
 
+   RenderVolSqueezeDashboard();
    return INIT_SUCCEEDED;
 }
 
@@ -136,7 +213,8 @@ void OnDeinit(const int reason)
       OnnxRelease(ExtOnnxHandle);
       ExtOnnxHandle = INVALID_HANDLE;
    }
-   PrintFormat("[v3.10 DEINIT] Shutdown clean. Reason = %d", reason);
+   Comment("");
+   PrintFormat("[v3.20 DEINIT] Shutdown clean. Reason = %d", reason);
 }
 
 //+------------------------------------------------------------------+
@@ -227,7 +305,8 @@ bool EvaluateONNXFilter(double vol_ratio, double impulse_z, double direction,
    }
 
    out_prob = (double)out_probs[1]; // Probability of win (Class 1)
-   return (out_prob >= InpMinWinProbability);
+   ExtEffMinProb = GetNormalizedMinWinProb();
+   return (out_prob >= ExtEffMinProb);
 }
 
 //+------------------------------------------------------------------+
@@ -372,23 +451,10 @@ void OnTick()
    if(q_index >= InpQuantileWindow) q_index = InpQuantileWindow - 1;
    double squeeze_threshold = sorted_std[q_index];
 
-   //--- 8. Evaluate Squeeze Compression Condition
-   if(current_std20 > squeeze_threshold || current_std20 <= 1e-6)
-   {
-      ExtLastBarTime = bar_time;
-      return;
-   }
-
-   //--- 9. Evaluate Impulse Breakout Condition
    double impulse_return_bps = r_bps[0];
-   double breakout_z = MathAbs(impulse_return_bps) / current_std20;
-   if(breakout_z < InpBreakoutZScore)
-   {
-      ExtLastBarTime = bar_time;
-      return;
-   }
+   double breakout_z = (current_std20 > 1e-6) ? (MathAbs(impulse_return_bps) / current_std20) : 0.0;
 
-   //--- 10. Check Microstructure Real Live Spread Filter
+   //--- 8. Check Microstructure Real Live Spread Filter & Compute 7 Features for Telemetry
    ExtSymbol.Refresh();
    ExtSymbol.RefreshRates();
    MqlTick live_tick;
@@ -411,27 +477,17 @@ void OnTick()
    int atr_cnt = CopyBuffer(ExtATRHandle, 0, 1, 1, atr_vals);
    double atr_val = (atr_cnt > 0 && atr_vals[0] > 0.0) ? atr_vals[0] : (mid_price * 0.005);
    double atr_pts = (pt > 0.0) ? (atr_val / pt) : 100.0;
-
    double spread_to_atr = (atr_pts > 0.0) ? (spread_pts / (atr_pts + 1e-8)) : 1.0;
-   if(spread_to_atr > InpMaxSpreadToATR || spread_bps > InpMaxSpreadBps)
-   {
-      PrintFormat("[v3.10 SPREAD REJECT] Spread=%.2f bps (%.1f%% of ATR) exceeds threshold (%.2f bps / %.1f%% ATR)",
-                  spread_bps, spread_to_atr * 100.0, InpMaxSpreadBps, InpMaxSpreadToATR * 100.0);
-      ExtLastBarTime = bar_time;
-      return;
-   }
 
-   //--- 11. Compute Aligned 7 C2 ONNX Features & Execute Inference
    double direction = (impulse_return_bps > 0.0) ? 1.0 : -1.0;
    double vol_ratio = current_std20 / (squeeze_threshold + 1e-8);
 
-   // Compute normalized price path & Levy Area
    double p_win[];
    ArrayResize(p_win, InpVolLookback);
    double p_sum = 0.0;
    for(int k = 0; k < InpVolLookback; k++)
    {
-      p_win[k] = closes[InpVolLookback - 1 - k]; // Chronological order
+      p_win[k] = closes[InpVolLookback - 1 - k];
       p_sum += p_win[k];
    }
    double p_mean = p_sum / InpVolLookback;
@@ -448,7 +504,6 @@ void OnTick()
 
    double levy_area = CalcLevyArea(p_norm, InpVolLookback);
 
-   // Compute return skewness and kurtosis
    double ret_sub[];
    ArrayResize(ret_sub, InpVolLookback);
    double r_sum = 0.0;
@@ -462,18 +517,51 @@ void OnTick()
    double kurt20 = CalcKurtosis(ret_sub, InpVolLookback, r_mean, current_std20);
 
    double out_prob = 1.0;
+   bool pass_onnx = true;
    if(InpUseONNXFilter && ExtModelLoaded)
    {
-      bool pass_filter = EvaluateONNXFilter(vol_ratio, breakout_z, direction,
-                                            levy_area, spread_to_atr, skew20, kurt20,
-                                            out_prob);
-      if(!pass_filter)
-      {
-         PrintFormat("[v3.10 ONNX FILTER REJECT] S1 Triggered but C2 P(Win)=%.2f%% < %.2f%% minimum. Trade Filtered Out!",
-                     out_prob * 100.0, InpMinWinProbability * 100.0);
-         ExtLastBarTime = bar_time;
-         return;
-      }
+      pass_onnx = EvaluateONNXFilter(vol_ratio, breakout_z, direction,
+                                     levy_area, spread_to_atr, skew20, kurt20,
+                                     out_prob);
+   }
+
+   ExtLastStd20     = current_std20;
+   ExtLastSqueezeQ  = squeeze_threshold;
+   ExtLastBreakoutZ = breakout_z;
+   ExtLastOnnxProb  = out_prob;
+   ExtLastSpreadBps = spread_bps;
+   RenderVolSqueezeDashboard();
+
+   bool is_squeezed = (current_std20 <= squeeze_threshold && current_std20 > 1e-6);
+   bool is_breakout = (breakout_z >= InpBreakoutZScore);
+
+   PrintFormat("[v3.20 BAR EVAL] %s | std20=%.2f bps vs Q%.0f=%.2f bps (Sqz=%s) | Z=%.2f (Brk=%s) | P(Win)=%.1f%% (Min=%.1f%%) | Spread=%.2f bps",
+               _Symbol, current_std20, InpSqueezeQuantile * 100.0, squeeze_threshold,
+               is_squeezed ? "YES" : "NO", breakout_z, is_breakout ? "YES" : "NO",
+               out_prob * 100.0, ExtEffMinProb * 100.0, spread_bps);
+
+   if(!is_squeezed || !is_breakout)
+   {
+      ExtLastBarTime = bar_time;
+      return;
+   }
+
+   ExtTotalSignals++;
+
+   if(spread_to_atr > InpMaxSpreadToATR || spread_bps > InpMaxSpreadBps)
+   {
+      PrintFormat("[v3.20 SPREAD REJECT] Spread=%.2f bps (%.1f%% of ATR) exceeds threshold (%.2f bps / %.1f%% ATR)",
+                  spread_bps, spread_to_atr * 100.0, InpMaxSpreadBps, InpMaxSpreadToATR * 100.0);
+      ExtLastBarTime = bar_time;
+      return;
+   }
+
+   if(InpUseONNXFilter && ExtModelLoaded && !pass_onnx)
+   {
+      PrintFormat("[v3.20 ONNX FILTER REJECT] S1 Triggered but C2 P(Win)=%.2f%% < %.2f%% minimum. Trade Filtered Out!",
+                  out_prob * 100.0, ExtEffMinProb * 100.0);
+      ExtLastBarTime = bar_time;
+      return;
    }
 
    //--- 12. Execute S1 Trade with Dynamic Vol-Parity Sizing
@@ -504,12 +592,14 @@ void OnTick()
 
    if(success)
    {
-      PrintFormat("[v3.10 ENTRY EXECUTED] %s %s %.2f lots | Close=%.2f | std20=%.2f bps | Z=%.2f | P(Win)=%.2f%% | Ticket=#%I64u",
+      ExtTotalTrades++;
+      RenderVolSqueezeDashboard();
+      PrintFormat("[v3.20 ENTRY EXECUTED] %s %s %.2f lots | Close=%.2f | std20=%.2f bps | Z=%.2f | P(Win)=%.2f%% | Ticket=#%I64u",
                   (direction > 0.0 ? "BUY" : "SELL"), _Symbol, lot, closes[0], current_std20, breakout_z, out_prob * 100.0, ExtTrade.ResultOrder());
    }
    else
    {
-      PrintFormat("[v3.10 EXECUTION FAILED] Error = %d", GetLastError());
+      PrintFormat("[v3.20 EXECUTION FAILED] Error = %d", GetLastError());
    }
 
    ExtLastBarTime = bar_time;

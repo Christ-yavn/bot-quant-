@@ -29,18 +29,18 @@ input group "=== 1. Cerveau IA ONNX v8.30 (Aligné 14 Features & Filtre Actif B2
 input bool   InpUseColabOnnxBrain           = true;     // Activer le Réseau ONNX (Auto-détection [1,1] ou [1,2])
 input bool   InpOnnxOutputsSurvivalProb     = true;     // true = ONNX prédit P(Survie 15t) -> converti en P(Spike M*t)
 input bool   InpUseZeroCheatFeatures        = false;    // false = Vecteur exact des 14 features de onnx_model_metadata.json (B3)
-input double InpThetaEffBaseMult            = 1.00;     // Multiplicateur theta_eff (>= 1.00 * base_p0 : filtre réellement actif B2)
-input bool   InpEnforcePositivePayoffLock   = true;     // Verrou d'espérance dynamique actif (bloque si E[Payoff] < Min)
-input double InpMinExpectedPayoffUsd        = 0.01;     // Seuil d'espérance mathématique nette minimale exigée ($)
+input double InpThetaEffBaseMult            = 0.85;     // Multiplicateur theta_eff (0.85 * base_p0 : filtre ONNX calibré B2)
+input bool   InpEnforcePositivePayoffLock   = true;     // Verrou d'espérance dynamique actif (bloque les indices à gros spread)
+input double InpMinExpectedPayoffUsd        = -0.20;    // Seuil d'espérance nette min (-0.20$ : autorise 500/600/1000, bloque Crash 600/900)
 
 input group "=== 1b. Porte EV Statique & Curseur Ticks (Fable Core - Fix B1) ==="
 input bool   InpEnableStaticEvGate          = true;     // Pré-qualification statique d'EV à l'initialisation et à l'entrée (B1)
-input double InpMinEvUsd                    = 0.01;     // EV nette minimale exigée par sonde (USD)
+input double InpMinEvUsd                    = -0.20;    // EV nette minimale exigée par sonde (-0.20$ : bloque Crash 600 à -0.63$)
 input bool   InpUseCopyTicksCursor          = true;     // Consommation réelle du flux par curseur CopyTicks + dédup intra-ms
 input int    InpMaxTicksPerScan             = 500;      // Plafond de ticks traités par scan
 
 input group "=== 2. Moteur d'Entrée Inversé (SELL Crash / BUY Boom) ==="
-input ENUM_SYMBOL_UNIVERSE InpSymbolUniverse = UNIVERSE_GOLDEN_5_V8_CONVEX; // Univers d'indices à surveiller
+input ENUM_SYMBOL_UNIVERSE InpSymbolUniverse = UNIVERSE_GOLDEN_7_LIVE_WINNERS; // Univers d'indices à surveiller
 input bool   InpEnablePeriodicSpikeProbe    = true;     // Sonde périodique en dérive calme
 input int    InpCalmDriftEntryTicks         = 18;       // Ticks calmes requis avant d'entrer (15-20 ticks)
 input bool   InpEnableHawkesClusterEntry    = false;    // Ré-entrée cluster Hawkes (false par défaut : ACF empirique ~ 0, Fix B9)
@@ -1271,15 +1271,19 @@ void RenderConvexDashboard(double eq, double dd_pct, double daily_loss_pct, int 
    if(!InpShowDashboard)
       return;
 
+   bool term_ok = (bool)TerminalInfoInteger(TERMINAL_TRADE_ALLOWED);
+   bool mql_ok  = (bool)MQLInfoInteger(MQL_TRADE_ALLOWED);
+
    string dash = StringFormat(
       "=================================================================\n"
       " DERIV BOOM & CRASH HFT v8.30 — AUDIT-HARDENED (B1-B9 FIXED)\n"
       "=================================================================\n"
-      " Polarité   : INVERSION CONVEXE (SELL Crash | BUY Boom)\n"
+      " Polarité   : INVERSION CONVEXE (SELL Crash | BUY Boom) | AutoTrade: %s (Term=%s, MQL=%s)\n"
       " Porte EV   : %s (MinEV=%+.2f$) | Time-Stop M*=%dt/%ds | MaxLoss=-%.2f$\n"
       " Equity     : %.2f USD (Init: %.2f$ | Jour: %.2f$ | DD: %.2f%% | PerteJour: %.2f%% | Actifs: %d/%d)\n"
       " Télémétrie : Ticks=%I64d | Spikes=%I64d | Sondes=%I64d | Capturés=%I64d | TimeStops=%I64d | Bloqués(EV/IA)=%I64d\n"
       "-----------------------------------------------------------------\n",
+      (term_ok && mql_ok) ? "ACTIF" : "BLOQUÉ", term_ok ? "OUI" : "NON", mql_ok ? "OUI" : "NON",
       InpEnableStaticEvGate ? "ACTIVE (ENFORCED)" : "BYPASS",
       InpMinEvUsd, InpMaxHoldCalmTicks, InpMaxHoldCalmSeconds, InpMaxLossUsdPerTrade,
       eq, g_initial_equity, g_day_start_equity, dd_pct, daily_loss_pct, active_symbols_count, InpMaxActiveSymbols,
