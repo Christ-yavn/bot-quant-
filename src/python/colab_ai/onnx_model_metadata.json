@@ -17,8 +17,8 @@
     "cycle_cost_ratio"
   ],
   "thresholds": {
-    "stage1_15ticks": 0.9246087670326233,
-    "stage2_30ticks": 0.9462272524833679,
+    "stage1_15ticks": 0.9246087074279785,
+    "stage2_30ticks": 0.9462271928787231,
     "stage3_50ticks": 0.9560128450393677
   },
   "test_unfiltered_pnl_drift_units": -230805.34607621282,
