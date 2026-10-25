@@ -1,0 +1,89 @@
+{
+  "winner_architecture": "IA3_DeepSurvivalNeuralNet_MLP",
+  "feature_names": [
+    "symbol_id",
+    "is_boom",
+    "spike_amp_norm",
+    "prev1_inter_spike_norm",
+    "prev2_inter_spike_norm",
+    "prev3_inter_spike_norm",
+    "hawkes_intensity_fast",
+    "hawkes_intensity_med",
+    "hawkes_intensity_slow",
+    "cluster_count_60",
+    "cluster_count_300",
+    "post3_drift_velocity",
+    "real_breakeven_ticks",
+    "cycle_cost_ratio"
+  ],
+  "thresholds": {
+    "stage1_15ticks": 0.9246087074279785,
+    "stage2_30ticks": 0.9462271928787231,
+    "stage3_50ticks": 0.9560128450393677
+  },
+  "test_unfiltered_pnl_drift_units": -230805.34607621282,
+  "test_ai_unified_pnl_drift_units": -18728.307386734723,
+  "test_ai_stage1_win_rate_pct": 88.90977443609023,
+  "per_symbol_test_results": {
+    "boom_1000_index": {
+      "trades_kept": 101,
+      "win_rate_stage1_pct": 89.11,
+      "pnl_unfiltered_ticks": -8933.3,
+      "pnl_ai_filtered_ticks": -3520.9
+    },
+    "crash_1000_index": {
+      "trades_kept": 170,
+      "win_rate_stage1_pct": 89.41,
+      "pnl_unfiltered_ticks": -19284.1,
+      "pnl_ai_filtered_ticks": -8766.5
+    },
+    "boom_900_index": {
+      "trades_kept": 26,
+      "win_rate_stage1_pct": 84.62,
+      "pnl_unfiltered_ticks": -21574.2,
+      "pnl_ai_filtered_ticks": -2141.5
+    },
+    "crash_900_index": {
+      "trades_kept": 128,
+      "win_rate_stage1_pct": 92.19,
+      "pnl_unfiltered_ticks": -7875.7,
+      "pnl_ai_filtered_ticks": -1598.7
+    },
+    "boom_600_index": {
+      "trades_kept": 6,
+      "win_rate_stage1_pct": 66.67,
+      "pnl_unfiltered_ticks": -24658.0,
+      "pnl_ai_filtered_ticks": -1009.3
+    },
+    "crash_600_index": {
+      "trades_kept": 9,
+      "win_rate_stage1_pct": 100.0,
+      "pnl_unfiltered_ticks": -31758.0,
+      "pnl_ai_filtered_ticks": 135.0
+    },
+    "boom_500_index": {
+      "trades_kept": 36,
+      "win_rate_stage1_pct": 94.44,
+      "pnl_unfiltered_ticks": -17223.9,
+      "pnl_ai_filtered_ticks": -396.3
+    },
+    "crash_500_index": {
+      "trades_kept": 25,
+      "win_rate_stage1_pct": 76.0,
+      "pnl_unfiltered_ticks": -16443.0,
+      "pnl_ai_filtered_ticks": -665.9
+    },
+    "boom_300_index": {
+      "trades_kept": 1,
+      "win_rate_stage1_pct": 0.0,
+      "pnl_unfiltered_ticks": -66917.1,
+      "pnl_ai_filtered_ticks": -386.2
+    },
+    "crash_300_index": {
+      "trades_kept": 30,
+      "win_rate_stage1_pct": 83.33,
+      "pnl_unfiltered_ticks": -16138.0,
+      "pnl_ai_filtered_ticks": -378.1
+    }
+  }
+}
