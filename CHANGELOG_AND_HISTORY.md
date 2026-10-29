@@ -385,3 +385,33 @@ Entraînement et évaluation Out-Of-Sample (split 60/20/20 chronologique avec d�
 * **Déverrouillage Boom & Crash pour Phase de Test** : Réglage `InpMinEvUsd = -0.20$` avec `InpThetaEffBaseMult = 0.85` et `UNIVERSE_GOLDEN_7_LIVE_WINNERS` déverrouillant les 5 sondes à faible spread (`Crash 500` à $-0.0655\$$, `Boom 500` à $-0.0978\$$, `Crash 1000` à $-0.1112\$$, `Boom 600` à $-0.1568\$$, `Boom 900` à $-0.1938\$$) tout en maintenant le verrouillage protecteur sur les indices à spread toxique (`Crash 600` et `Crash 900`).
 * **Mise à Jour EA v3.20** : Ajout de la normalisation automatique des probabilités (`if(prob > 1.0) prob /= 100.0`), sélection automatique du modèle ONNX dédié selon le symbole, affichage du dashboard on-chart temps réel (état Sqz/Brk/P_win/Spread) et logs d'évaluation `[v3.20 BAR EVAL]` à chaque clôture H1.
 * **Déploiement MT5 & Profils** : Profils `chart01.chr`, `chart02.chr`, `chart03.chr` mis à jour avec `expertmode=5` (Trading automatique + DLL autorisés) sur le compte réel Deriv `32449166`.
+
+
+### 14.7 Audit Institutionnel Quant Pod (Teamwork + Boost) & Déploiement du Patch v3.30 Hardened
+
+Sous l'impulsion de l'architecture multi-agents `/teamwork` et du moteur de réfutation hostile `/boost`, une division tripartite du travail d'audit a été menée sur l'intégralité du compte live Deriv-Demo `32449166` (6 842 deals MT5 réconciliés en 3 421 positions) et 1 686 833 ticks réels :
+
+1. **Rapport Forensique Data Curator ([`docs/DATA_FORENSIC_REPORT.md`](docs/DATA_FORENSIC_REPORT.md))** :
+   - Réconciliation intégrale de 3 420 trades fermés : Famille Boom/Crash = -914.78 USD (13/13 indices à EV négative), Famille Volatility = -8.11 USD (+87.16 USD sur V25 avec 100% de Win Rate, -95.27 USD sur V75 en raison de volumes excessifs de 0.71 à 1.05 lot).
+   - Découverte d'un décalage d'horloge de +326 secondes (5 min 26s de retard du PC Windows sur le serveur Deriv UTC).
+   - Détection d'une interruption de 20 heures 32 minutes du terminal MT5 (extinction machine du 28/10 12h47 au 29/10 09h19 UTC) expliquant l'absence d'exécution du setup de 22h00 sur V75.
+   - Suivi temps réel du trade BUY sur V25 ouvert à 14h54 UTC (Ticket `#8813604600`) : pic de gain flottant (MFE) à **+51.80 USD** à la 2ème barre H1, non sécurisé en raison d'un Pure Time-Stop statique.
+
+2. **Rapport d'Audit de Code Quant Dev ([`docs/CODE_ARCHITECTURE_AUDIT.md`](docs/CODE_ARCHITECTURE_AUDIT.md))** :
+   - Faille VULN-01 ("Trapped Spike") sur Boom/Crash : excursion de 0.80 x seuil désactivant le Time-Stop 60t et le coupe-circuit à -0.35$, provoquant des dérives jusqu'au SL courtier (-1.27$ à -1.36$).
+   - Faille VULN-02 ("Orphaned Position Lock") sur VolSqueeze v3.20 : coupe-circuit -3% placé avant `ManageOpenPositions()`, bloquant la gestion des positions en cas de drawdown.
+   - Faille VULN-03 : Mode `ORDER_FILLING_FOK` en dur rejeté sur certains symboles Deriv requérant `IOC` ou `RETURN`.
+   - Failles VULN-05 & VULN-06 : Troncature IEEE 754 du lot minimal et absence de plafond de volume sur Volatility 75 (1s).
+   - Causalité certifiée : Zéro Look-Ahead Bias (utilisation stricte de `shift = 1`).
+
+3. **Verdict Hostile de l'Adversarial Validator (/boost) ([`docs/ADVERSARIAL_VERDICT_REPORT.md`](docs/ADVERSARIAL_VERDICT_REPORT.md))** :
+   - Réfutation microstructurale de la loi de Poisson sur 1,68M ticks : mémoire Lag-1 nulle ($\rho = +0.0099$, $p = 0.68$), corrélation attente-amplitude nulle ($p = 0.40$), absence de fuite temporelle serveur ($p = 0.65$).
+   - Deflated Sharpe Ratio (DSR) sur 3 412 trades Boom/Crash = **0.0000** (Sharpe annualisé = -16.88). **VETO ABSOLU MAINTENU : Interdiction définitive de déploiement**.
+   - Validation de l'hypothèse de compression sur Volatility 25 & 75 : le filtre $\sigma_{20} \le Q_{25}$ évite -255 bps de pertes sur faux signaux en surchauffe.
+
+#### Déploiement et Compilation de la Version v3.30 Hardened (`src/mql5/Deriv_VolSqueeze_Breakout_EA_v3.mq5`)
+* **Trailing Profit / Excursion Lock Dynamique** : Ajout des paramètres `InpUseTrailingLock = true`, `InpLockTriggerATR = 1.20` et `InpLockOffsetATR = 0.20`. Dès qu'une position atteint +1.20 ATR de gain favorable, le Stop-Loss est instantanément relevé à Entry + 0.20 ATR (BE+), garantissant l'encaissement des gains d'impulsion.
+* **Résolution VULN-02** : `ManageOpenPositions()` est désormais appelé au début strict de `OnTick()` à chaque tick pour assurer le trailing lock et l'exécution garantie du Time-Stop de 4 heures, indépendamment du coupe-circuit de perte journalière.
+* **Résolution VULN-03** : Détection dynamique du mode de remplissage supporté (`SYMBOL_FILLING_IOC` / `FOK` / `RETURN`).
+* **Résolution VULN-05 & VULN-06** : Correction de la troncature flottante via marge $\epsilon = 10^{-8}$ et instauration d'un plafond strict de volume `v75_cap = 0.02 lot` sur Volatility 75.
+* **Compilation & Synchronisation** : Compilé avec succès via `metaeditor64.exe` (code de retour 1, binaire de **57 352 octets**) et déployé dans le dossier `MQL5\Experts\` du terminal MT5.

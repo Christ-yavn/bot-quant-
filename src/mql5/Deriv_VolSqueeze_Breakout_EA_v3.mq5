@@ -4,11 +4,12 @@
 //|   Target Symbol: Volatility 25 (1s) & Volatility 75 (1s) Index   |
 //|   Timeframe: H1 (Hourly Close Execution, Non-Overlapping Hold)   |
 //|   Features : Live Tick Spread + Aligned 7-Feature C2 ONNX Filter |
+//|   Release  : v3.30 (Quant Pod Hardened - Dynamic Profit Lock)    |
 //+------------------------------------------------------------------+
 #property copyright "Quantitative Research & Algorithmic Systems (Audit-Hardened)"
 #property link      "https://github.com/Christ-yavn/bot-quant-"
-#property version   "3.10"
-#property description "Phase 2 Quant EA v3.10 - Volatility Compression & Aligned 7-Feature C2 ONNX Filter (H1)"
+#property version   "3.30"
+#property description "Phase 2 Quant EA v3.30 - Volatility Compression & Aligned 7-Feature C2 ONNX Filter with Dynamic Excursion Lock"
 #property strict
 
 #include <Trade\Trade.mqh>
@@ -28,23 +29,27 @@ input int             InpMaxHoldBars        = 4;           // Non-Overlapping Ti
 input group "=== 2. C2 Machine Learning / ONNX Filter (7 Aligned Features) ==="
 input bool            InpUseONNXFilter      = true;        // Enable C2 ONNX GBDT Filter
 input string          InpONNXModelName      = "c2_vol_filter.onnx"; // ONNX Model File (Auto-selects v25/v75 dedicated model)
-input double          InpMinWinProbability  = 0.42;        // Min Predicted Win Probability (0.42 = 42% on V25, 0.50 = 50% on V75; auto-normalizes if >1)
+input double          InpMinWinProbability  = 0.42;        // Min Predicted Win Probability (0.42 = 42% on V25, 0.50 = 50% on V75)
 
-//--- Input Parameters: Excursion Guardrails & Real Spread Filter
-input group "=== 3. Excursion Guardrails & Dynamic Spread Filter ==="
-input bool            InpUseHardTPSL        = false;       // Enable Hard ATR Stop-Loss / Take-Profit (Default: Pure Time-Stop)
-input int             InpATRPeriod          = 20;          // ATR Period for Hard Stops & Spread Ratio
-input double          InpHardSL_ATR         = 2.00;        // Hard Disaster Stop-Loss (Multiples of ATR20)
-input double          InpHardTP_ATR         = 3.50;        // Hard Take-Profit Target (Multiples of ATR20)
+//--- Input Parameters: Excursion Guardrails & Dynamic Profit Lock
+input group "=== 3. Excursion Guardrails, Dynamic Lock & Spread Filter ==="
+input bool            InpUseHardTPSL        = false;       // Enable Hard Disaster Stop-Loss (Default: False)
+input int             InpATRPeriod          = 20;          // ATR Period for Guardrails & Spread Ratio
+input double          InpHardSL_ATR         = 2.50;        // Hard Disaster Stop-Loss (Multiples of ATR20)
+input double          InpHardTP_ATR         = 4.00;        // Optional Hard Take-Profit Target (Multiples of ATR20)
+input bool            InpUseTrailingLock    = true;        // Enable Dynamic Profit Excursion Lock (Hardened v3.30)
+input double          InpLockTriggerATR     = 1.20;        // Profit Lock Trigger (+1.20 ATR MFE)
+input double          InpLockOffsetATR      = 0.20;        // Locked Profit Buffer (+0.20 ATR above Entry / BE+)
 input double          InpMaxSpreadToATR     = 0.050;       // Max Allowed Spread / H1 ATR Ratio (5.0% Ceiling)
 input double          InpMaxSpreadBps       = 4.50;        // Max Allowed Spread in Basis Points of Price
 
-//--- Input Parameters: Dynamic Volatility-Parity Position Sizing
+//--- Input Parameters: Dynamic Volatility-Parity Position Sizing & Safety
 input group "=== 4. Risk Management & Volatility-Parity Sizing ==="
 input double          InpRiskPerSDPct       = 0.50;        // Account Equity Risk (%) per 1-SD (H-Hour) Move
 input double          InpMaxDailyLossPct    = 3.00;        // Daily Drawdown Circuit Breaker (% of Start-of-Day Equity)
+input double          InpMaxLotCap          = 0.05;        // Hard Cap on Position Volume (Default 0.05 lot, e.g. 0.01 on V75/V25)
 input ulong           InpMagicNumber        = 20261022;    // Strategy Magic Number (v3)
-input int             InpSlippagePoints     = 10;          // Max Permissible Slippage (Points)
+input int             InpSlippagePoints     = 50;          // Max Permissible Slippage (Points, hardened)
 
 //--- Internal State & Architecture Variables
 CTrade         ExtTrade;
@@ -88,14 +93,16 @@ void RenderVolSqueezeDashboard()
    bool sqz_now = (ExtLastStd20 > 0.0 && ExtLastStd20 <= ExtLastSqueezeQ);
    string dash = StringFormat(
       "=================================================================\n"
-      " DERIV VOL SQUEEZE BREAKOUT EA v3.20 — OPTIMISATION MATHÉMATIQUE\n"
+      " DERIV VOL SQUEEZE BREAKOUT EA v3.30 — QUANT POD HARDENED\n"
       "=================================================================\n"
       " Symbole & TF    : %s | %s | Maintien Optimal H = %d barres\n"
       " Autorisation MT5: %s (Terminal=%s | Graphique MQL=%s)\n"
       " Modèle IA ONNX  : %s (%s | Seuil Optimal P_min = %.1f%%)\n"
+      " Profit Lock     : %s (Déclencheur=%.2f ATR | Marge=%.2f ATR)\n"
       " État Compression: std20 = %.2f bps vs Q%.0f = %.2f bps -> %s\n"
       " Dernière Bougie : Impulse Z = %.2f (Seuil=%.2f) | P(Win) IA = %.1f%%\n"
       " Spread Live     : %.2f bps (Max=%.2f bps) | Signaux=%I64d | Trades=%I64d\n"
+      " Plafond Lot     : Max=%.3f lot | Risque=%.2f%% par 1-SD\n"
       "=================================================================",
       _Symbol, EnumToString(InpTimeframe), InpMaxHoldBars,
       (term_ok && mql_ok) ? "ACTIF & PRÊT À TRADER" : "BLOQUÉ (Vérifier Algo Trading)",
@@ -103,10 +110,12 @@ void RenderVolSqueezeDashboard()
       ExtModelLoaded ? ExtActiveModelFile : "BYPASS",
       ExtModelLoaded ? "7 Features Alignées" : "Sans Filtre",
       ExtEffMinProb * 100.0,
+      InpUseTrailingLock ? "ACTIF" : "DÉSACTIVÉ", InpLockTriggerATR, InpLockOffsetATR,
       ExtLastStd20, InpSqueezeQuantile * 100.0, ExtLastSqueezeQ,
       sqz_now ? "EN COMPRESSION (SQUEEZE ACTIF !)" : "ATTENTE COMPRESSION (Volatilité Normale)",
       ExtLastBreakoutZ, InpBreakoutZScore, ExtLastOnnxProb * 100.0,
-      ExtLastSpreadBps, InpMaxSpreadBps, ExtTotalSignals, ExtTotalTrades
+      ExtLastSpreadBps, InpMaxSpreadBps, ExtTotalSignals, ExtTotalTrades,
+      InpMaxLotCap, InpRiskPerSDPct
    );
    Comment(dash);
 }
@@ -118,27 +127,29 @@ int OnInit()
 {
    if(!ExtSymbol.Name(_Symbol))
    {
-      PrintFormat("[v3.10 ERROR] Symbol %s could not be initialized.", _Symbol);
+      PrintFormat("[v3.30 ERROR] Symbol %s could not be initialized.", _Symbol);
       return INIT_FAILED;
    }
    ExtSymbol.Refresh();
    ExtSymbol.RefreshRates();
 
-   if(StringFind(_Symbol, "Volatility 25 (1s)") < 0 && StringFind(_Symbol, "25 (1s)") < 0)
-   {
-      PrintFormat("[v3.10 NOTICE] Running on %s (Magic=%I64u, Hold=%dh). Ensure distinct Magic Number per symbol.",
-                  _Symbol, InpMagicNumber, InpMaxHoldBars);
-   }
-
    ExtTrade.SetExpertMagicNumber(InpMagicNumber);
    ExtTrade.SetDeviationInPoints(InpSlippagePoints);
-   ExtTrade.SetTypeFilling(ORDER_FILLING_FOK);
+
+   //--- Dynamic Filling Mode Adaptation (Fix VULN-03)
+   uint filling = (uint)SymbolInfoInteger(_Symbol, SYMBOL_FILLING_MODE);
+   if((filling & SYMBOL_FILLING_IOC) != 0)
+      ExtTrade.SetTypeFilling(ORDER_FILLING_IOC);
+   else if((filling & SYMBOL_FILLING_FOK) != 0)
+      ExtTrade.SetTypeFilling(ORDER_FILLING_FOK);
+   else
+      ExtTrade.SetTypeFilling(ORDER_FILLING_RETURN);
 
    //--- Initialize ATR Indicator
    ExtATRHandle = iATR(_Symbol, InpTimeframe, InpATRPeriod);
    if(ExtATRHandle == INVALID_HANDLE)
    {
-      PrintFormat("[v3.10 ERROR] Failed to create ATR(%d) handle. Error = %d", InpATRPeriod, GetLastError());
+      PrintFormat("[v3.30 ERROR] Failed to create ATR(%d) handle. Error = %d", InpATRPeriod, GetLastError());
       return INIT_FAILED;
    }
 
@@ -174,12 +185,12 @@ int OnInit()
          OnnxSetOutputShape(ExtOnnxHandle, 1, out_shape_1);
          ExtModelLoaded = true;
          ExtActiveModelFile = preferred_model;
-         PrintFormat("[v3.20 ONNX] Model '%s' successfully loaded (7 aligned features | P_min=%.1f%%).",
+         PrintFormat("[v3.30 ONNX] Model '%s' successfully loaded (7 aligned features | P_min=%.1f%%).",
                      ExtActiveModelFile, ExtEffMinProb * 100.0);
       }
       else
       {
-         PrintFormat("[v3.20 ONNX NOTICE] Model '%s' not loaded (Code=%d). Operating in Pure S1 Quant mode.", preferred_model, GetLastError());
+         PrintFormat("[v3.30 ONNX NOTICE] Model '%s' not loaded (Code=%d). Operating in Pure S1 Quant mode.", preferred_model, GetLastError());
          ExtModelLoaded = false;
       }
    }
@@ -189,9 +200,10 @@ int OnInit()
 
    bool term_ok = (bool)TerminalInfoInteger(TERMINAL_TRADE_ALLOWED);
    bool mql_ok  = (bool)MQLInfoInteger(MQL_TRADE_ALLOWED);
-   PrintFormat("[v3.20 INIT SUCCESS] %s | TF=%s | VolLookback=%d | SqueezeQ=%.2f | BreakoutZ=%.2f | Hold=%dh | ONNX=%s (P_min=%.1f%%) | TradeAllowed=(Term:%s, MQL:%s)",
+   PrintFormat("[v3.30 INIT SUCCESS] %s | TF=%s | VolLookback=%d | SqueezeQ=%.2f | BreakoutZ=%.2f | Hold=%dh | ONNX=%s (P_min=%.1f%%) | LockTrigger=%.2f ATR | LotCap=%.3f | TradeAllowed=(Term:%s, MQL:%s)",
                _Symbol, EnumToString(InpTimeframe), InpVolLookback, InpSqueezeQuantile, InpBreakoutZScore, InpMaxHoldBars,
                (ExtModelLoaded ? ExtActiveModelFile : "BYPASS"), ExtEffMinProb * 100.0,
+               InpLockTriggerATR, InpMaxLotCap,
                term_ok ? "YES" : "NO", mql_ok ? "YES" : "NO");
 
    RenderVolSqueezeDashboard();
@@ -214,7 +226,7 @@ void OnDeinit(const int reason)
       ExtOnnxHandle = INVALID_HANDLE;
    }
    Comment("");
-   PrintFormat("[v3.20 DEINIT] Shutdown clean. Reason = %d", reason);
+   PrintFormat("[v3.30 DEINIT] Shutdown clean. Reason = %d", reason);
 }
 
 //+------------------------------------------------------------------+
@@ -299,7 +311,7 @@ bool EvaluateONNXFilter(double vol_ratio, double impulse_z, double direction,
    ResetLastError();
    if(!OnnxRun(ExtOnnxHandle, ONNX_NO_CONVERSION, in_features, out_label, out_probs))
    {
-      PrintFormat("[v3.10 ONNX RUN ERROR] Code = %d. Rejecting trade on inference failure.", GetLastError());
+      PrintFormat("[v3.30 ONNX RUN ERROR] Code = %d. Rejecting trade on inference failure.", GetLastError());
       out_prob = 0.0;
       return false;
    }
@@ -311,10 +323,17 @@ bool EvaluateONNXFilter(double vol_ratio, double impulse_z, double direction,
 
 //+------------------------------------------------------------------+
 //| Position Management & Strict H-Hour Time-Stop Engine             |
+//| Includes Dynamic Excursion Profit Lock (v3.30 Hardened)          |
 //+------------------------------------------------------------------+
 bool ManageOpenPositions(datetime current_bar_time)
 {
    ExtSymbol.RefreshRates();
+   double atr_vals[];
+   ArraySetAsSeries(atr_vals, true);
+   double current_atr = 0.0;
+   if(CopyBuffer(ExtATRHandle, 0, 0, 1, atr_vals) > 0)
+      current_atr = atr_vals[0];
+
    for(int i = PositionsTotal() - 1; i >= 0; i--)
    {
       if(ExtPosition.SelectByIndex(i))
@@ -324,12 +343,54 @@ bool ManageOpenPositions(datetime current_bar_time)
             datetime open_time = (datetime)ExtPosition.Time();
             int bars_elapsed = iBarShift(_Symbol, InpTimeframe, open_time, false);
 
-            // Exit immediately if InpMaxHoldBars or more H1 bars have elapsed
+            //--- 1. Dynamic Profit Excursion Lock (v3.30)
+            if(InpUseTrailingLock && current_atr > 0.0)
+            {
+               double open_price = ExtPosition.PriceOpen();
+               double current_sl = ExtPosition.StopLoss();
+               double trigger_dist = InpLockTriggerATR * current_atr;
+               double lock_offset = InpLockOffsetATR * current_atr;
+
+               if(ExtPosition.PositionType() == POSITION_TYPE_BUY)
+               {
+                  double cur_bid = ExtSymbol.Bid();
+                  if(cur_bid >= open_price + trigger_dist)
+                  {
+                     double target_sl = open_price + lock_offset;
+                     if(current_sl < target_sl)
+                     {
+                        if(ExtTrade.PositionModify(ExtPosition.Ticket(), target_sl, ExtPosition.TakeProfit()))
+                        {
+                           PrintFormat("[v3.30 PROFIT LOCK] Ticket #%I64u BUY | Favorable excursion +%.2f ATR reached | SL locked at %.2f (+%.2f pts above entry)",
+                                       ExtPosition.Ticket(), InpLockTriggerATR, target_sl, lock_offset);
+                        }
+                     }
+                  }
+               }
+               else if(ExtPosition.PositionType() == POSITION_TYPE_SELL)
+               {
+                  double cur_ask = ExtSymbol.Ask();
+                  if(cur_ask <= open_price - trigger_dist)
+                  {
+                     double target_sl = open_price - lock_offset;
+                     if(current_sl == 0.0 || current_sl > target_sl)
+                     {
+                        if(ExtTrade.PositionModify(ExtPosition.Ticket(), target_sl, ExtPosition.TakeProfit()))
+                        {
+                           PrintFormat("[v3.30 PROFIT LOCK] Ticket #%I64u SELL | Favorable excursion +%.2f ATR reached | SL locked at %.2f (-%.2f pts below entry)",
+                                       ExtPosition.Ticket(), InpLockTriggerATR, target_sl, lock_offset);
+                        }
+                     }
+                  }
+               }
+            }
+
+            //--- 2. Strict Time-Stop Exit Horizon
             if(bars_elapsed >= InpMaxHoldBars)
             {
                double exit_price = (ExtPosition.PositionType() == POSITION_TYPE_BUY) ?
                                    ExtSymbol.Bid() : ExtSymbol.Ask();
-               PrintFormat("[v3.10 TIME-STOP EXIT] Ticket #%I64u | Bars Held = %d/%d | OpenPrice=%.2f | ExitPrice=%.2f | PnL=%.2f USD",
+               PrintFormat("[v3.30 TIME-STOP EXIT] Ticket #%I64u | Bars Held = %d/%d | OpenPrice=%.2f | ExitPrice=%.2f | PnL=%.2f USD",
                            ExtPosition.Ticket(), bars_elapsed, InpMaxHoldBars, ExtPosition.PriceOpen(), exit_price, ExtPosition.Profit());
                ExtTrade.PositionClose(ExtPosition.Ticket());
                return false;
@@ -343,6 +404,7 @@ bool ManageOpenPositions(datetime current_bar_time)
 
 //+------------------------------------------------------------------+
 //| Dynamic Volatility-Parity Position Sizing Engine                 |
+//| Hardened for IEEE 754 precision & symbol-specific lot ceilings   |
 //+------------------------------------------------------------------+
 double CalculateVolParityLot(double std20_bps, double current_price)
 {
@@ -366,19 +428,39 @@ double CalculateVolParityLot(double std20_bps, double current_price)
    double max_lot  = SymbolInfoDouble(_Symbol, SYMBOL_VOLUME_MAX);
    double lot_step = SymbolInfoDouble(_Symbol, SYMBOL_VOLUME_STEP);
 
-   double rounded_lot = MathFloor(raw_lot / lot_step) * lot_step;
+   // IEEE 754 precision margin addition (Fix VULN-05)
+   double rounded_lot = MathFloor((raw_lot / lot_step) + 1e-8) * lot_step;
    if(rounded_lot < min_lot) rounded_lot = min_lot;
    if(rounded_lot > max_lot) rounded_lot = max_lot;
+
+   // Enforce strict lot cap (Fix VULN-06)
+   if(InpMaxLotCap > 0.0 && rounded_lot > InpMaxLotCap)
+      rounded_lot = InpMaxLotCap;
+
+   // Extra safety: Volatility 75 (1s) strict hard cap at 0.01-0.02
+   if(StringFind(_Symbol, "75") >= 0)
+   {
+      double v75_cap = MathMax(min_lot, MathMin(0.02, InpMaxLotCap));
+      if(rounded_lot > v75_cap)
+         rounded_lot = v75_cap;
+   }
 
    return rounded_lot;
 }
 
 //+------------------------------------------------------------------+
 //| Expert Tick Function                                             |
+//| Enforces Correct Lifecycle: Position Management -> Breaker -> Bar|
 //+------------------------------------------------------------------+
 void OnTick()
 {
-   //--- 1. Update Daily Drawdown Circuit Breaker
+   datetime bar_time = iTime(_Symbol, InpTimeframe, 0);
+
+   //--- 1. Manage Existing Open Positions at EVERY TICK (Fix VULN-02)
+   // Enables intra-bar Profit Locking and guarantees Time-Stop execution
+   bool is_positioned = ManageOpenPositions(bar_time);
+
+   //--- 2. Update Daily Drawdown Circuit Breaker
    datetime today = iTime(_Symbol, PERIOD_D1, 0);
    if(today != ExtCurrentDay && today != 0)
    {
@@ -389,16 +471,14 @@ void OnTick()
    double current_eq = AccountInfoDouble(ACCOUNT_EQUITY);
    if(ExtDayStartEq > 0.0 && ((ExtDayStartEq - current_eq) / ExtDayStartEq) * 100.0 >= InpMaxDailyLossPct)
    {
-      return; // Daily loss limit breached (-3.00%)
+      return; // Daily loss limit breached (-3.00%) -> Blocks NEW trades, but open positions already managed
    }
 
-   //--- 2. Execute Strictly on New Completed H1 Bar
-   datetime bar_time = iTime(_Symbol, InpTimeframe, 0);
+   //--- 3. Execute NEW Entries Strictly on New Completed H1 Bar
    if(bar_time == ExtLastBarTime || bar_time == 0)
       return;
 
-   //--- 3. Check Non-Overlapping Position State & Enforce Time-Stop
-   bool is_positioned = ManageOpenPositions(bar_time);
+   // Do not evaluate or enter if already holding a non-overlapping position
    if(is_positioned)
    {
       ExtLastBarTime = bar_time;
@@ -535,7 +615,7 @@ void OnTick()
    bool is_squeezed = (current_std20 <= squeeze_threshold && current_std20 > 1e-6);
    bool is_breakout = (breakout_z >= InpBreakoutZScore);
 
-   PrintFormat("[v3.20 BAR EVAL] %s | std20=%.2f bps vs Q%.0f=%.2f bps (Sqz=%s) | Z=%.2f (Brk=%s) | P(Win)=%.1f%% (Min=%.1f%%) | Spread=%.2f bps",
+   PrintFormat("[v3.30 BAR EVAL] %s | std20=%.2f bps vs Q%.0f=%.2f bps (Sqz=%s) | Z=%.2f (Brk=%s) | P(Win)=%.1f%% (Min=%.1f%%) | Spread=%.2f bps",
                _Symbol, current_std20, InpSqueezeQuantile * 100.0, squeeze_threshold,
                is_squeezed ? "YES" : "NO", breakout_z, is_breakout ? "YES" : "NO",
                out_prob * 100.0, ExtEffMinProb * 100.0, spread_bps);
@@ -550,7 +630,7 @@ void OnTick()
 
    if(spread_to_atr > InpMaxSpreadToATR || spread_bps > InpMaxSpreadBps)
    {
-      PrintFormat("[v3.20 SPREAD REJECT] Spread=%.2f bps (%.1f%% of ATR) exceeds threshold (%.2f bps / %.1f%% ATR)",
+      PrintFormat("[v3.30 SPREAD REJECT] Spread=%.2f bps (%.1f%% of ATR) exceeds threshold (%.2f bps / %.1f%% ATR)",
                   spread_bps, spread_to_atr * 100.0, InpMaxSpreadBps, InpMaxSpreadToATR * 100.0);
       ExtLastBarTime = bar_time;
       return;
@@ -558,13 +638,13 @@ void OnTick()
 
    if(InpUseONNXFilter && ExtModelLoaded && !pass_onnx)
    {
-      PrintFormat("[v3.20 ONNX FILTER REJECT] S1 Triggered but C2 P(Win)=%.2f%% < %.2f%% minimum. Trade Filtered Out!",
+      PrintFormat("[v3.30 ONNX FILTER REJECT] S1 Triggered but C2 P(Win)=%.2f%% < %.2f%% minimum. Trade Filtered Out!",
                   out_prob * 100.0, ExtEffMinProb * 100.0);
       ExtLastBarTime = bar_time;
       return;
    }
 
-   //--- 12. Execute S1 Trade with Dynamic Vol-Parity Sizing
+   //--- 12. Execute S1 Trade with Dynamic Vol-Parity Sizing & Safety Cap
    double lot = CalculateVolParityLot(current_std20, mid_price);
 
    double sl = 0.0;
@@ -594,12 +674,12 @@ void OnTick()
    {
       ExtTotalTrades++;
       RenderVolSqueezeDashboard();
-      PrintFormat("[v3.20 ENTRY EXECUTED] %s %s %.2f lots | Close=%.2f | std20=%.2f bps | Z=%.2f | P(Win)=%.2f%% | Ticket=#%I64u",
+      PrintFormat("[v3.30 ENTRY EXECUTED] %s %s %.2f lots | Close=%.2f | std20=%.2f bps | Z=%.2f | P(Win)=%.2f%% | Ticket=#%I64u",
                   (direction > 0.0 ? "BUY" : "SELL"), _Symbol, lot, closes[0], current_std20, breakout_z, out_prob * 100.0, ExtTrade.ResultOrder());
    }
    else
    {
-      PrintFormat("[v3.20 EXECUTION FAILED] Error = %d", GetLastError());
+      PrintFormat("[v3.30 EXECUTION FAILED] Error = %d", GetLastError());
    }
 
    ExtLastBarTime = bar_time;
