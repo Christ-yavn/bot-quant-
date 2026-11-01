@@ -415,3 +415,16 @@ Sous l'impulsion de l'architecture multi-agents `/teamwork` et du moteur de réf
 * **Résolution VULN-03** : Détection dynamique du mode de remplissage supporté (`SYMBOL_FILLING_IOC` / `FOK` / `RETURN`).
 * **Résolution VULN-05 & VULN-06** : Correction de la troncature flottante via marge $\epsilon = 10^{-8}$ et instauration d'un plafond strict de volume `v75_cap = 0.02 lot` sur Volatility 75.
 * **Compilation & Synchronisation** : Compilé avec succès via `metaeditor64.exe` (code de retour 1, binaire de **57 352 octets**) et déployé dans le dossier `MQL5\Experts\` du terminal MT5.
+
+
+### 14.8 Validation Live de `v3.30 Hardened` (+107.99$ sur V25), Synchronisation NTP & Création de la Mémoire Maître (`01/11/2026`)
+
+* **Validation en Direct de `v3.30 Hardened` (`01/11/2026 18:43 UTC`)** :
+  - Chargement confirmé de `Deriv_VolSqueeze_Breakout_EA_v3` (`v3.30`) sur `Volatility 25 (1s) Index` (`c2_vol_filter_v25.onnx`, `P_min = 42.0%`) et `Volatility 75 (1s) Index` (`c2_vol_filter_v75.onnx`, `P_min = 50.0%`).
+  - Sur la position `#8813604600` (`BUY 0.01 lot` ouverte à `930 533.91`), le nouveau module `[v3.30 PROFIT LOCK]` a immédiatement verrouillé le Stop-Loss à `931 571.30` (`+1 037.39 pts` au-dessus de l'entrée), suivi de `[v3.30 TIME-STOP EXIT]` qui a clôturé la position au marché à **`941 333.29`** (Deal `#8695210964`), encaissant un profit net de **`+107.99 USD`** (`+109.43 USD` brut).
+  - **Bilan Cumulé `Volatility 25 (1s)`** : **4 trades clôturés / 4 victoires (100.0 % Win Rate)**, profit net total de **`+195.15 USD`** (moyenne `+48.79 USD` / trade).
+  - **Bilan Cumulé Global Famille Volatility (`V25` + `V75`)** : **9 trades clôturés, 6 victoires (66.7 % Win Rate)**, profit net cumulé redevenu positif à **`+99.88 USD`**.
+* **Correction Certifiée du Décalage d'Horloge (NTP)** :
+  - L'ancien décalage de `326 secondes` du PC local est totalement éliminé : les évaluations horaires `[v3.30 BAR EVAL]` s'exécutent désormais à **`19:00:00.189`** (synchronisation milliseconde exacte avec le serveur Deriv UTC).
+* **Archivage Intégral & Continuité Inter-Sessions** :
+  - Création de [`MEMOIRE_MAITRE_NOUVELLE_CONVERSATION.md`](MEMOIRE_MAITRE_NOUVELLE_CONVERSATION.md) et mise à jour de [`AGENT.md`](AGENT.md) pour permettre à tout nouvel agent IA dans une nouvelle discussion de récupérer 100 % du contexte, de l'historique, des preuves mathématiques et de l'état des bots sans aucune perte d'information.

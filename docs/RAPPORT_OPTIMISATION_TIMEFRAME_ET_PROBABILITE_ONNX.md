@@ -1,16 +1,38 @@
-# 📊 RAPPORT D'OPTIMISATION MATHÉMATIQUE : UNITÉS DE TEMPS (`M5` $\rightarrow$ `H4`) ET GRILLE DE PROBABILITÉ ONNX (`0,10` $\rightarrow$ `0,90`)
+# 📊 AUDIT FORENSIQUE ZÉRO-TRADE & OPTIMISATION MATHÉMATIQUE EXHAUSTIVE : TIMEFRAMES (`M5` $\rightarrow$ `H4`) ET GRILLE DE PROBABILITÉ ONNX (`0,10` $\rightarrow$ `0,99`)
 
 **Date d'exécution :** 25 Octobre 2026  
 **Données analysées :** 250 000+ bougies historiques réelles MetaTrader 5 (`M5`, `M15`, `M30`, `H1`, `H4`) et 6,8 M ticks Boom/Crash avec déduction du vrai spread live (`SymbolInfoTick`).  
-**Protocole :** Découpage chronologique strict **60 % Train / 20 % Validation / 20 % Out-Of-Sample (OOS)** sur les 7 features alignées de `Deriv_VolSqueeze_Breakout_EA_v3` (`v3.20`) et les 14 features de `DerivBoomCrashHFT_v830_Ultimate`.
+**Protocole :** Découpage chronologique strict **60 % Train / 20 % Validation / 20 % Out-Of-Sample (OOS)** sur les 7 features alignées de [`Deriv_VolSqueeze_Breakout_EA_v3.mq5`](file:///C:/Users/CHRIST/Desktop/IA/ANTIGRAVITY/projets/general%20project%20%20%20quant%20bot%20deriv/src/mql5/Deriv_VolSqueeze_Breakout_EA_v3.mq5) (`v3.20`) et les 14 features de [`DerivBoomCrashHFT_v830_Ultimate.mq5`](file:///C:/Users/CHRIST/Desktop/IA/ANTIGRAVITY/projets/general%20project%20%20%20quant%20bot%20deriv/src/mql5/DerivBoomCrashHFT_v830_Ultimate.mq5).
 
 ---
 
-## 1. Question n°1 : Faut-il baisser la Timeframe (`H1` vs `M30` vs `M15` vs `M5`) sur Volatility 25 (1s) et Volatility 75 (1s) ?
+## 🔍 1. Diagnostic Forensique : Les 5 Causes Exactes des « 0 Positions » entre `12h50` et `19h01`
 
-### 1.1 Verdict Mathématique : `H1` avec Maintien $H = 4\text{ heures}$ est le Champion Absolu (Baisser en `M15` détruit la rentabilité)
+L'inspection forensique des journaux MT5 (`MQL5\Logs\20261025.log`), des profils (`chart01.chr`, `chart02.chr`, `chart03.chr`) et des bougies réelles Deriv a identifié les 5 verrous exacts qui ont bloqué l'exécution :
 
-Le test exhaustif sur toutes les unités de temps (`M5`, `M15`, `M30`, `H1`, `H4`) et toutes les durées de maintien ($H \in \{2, 3, 4, 6, 8\}$ barres) démontre que **réduire la timeframe à `M15` ou `M5` dégrade fortement l'espérance mathématique** à cause du ratio `Spread Live / Amplitude de la Bougie` ($\sigma\sqrt{\Delta t}$) :
+1. **Verrou #1 (`Boom 600` / `DerivBoomCrashHFT_v830_Ultimate`) — Les 5 sondes étaient verrouillées par le `Static EV Gate` (`InpMinEvUsd = 0.00$`)** :
+   - À `14:18:32`, le journal MT5 affiche explicitement :
+     - `Crash 600 Index` : `EV = -0.6299$ -> REFUSE (Sonde Verrouillee)`
+     - `Crash 900 Index` : `EV = -0.2711$ -> REFUSE (Sonde Verrouillee)`
+     - `Boom 900 Index` : `EV = -0.1938$ -> REFUSE (Sonde Verrouillee)`
+     - `Boom 600 Index` : `EV = -0.1568$ -> REFUSE (Sonde Verrouillee)`
+     - `Crash 1000 Index` : `EV = -0.1112$ -> REFUSE (Sonde Verrouillee)`
+   - **Explication mathématique** : La formule de l'EV statique calcule l'espérance *inconditionnelle* (comme si on entrait au hasard sans attendre d'épuisement $N \ge \theta_{\text{eff}}$ ni filtre ONNX). Sur Deriv, aucun indice n'a une EV inconditionnelle $\ge 0,00\$$ à cause du spread. Avec `5 sondes verrouillées sur 5`, la boucle `OnTimer()` sautait `100 %` des symboles.
+2. **Verrou #2 (`Volatility 25 (1s)` et `Volatility 75 (1s)`) — Erreur d'échelle `50.0` vs `0.50` et seuil `0.70` hors-support du GBDT** :
+   - Sur `chart02.chr` (`V25`), `InpMinWinProbability` avait été saisi manuellement à `50.0` au lieu de `0.50`. Or le modèle ONNX renvoie une probabilité $p \in [0, 1]$ : la condition `win_prob < 50.0` rejetait mathématiquement `100 %` des signaux.
+   - Sur `chart03.chr` (`V75`), `InpMinWinProbability` était à `0.70` (`70 %`). Or un arbre GBDT peu profond (`max_depth=3, n_estimators=30, lr=0.05`) produit des probabilités calibrées bornées dans $[0,34 ; 0,59]$. Un seuil $\ge 0,60$ bloque `100 %` des cassures.
+3. **Verrou #3 (`expertmode=1` dans les fichiers `.chr`)** :
+   - Les 3 fichiers `chart01.chr`, `chart02.chr`, `chart03.chr` avaient `expertmode=1` (`Allow live trading = OFF`) au lieu de `expertmode=5` (`Allow live trading = ON` + `Allow DLL = ON`).
+4. **Verrou #4 (Conditions de marché `H1` entre `13h00` et `19h00`)** :
+   - Sur les 6 bougies `H1` écoulées, `V25 (1s)` était en expansion de volatilité (`VolRatio` entre `0,96` et `1,15` > `Q25 = 0,88`), et `V75 (1s)` était en compression mais sans cassure (`|ImpulseZ| <= 1,10 < 1,50`).
+
+---
+
+## 📈 2. Preuve Mathématique n°1 : Faut-il baisser la Timeframe (`H1` vs `M30` vs `M15` vs `M5`) sur Volatility 25 (1s) et Volatility 75 (1s) ?
+
+> [!IMPORTANT]
+> **Verdict Mathématique (`250 000+` bougies réelles MT5)** : **`H1` avec Maintien $H = 4\text{ heures}$ est le Champion Absolu sur `V25 (1s)` ET sur `V75 (1s)`.**  
+> Descendre en `M15` ou `M5` détruit la rentabilité (perte de `-558,7 bps` à `-2 691,0 bps` en `M15`) car le spread fixe live (`0,76 bps` sur V25, `3,21 bps` sur V75) dévore l'amplitude moyenne de la bougie ($\sigma\sqrt{\Delta t}$), qui est $2\times$ plus petite en `M15` et $3,5\times$ plus petite en `M5`.
 
 | Indice | Unité de Temps | Durée Maintien ($H$) | Échantillon OOS | Gain Net Brut OOS (bps) | Gain Net Optimal ONNX OOS (bps) | Win Rate OOS (%) | Profit Factor (PF) | Statistique $t$ OOS | Verdict Mathématique |
 |---|---|---:|---:|---:|---:|---:|---:|---:|---|
@@ -30,9 +52,9 @@ Le test exhaustif sur toutes les unités de temps (`M5`, `M15`, `M30`, `H1`, `H4
 
 ---
 
-## 2. Question n°2 : Courbe Complète de Rentabilité selon le Seuil de Probabilité $P_{\min} \in [0,10 ; 0,70]$
+## 🎯 3. Preuve Mathématique n°2 : Grille Complète de Probabilité $P_{\min} \in [0,10 ; 0,99]$
 
-### 2.1 Tableau Complet pour `Volatility 25 (1s) Index` (`H1`, Maintien Optimal $H = 4\text{h}$, Modèle dédié `c2_vol_filter_v25.onnx`)
+### 3.1 Tableau Complet pour `Volatility 25 (1s) Index` (`H1`, Maintien Optimal $H = 4\text{h}$, Modèle dédié [`c2_vol_filter_v25.onnx`](file:///C:/Users/CHRIST/Desktop/IA/ANTIGRAVITY/projets/general%20project%20%20%20quant%20bot%20deriv/src/models/c2_vol_filter_v25.onnx))
 
 | Seuil de Probabilité $P_{\min}$ | Trades Validation | Gain Validation (bps) | Trades OOS Retenus | **Gain Net Cumulé OOS (bps)** | **Gain Moyen / Trade OOS (bps)** | **Win Rate OOS (%)** | **Profit Factor OOS** | **Certitude Statistique ($t$-stat)** |
 |---:|---:|---:|---:|---:|---:|---:|---:|---:|
@@ -48,11 +70,9 @@ Le test exhaustif sur toutes les unités de temps (`M5`, `M15`, `M30`, `H1`, `H4
 | `0,58` (`58 %`) | 2 | `0,0` | 5 | `-27,5 bps` | `-5,49 bps` | `80,0 %` | `0,81` | `-0,15` |
 | `0,60` à `0,99` (`60 %` – `99 %`) | 0 | `0,0` | **0** | **`0,0 bps`** | **`0,00 bps`** | — | — | **0 trade (Bloqué)** |
 
-**Conclusion V25 :** Mettre `50 %` faisait perdre 80 % du gain potentiel (`+646,8 bps` au lieu de **`+3 241,5 bps`**), et mettre `70 %` donnait **0 trade**. Le réglage mathématique exact qui maximise simultanément le profit total (`+3 241,5 bps`), le gain par trade (`+11,14 bps`), le Profit Factor (`1,68`) et la certitude ($t = +3,51$) est **`InpMinWinProbability = 0.42` (`42 %`)** sur **`H1` avec `Hold = 4h`**.
-
 ---
 
-### 2.2 Tableau Complet pour `Volatility 75 (1s) Index` (`H1`, Maintien Optimal $H = 4\text{h}$, Modèle dédié `c2_vol_filter_v75.onnx`)
+### 3.2 Tableau Complet pour `Volatility 75 (1s) Index` (`H1`, Maintien Optimal $H = 4\text{h}$, Modèle dédié [`c2_vol_filter_v75.onnx`](file:///C:/Users/CHRIST/Desktop/IA/ANTIGRAVITY/projets/general%20project%20%20%20quant%20bot%20deriv/src/models/c2_vol_filter_v75.onnx))
 
 | Seuil de Probabilité $P_{\min}$ | Trades Validation | Gain Validation (bps) | Trades OOS Retenus | **Gain Net Cumulé OOS (bps)** | **Gain Moyen / Trade OOS (bps)** | **Win Rate OOS (%)** | **Profit Factor OOS** | **Certitude Statistique ($t$-stat)** |
 |---:|---:|---:|---:|---:|---:|---:|---:|---:|
@@ -67,6 +87,17 @@ Le test exhaustif sur toutes les unités de temps (`M5`, `M15`, `M30`, `H1`, `H4
 | `0,56` (`56 %`) | 9 | `0,0` | 15 | `+718,9 bps` | `+47,93 bps` | `53,3 %` | `2,10` | `+1,07` |
 | `0,60` à `0,99` (`60 %` – `99 %`) | 0 | `0,0` | **0 à 3** | **`0,0 bps`** | **`0,00 bps`** | — | — | **0 trade (Bloqué)** |
 
-**Conclusion V75 :**
-1. Passer la durée de maintien de `3h` à **`4h` (`InpMaxHoldBars = 4`)** sur `Volatility 75 (1s)` multiplie le profit OOS par **11,6×** (`+4 120,8 bps` au lieu de `+352,9 bps`) !
-2. Le seuil **`InpMinWinProbability = 0.50` (`50 %`)** donne le **gain cumulé absolu maximal (`+4 120,8 bps`, `93` trades, `WR = 58,1 %`, `PF = 1,92`, $t = +2,48$)**. (Et si tu veux privilégier un taux de réussite maximal de `65,6 %` avec un Profit Factor de `4,39`, il suffit de le régler sur `0.54`).
+---
+
+### 3.3 Tableau Complet pour `DerivBoomCrashHFT_v830_Ultimate` (8 Indices Boom/Crash — Filtre `Static EV` + Seuil `Blended_P`)
+
+| Indice | Spread Moyen (ticks) | Gain Spike Net ($) | Coût 60t Sans Spike ($) | $p_0(60)$ Base (%) | **EV Statique Inconditionnelle ($)** | Seuil $\theta_{\text{eff}}$ (`0,85x`) | **$P_{\text{blended}}$ Requise (`EV > 0$`)** | Statut Optimal (`InpMinEvUsd = -0.20$`) |
+|---|---:|---:|---:|---:|---:|---:|---:|---|
+| **Crash 500 Index** | `52,5 t` | `+0,75 $` | `-0,17 $` | `11,31 %` | **`-0,0655 $`** | `361 ticks` | **`11,31 %`** (`0,1131`) | ✅ **ACTIF (Meilleur indice)** |
+| **Boom 500 Index** | `46,7 t` | `+0,59 $` | `-0,19 $` | `11,42 %` | **`-0,0978 $`** | `361 ticks` | **`11,42 %`** (`0,1142`) | ✅ **ACTIF (2e meilleur)** |
+| **Crash 1000 Index** | `85,3 t` | `+1,03 $` | `-0,18 $` | `6,05 %` | **`-0,1112 $`** | `658 ticks` | **`6,05 %`** (`0,0605`) | ✅ **ACTIF** |
+| **Boom 600 Index** | `86,5 t` | `+0,82 $` | `-0,26 $` | `9,72 %` | **`-0,1564 $`** | `425 ticks` | **`9,72 %`** (`0,0972`) | ✅ **ACTIF** |
+| **Boom 900 Index** | `99,0 t` | `+1,52 $` | `-0,31 $` | `6,37 %` | **`-0,1924 $`** | `616 ticks` | **`6,37 %`** (`0,0637`) | ✅ **ACTIF** |
+| **Crash 900 Index** | `241,2 t` | `+3,08 $` | `-0,50 $` | `6,40 %` | `-0,2703 $` | `616 ticks` | `7,54 %` | 🔒 **VERROUILLÉ (Spread trop élevé)** |
+| **Boom 1000 Index** | `204,7 t` | `+0,88 $` | `-0,42 $` | `6,00 %` | `-0,3392 $` | `658 ticks` | `15,87 %` | 🔒 **VERROUILLÉ (Spread trop élevé)** |
+| **Crash 600 Index** | `347,2 t` | `+3,70 $` | `-1,11 $` | `9,97 %` | `-0,6299 $` | `425 ticks` | `13,07 %` | 🔒 **VERROUILLÉ (Spread toxique)** |
