@@ -78,3 +78,17 @@ Conformément à la politique d'archivage immuable du projet, **aucun fichier hi
    - `[6] kurt20 = CalcKurtosis(ret_sub, 20, r_mean, current_std20)`
 2. **Protocole d'entraînement chronologique strict (60 % Train / 20 % Validation / 20 % Out-Of-Sample)** sur les **56 046 barres H1 (2020–2026)** avec étiquetage sur l'horizon réel ($H=4\text{h}$ pour V25, $H=3\text{h}$ pour V75) et déduction du vrai spread.
 3. **Mise à jour du modèle `src/models/c2_vol_filter.onnx`** et de ses métadonnées d'évaluation OOS dans [`src/models/c2_vol_filter_metadata.json`](../src/models/c2_vol_filter_metadata.json), puis recompilation de `Deriv_VolSqueeze_Breakout_EA_v3.mq5` (`0 errors, 0 warnings`).
+
+
+### 2.3 Durcissement `v3.31 Hardened` de `Deriv_VolSqueeze_Breakout_EA_v3.mq5` & Passage en Mode Signal Pur S1 sur `Volatility 25 (1s)` (02/11/2026)
+
+1. **Audit Forensique des Binaires ONNX (`src/models/`)** :
+   - `c2_vol_filter.onnx` et `c2_vol_filter_v25.onnx` sont identiques au bit près (`13 180` octets, SHA-256 `e641cd39...`), avec un `ROC-AUC = 0.4457 < 0.50` sur la partition OOS post-août 2025 (`P_min = 0.42` laissait passer `98.64 %` des signaux).
+   - `c2_vol_filter_v75.onnx` (`11 647` octets, SHA-256 `e4d930b8...`) affiche une espérance nette négative sur le Holdout V75 (`-6.21 bps/trade`, `t = -0.201`, `DSR = 0.1863`).
+   - En production `v3.31`, `InpUseONNXFilter = false` active le **Signal Pur S1 Quant** (`InpSqueezeQuantile = 0.30`, `InpBreakoutZScore = 1.25`), tout en préservant l'intégralité des modèles `.onnx` et l'alignement des 7 features.
+2. **Concentration sur l'Actif Roi `Volatility 25 (1s)`** :
+   - Mise en veille protectrice de `Volatility 75 (1s)` (`InpAllowV75Trading = false`, `Status=PAUSED_STANDBY`), son spread réel (`3.22–3.74 bps`) absorbant l'avantage H1 ($t_{\text{holdout}} = +0.45$), contre `0.62–0.74 bps` sur `Volatility 25 (1s)` ($t = +2.63$ sur 15k barres H1 avec Profit Lock `+1.20 -> +0.20 ATR`, et `4/4` victoires live `+195.15 USD`).
+3. **Cinq Correctifs Techniques MQL5 Compilés (`0 errors, 0 warnings`)** :
+   - `CopyBuffer(ExtATRHandle, 0, 1, 1, atr_vals)` (`shift=1` bougie H1 clôturée) + tolérance `> 0.5 * _Point` + cooldown `10 s` (élimination du spam `PositionModify` tick par tick).
+   - `NormalizePrice()` (`SYMBOL_TRADE_TICK_SIZE` + `_Digits`) et gardes `SYMBOL_TRADE_STOPS_LEVEL` / `SYMBOL_TRADE_FREEZE_LEVEL` sur `target_sl` et sur les `sl`/`tp` d'entrée.
+   - Exécution du Time-Stop (`bars_elapsed >= InpMaxHoldBars`) **avant** le Profit Lock dans `ManageOpenPositions()`, vérification du retour booléen de `ExtTrade.PositionClose(ticket)`, et `InpSlippagePoints = 50`.

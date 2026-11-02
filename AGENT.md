@@ -12,14 +12,14 @@ Ce document constitue le **point d'entrée unique et obligatoire** pour tout age
 
 ---
 
-## 1. MISSION DU RÉPERTOIRE & ÉTAT ACTUEL DES SYSTÈMES (AU 1er NOVEMBRE 2026)
+## 1. MISSION DU RÉPERTOIRE & ÉTAT ACTUEL DES SYSTÈMES (AU 2 NOVEMBRE 2026)
 
 Le projet **QUANT BOT DERIV** est un environnement d'ingénierie quantitative, d'audit économétrique haute fréquence et de trading algorithmique appliqué aux indices synthétiques continus du courtier **Deriv** :
 
 | Track / Système | Fichier Source Principal | Version Actuelle | Statut Opérationnel | Bilan & Performance Live Certifiée (Compte `32449166`) |
 | :--- | :--- | :---: | :---: | :--- |
 | **Track 1 : Boom & Crash HFT** | `src/mql5/DerivBoomCrashHFT_v830_Ultimate.mq5` | `v8.30 Ultimate` | **EN PAUSE / VETO `/boost`** (Retiré de MT5 le 29/10 à 09:20 UTC) | **3 412 trades** : **`-914.78 USD`** ($WR = 46.92\%$, $\text{EV} = -0.2681\$$/trade, $\text{DSR} = 0.0000$). Processus de Poisson sans mémoire prouvé sur 1,68M ticks + faille `VULN-01` ("Trapped Spike") identifiée. |
-| **Track 2 : Volatility 25 & 75 (1s) Squeeze** | `src/mql5/Deriv_VolSqueeze_Breakout_EA_v3.mq5` | **`v3.30 Hardened`** | **ACTIF EN PRODUCTION (H1)** | **Global : `+$99.88 USD` net (9 trades, 66.7% WR)**.<br>• **Volatility 25 (1s)** : **4 trades / 4 victoires (100% WR)**, **`+$195.15 USD`** (dont `+$107.99$` encaissés le 01/11 par `v3.30`).<br>• **Volatility 75 (1s)** : 5 trades (`-$95.27$` sous `v3.10` avant plafonnement du lot, désormais capé à `0.02 lot` max en `v3.30`). |
+| **Track 2 : Volatility 25 (1s) Squeeze** | `src/mql5/Deriv_VolSqueeze_Breakout_EA_v3.mq5` | **`v3.31 Hardened`** | **ACTIF EN PRODUCTION (H1 — Pure S1 `Q=0.30, Z=1.25` sur V25 ; V75 en `PAUSED_STANDBY`)** | **Global : `+$99.88 USD` net (9 trades, 66.7% WR)**.<br>• **Volatility 25 (1s) [ACTIF ROI]** : **4 trades / 4 victoires (100% WR)**, **`+$195.15 USD`** (dont `+$107.99$` le 01/11). Mode **Pure S1 (`InpUseONNXFilter=false`)** + Profit Lock anti-spam `shift=1`.<br>• **Volatility 75 (1s)** : Placé en **pause protectrice (`InpAllowV75Trading=false`)** suite à l'audit `/boost` ($t_{\text{holdout}} = +0.45$, spread réel $3.22\text{–}3.74\text{ bps}$). |
 | **Track 3 : Scanner WebSocket Deriv** | `src/python/deriv_fair_value_scanner.py` | `v1.0` | **OUTIL D'AUDIT** | Évaluation analytique de **349 contrats options Deriv** (9 familles) : 0 contrat à EV positive ($\text{EV}_{\max} = -0.45\%$). |
 | **Track 4 : Recherche Multi-Marchés Deriv** | Skill `quant-pod` (`deriv_quant_engine.py` + `quant_scientific_arsenal.py`) | `L99` | **EN RECHERCHE ACTIVE** | Exploration scientifique des 11 familles synthétiques Deriv (DSI, DEX, Step, Multi-Step, Skew Step, Trek, Range Break, Jump, Volatility, Accumulators) pour concevoir la prochaine génération de bots. |
 
@@ -56,20 +56,19 @@ Tout agent opérant sur ce code **doit respecter sans exception** les sept lois 
   - **Compte de test** : `32449166` (`Deriv-Demo`).
 * Les fichiers de profils graphiques (`chart02.chr`, `chart03.chr`) doivent obligatoirement posséder `expertmode=5` (Trading automatique = ACTIF, DLL = ACTIF).
 
-### Règle 6 : Pas de Sur-Optimisation ni de Seuils Hors-Support GBDT
-* Les arbres de décision GBDT peu profonds (`max_depth=3`) produisent des probabilités régularisées bornées dans $[0.34 ; 0.59]$.
-* Un seuil `P_min >= 0.60` (ou 70%) entraîne mathématiquement **zéro trade**. Les seuils optimaux empiriques démontrés sur 250 000+ barres sont :
-  - `Volatility 25 (1s)` : `P_min = 0.42` (`Hold = 4h`, $+3\,241.5\text{ bps}$, $t = +3.51$).
-  - `Volatility 75 (1s)` : `P_min = 0.50` (`Hold = 4h`, $+4\,120.8\text{ bps}$, $t = +2.48$) ou `P_min = 0.54` (haute précision, $WR = 65.6\%$, $t = +3.15$).
+### Règle 6 : Pas de Sur-Optimisation, Bypass ONNX par Défaut (`v3.31`) & Seuils Supportés
+* L'audit contradictoire `/boost` du 02/11/2026 a établi que `c2_vol_filter.onnx` (`== c2_vol_filter_v25.onnx`, `13 180` octets) présente un `ROC-AUC = 0.4457 < 0.50` sur le Holdout strict post-août 2025, et que `c2_vol_filter_v75.onnx` (`11 647` octets) génère une espérance négative sur le Holdout V75 (`-6.21 bps/trade`, `DSR = 0.1863`).
+* En production `v3.31 Hardened`, **`InpUseONNXFilter = false`** est le mode standard (**Signal Pur S1 Quant** sans boîte noire : `InpSqueezeQuantile = 0.30`, `InpBreakoutZScore = 1.25`), tout en conservant intacts les fichiers `.onnx` et le pipeline d'inférence à 7 features (si réactivé pour recherche, ne jamais utiliser un seuil `P_min >= 0.60` hors du support GBDT $[0.34 ; 0.59]$).
 
-### Règle 7 : Timeframe H1 Absolue & Sécurités `v3.30 Hardened` pour la Gamme Volatilité
+### Règle 7 : Timeframe H1 Absolue & Sécurités `v3.31 Hardened` pour la Gamme Volatilité
 * L'évaluation empirique multi-temporelle (`M5`, `M15`, `M30`, `H1`, `H4`) démontre que baisser la timeframe à `M5` détruit la rentabilité car le spread fixe dévore l'amplitude $\sigma\sqrt{\Delta t}$.
-* L'unité de temps opérationnelle de `Deriv_VolSqueeze_Breakout_EA_v3` est **`PERIOD_H1`** avec :
-  - Maintien maximal fixé à **4 barres H1** (`InpMaxHoldBars = 4`).
-  - **Profit Lock dynamique (`InpUseTrailingLock = true`)** : Dès que l'excursion favorable atteint $+1.20 \times \text{ATR}_{20}$ (`InpLockTriggerATR`), le Stop-Loss est verrouillé à $\text{Entry} + 0.20 \times \text{ATR}_{20}$ (`InpLockOffsetATR`).
+* L'unité de temps opérationnelle de `Deriv_VolSqueeze_Breakout_EA_v3` (`v3.31`) est **`PERIOD_H1`** avec :
+  - **Concentration sur l'Actif Roi `Volatility 25 (1s)`** : `InpAllowV75Trading = false` place `Volatility 75 (1s)` en veille protectrice (`PAUSED_STANDBY`), car son spread live (`3.22–3.74 bps`) absorbe l'edge H1 ($t_{\text{holdout}} = +0.45$).
+  - Maintien maximal fixé à **4 barres H1** (`InpMaxHoldBars = 4`), évalué **en premier** dans `ManageOpenPositions()` avant tout `PositionModify` et avec vérification du booléen `PositionClose(ticket)`.
+  - **Profit Lock dynamique anti-spam (`InpUseTrailingLock = true`)** : Calculé strictement sur l'**ATR de la bougie H1 clôturée (`shift=1`)**, avec normalisation exacte `NormalizePrice` (`SYMBOL_TRADE_TICK_SIZE` + `_Digits`), garde `> 0.5 * _Point`, vérification `SYMBOL_TRADE_STOPS_LEVEL` / `FREEZE_LEVEL` et cooldown de `10 s` (zéro rafale `PositionModify` serveur).
   - **Priorité d'exécution dans `OnTick()`** : `ManageOpenPositions()` est appelé **avant** le coupe-circuit journalier (`InpMaxDailyLossPct = 3.0%`) pour qu'aucune position ouverte ne devienne orpheline.
-  - **Remplissage dynamique** : Sélection automatique `ORDER_FILLING_IOC` / `FOK` / `RETURN` selon `SYMBOL_FILLING_MODE`.
-  - **Plafond de lot strict** : `InpMaxLotCap = 0.05` global et plafond forcé à `0.02 lot` maximum sur `Volatility 75 (1s)`.
+  - **Remplissage dynamique & Slippage** : Sélection automatique `ORDER_FILLING_IOC` / `FOK` / `RETURN` et `InpSlippagePoints = 50`.
+  - **Plafond de lot strict** : `InpMaxLotCap = 0.05` sur V25 et plafond forcé à `0.02 lot` maximum sur V75.
 
 ---
 
