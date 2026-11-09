@@ -1,15 +1,125 @@
-# QUANT BOT DERIV
-## Framework Quantitatif & Trading Algorithmique sur Indices Synthétiques
+<div align="center">
 
-[![Langage](https://img.shields.io/badge/Langage-MQL5%20%2F%20C%2B%2B-blue.svg)](https://www.mql5.com)
-[![Recherche](https://img.shields.io/badge/Recherche-Python%203.12-green.svg)](https://www.python.org)
-[![Moteur IA](https://img.shields.io/badge/Inference-ONNX%20Runtime-orange.svg)](https://onnx.ai)
-[![Plateforme](https://img.shields.io/badge/Plateforme-MetaTrader%205-darkblue.svg)](https://www.metatrader5.com)
-[![Guide IA](https://img.shields.io/badge/Agent-AGENT.md-purple.svg)](AGENT.md)
-[![Licence](https://img.shields.io/badge/Licence-MIT-brightgreen.svg)](LICENSE)
-[![GitHub](https://img.shields.io/badge/Dépôt-Christ--yavn%2Fbot--quant---black.svg)](https://github.com/Christ-yavn/bot-quant-)
+# ⚡ QUANT BOT DERIV (`bot-quant-` v3.31.0)
+
+### **Open-Source Zero-Lookahead Quantitative Research, Statistical Microstructure Validation & ONNX Runtime Inference Framework**
+
+[![License: MIT](https://img.shields.io/badge/License-MIT-brightgreen.svg?style=for-the-badge)](./LICENSE)
+[![Python 3.12](https://img.shields.io/badge/Research_Engine-Python_3.12-3776AB?style=for-the-badge)](https://www.python.org)
+[![ONNX Runtime](https://img.shields.io/badge/Neural_%26_GBDT_Inference-ONNX_Runtime-F97316?style=for-the-badge)](./src/models/)
+[![Execution C++/MQL5](https://img.shields.io/badge/Low--Latency_Execution-MQL5_%2F_C%2B%2B-2563EB?style=for-the-badge)](./src/mql5/)
+[![Claude Code AGENT.md](https://img.shields.io/badge/Claude_Code_Contract-AGENT.md-7C3AED?style=for-the-badge)](./AGENT.md)
+[![Companion DSL Compiler](https://img.shields.io/badge/Companion_DSL-ITC--SMC--EXTRACTOR-10B981?style=for-the-badge)](https://github.com/Christ-yavn/ITC-SMC-EXTRACTOR-)
+
+<p align="center">
+  <strong>🌐 <a href="#-english-documentation">English Documentation</a></strong> •
+  <strong>🇫🇷 <a href="#-documentation-française-complète">Documentation Française</a></strong> •
+  <strong>🤖 <a href="./AGENT.md">Claude Code Contract (<code>AGENT.md</code>)</a></strong> •
+  <strong>📐 <a href="./docs/MATHEMATICAL_PROOFS_AND_THEORY.md">Mathematical Proofs</a></strong> •
+  <strong>📜 <a href="./CHANGELOG_AND_HISTORY.md">Changelog (49 KB)</a></strong>
+</p>
+
+<p align="center">
+  <em>An open-source quantitative research and cross-language execution framework combining <strong>Python 3.12 statistical forensics</strong>, <strong>ONNX Runtime neural/GBDT inference</strong>, and <strong>deterministic C++/MQL5 state machines</strong> with strict zero-lookahead guarantees.</em>
+</p>
+
+</div>
 
 ---
+
+# 🌐 English Documentation
+
+## 1. The Ecosystem Gap: Why `bot-quant-` Exists
+
+Most open-source algorithmic trading and backtesting repositories fail in live production due to three structural defects:
+1. **Subtle Look-Ahead Contamination**: Computing rolling volatility quantiles, ATR normalizers, or structural breakouts on window $[t-W+1, \dots, t]$ instead of strictly causal lagged windows $[t-W, \dots, t-1]$ (`shift=1`), inflating backtest Sharpe ratios through self-attenuation bias.
+2. **Train-Serve Skew Across Languages**: Research models trained in Python (`scikit-learn` / `LightGBM` / `PyTorch`) are manually rewritten as brittle `if/else` trees in C++/MQL5 execution engines, introducing numerical drift.
+3. **Ignoring Microstructure Friction on Jump-Diffusion Processes**: High-frequency jump processes (Poisson spike regimes) and continuous-volatility Diffusion indices require live **Net-of-Spread Expected Value (EV) Gates** ($\mathbb{E}[\Delta P_{\text{jump}} \mid \mathcal{F}_t] > c_{\text{spread}}(t) + \epsilon_{\text{slippage}}$) before any order is routed.
+
+**`bot-quant-` solves these challenges** by providing:
+- **Strict Zero-Lookahead Causal Pipelines (`shift=1`)**: Verified by automated unit tests ([`tests/test_quantitative_mechanics.py`](./tests/test_quantitative_mechanics.py)) and formal mathematical proofs ([`docs/MATHEMATICAL_PROOFS_AND_THEORY.md`](./docs/MATHEMATICAL_PROOFS_AND_THEORY.md)).
+- **Zero-Skew Cross-Language ONNX Inference**: Models are trained and audited out-of-sample in Python ([`src/python/`](./src/python/)), exported to standardized **`.onnx` computation graphs** ([`src/models/`](./src/models/)), and executed natively inside sub-millisecond MQL5/C++ state machines ([`src/mql5/`](./src/mql5/)).
+- **Agent-First Engineering via [`AGENT.md`](./AGENT.md)**: Built from the ground up to be maintained, audited, and extended by autonomous coding agents (**Claude Code**), with an 18 KB formal invariant specification ([`AGENT.md`](./AGENT.md)) and a 49 KB chronological engineering ledger ([`CHANGELOG_AND_HISTORY.md`](./CHANGELOG_AND_HISTORY.md)).
+
+---
+
+## 2. Two-Repository Open-Source Quantitative Ecosystem
+
+`bot-quant-` operates in tandem with its companion formal DSL compiler repository maintained by [@Christ-yavn](https://github.com/Christ-yavn):
+
+| Repository | Primary Stack | Role in the Open-Source Ecosystem |
+| :--- | :--- | :--- |
+| **[`Christ-yavn/bot-quant-`](https://github.com/Christ-yavn/bot-quant-)** *(This Repo)* | Python 3.12, ONNX Runtime, MQL5 / C++ | **Zero-Lookahead Quantitative Research, Statistical Forensics & Low-Latency ONNX Execution Engine** (Poisson jump survival models, volatility-squeeze GBDT filters, live spread-adjusted EV gates, and `AGENT.md` contract). |
+| **[`Christ-yavn/ITC-SMC-EXTRACTOR-`](https://github.com/Christ-yavn/ITC-SMC-EXTRACTOR-)** *(Companion Compiler)* | TypeScript, Node.js 22, Python 3.12 | **Formal DSL Compiler, Deterministic Dual-FSM Linter (`ZONE_FSM` × `TRADE_FSM`), & Native Claude Code Bridge** for compiling market-structure primitives (FVG, BPR, Order Blocks, Liquidity Sweeps) into verified Python & Pine Script engines. |
+
+---
+
+## 3. Dual Quantitative Architecture
+
+```mermaid
+flowchart TD
+    subgraph Stream["REAL-TIME & HISTORICAL MARKET MICROSTRUCTURE"]
+        direction TB
+        M["Tick & Bar Streams (Jump-Diffusion & Continuous Volatility DGP)"]
+    end
+
+    subgraph Engine1["ENGINE 1: CONVEX JUMP-DIFFUSION SURVIVAL (HFT TICK STREAM)"]
+        direction TB
+        E1_Hazard["Inter-Arrival Hazard & Exhaustion Estimator"]
+        E1_ONNX["ONNX Survival Meta-Brain (boom_crash_meta_brain.onnx • 14 Features)"]
+        E1_Gate["Live Spread-Adjusted EV Shield: E[Jump] > SpreadCost"]
+        E1_Exec["Convex Asymmetric Execution (Harvest Positive Jump Drift)"]
+        E1_Exit["Deterministic Horizon Exit (60 Ticks / 65s Timeout)"]
+        E1_Hazard --> E1_ONNX --> E1_Gate --> E1_Exec --> E1_Exit
+    end
+
+    subgraph Engine2["ENGINE 2: VOLATILITY-SQUEEZE BREAKOUT (CAUSAL H1 REGIME)"]
+        direction TB
+        E2_Sqz["Causal Lagged Compression Ratio (shift=1, Q <= 0.30)"]
+        E2_Brk["Normalized Impulse Breakout (Z >= 1.25 ATR)"]
+        E2_ONNX["Asset-Specific GBDT ONNX Filter (c2_vol_filter_v25.onnx / v75.onnx)"]
+        E2_Hold["Deterministic 4-Bar Horizon Exit + Dynamic Profit Lock"]
+        E2_Sqz --> E2_Brk --> E2_ONNX --> E2_Hold
+    end
+
+    M --> Engine1
+    M --> Engine2
+```
+
+---
+
+## 4. Quickstart & Verification Suite
+
+### 1. Clone & Install Python Research Package
+```bash
+git clone https://github.com/Christ-yavn/bot-quant-.git
+cd bot-quant-
+pip install -e ".[dev]"
+```
+
+### 2. Run the Quantitative Mechanics & Anti-Lookahead Unit Tests
+```bash
+pytest tests/test_quantitative_mechanics.py -v
+```
+
+### 3. Run the Out-of-Sample Timeframe & Probability Grid Optimizer
+```bash
+python src/python/optimize_timeframe_and_prob_grid.py
+```
+
+### 4. Inspect Formal Mathematical Proofs & Forensic Audits
+- [`AGENT.md`](./AGENT.md) — Strict operational contract and mathematical invariants for **Claude Code**.
+- [`docs/MATHEMATICAL_PROOFS_AND_THEORY.md`](./docs/MATHEMATICAL_PROOFS_AND_THEORY.md) — Formal stochastic proofs, Poisson hazard survival equations, and martingale boundary conditions.
+- [`docs/MICROSTRUCTURE_DERIV_SPEC.md`](./docs/MICROSTRUCTURE_DERIV_SPEC.md) — Microstructure specification across synthetic jump-diffusion and volatility indices.
+- [`docs/CODE_ARCHITECTURE_AUDIT.md`](./docs/CODE_ARCHITECTURE_AUDIT.md) — Full architectural audit and zero-lookahead remediation report.
+
+---
+
+<br/>
+
+# 🇫🇷 Documentation Française Complète
+
+## Framework Quantitatif & Trading Algorithmique sur Indices Synthétiques
 
 > [!NOTE]
 > ### Bienvenue sur le Dépôt QUANT BOT DERIV
@@ -120,12 +230,12 @@ Le robot [`Deriv_VolSqueeze_Breakout_EA_v3`](src/mql5/Deriv_VolSqueeze_Breakout_
 sequenceDiagram
     autonumber
     participant M as Marché Deriv (H1)
-    participant B as Robot VolSqueeze v3.20
+    participant B as Robot VolSqueeze v3.31
     participant IA as Modèle IA ONNX Dédié
     participant T as Gestionnaire d'Ordres MT5
 
     M->>B: Clôture d'une nouvelle bougie 1 Heure
-    B->>B: Calcul de la compression (VolRatio <= Seuil Calme)
+    B->>B: Calcul de la compression causale (shift=1, VolRatio <= Seuil Calme)
     alt Pas de compression ou pas de cassure
         B->>B: Mise à jour du dashboard visuel sur graphique (Attente)
     else Compression et Cassure confirmées
@@ -194,9 +304,14 @@ Cliquez sur le bouton **Algo Trading** dans la barre d'outils supérieure de Met
 ```text
 Christ-yavn/bot-quant-
 │
-├── AGENT.md                           Guide opérationnel strict pour les agents IA
-├── README.md                          Présentation générale accessible (le présent document)
+├── .github/workflows/ci.yml           Pipeline CI GitHub Actions (Pytest & Anti-Lookahead)
+├── AGENT.md                           Guide opérationnel strict pour les agents IA (Claude Code)
+├── README.md                          Documentation bilingue Anglais / Français
 ├── CHANGELOG_AND_HISTORY.md           Historique chronologique détaillé de toutes les versions
+├── pyproject.toml                     Configuration du package Python standard (PEP 621)
+├── CONTRIBUTING.md                    Guide de contribution Open Source
+├── SECURITY.md                        Politique de sécurité
+├── LICENSE                            Licence Open Source MIT
 │
 ├── src/
 │   ├── mql5/                          Code source des robots MetaTrader 5
@@ -212,10 +327,16 @@ Christ-yavn/bot-quant-
 │       └── train_volatility_colab.py
 │
 ├── docs/                              Documentation technique, mathématique et académique
+│   ├── MATHEMATICAL_PROOFS_AND_THEORY.md
+│   ├── MICROSTRUCTURE_DERIV_SPEC.md
+│   ├── CODE_ARCHITECTURE_AUDIT.md
 │   ├── ETAT_DE_LA_VERITE.md
 │   ├── GUIDE_PEDAGOGIQUE_L1_MATHS_AUDIT_ET_REPARATIONS_2026.md
 │   └── RAPPORT_OPTIMISATION_TIMEFRAME_ET_PROBABILITE_ONNX.md
 │
+├── tests/                             Suite de tests unitaires anti-lookahead (pytest)
+│   ├── test_quantitative_mechanics.py
+│   └── verify_v331_hardened.py
 └── research/                          Données brutes, audits forensiques et protocoles de test
 ```
 
