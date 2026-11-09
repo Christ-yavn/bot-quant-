@@ -1,4 +1,4 @@
-name: CI — Quantitative Mechanics & Zero-Lookahead Verification
+name: CI — Quantitative Mechanics, Zero-Lookahead & Quant-Pod v3.0 Suite
 
 on:
   push:
@@ -8,8 +8,8 @@ on:
   workflow_dispatch:
 
 jobs:
-  pytest-suite:
-    name: Python 3.12 Quantitative Invariant Tests
+  pytest-and-quant-pod-engines:
+    name: Python 3.12 Quantitative Invariants & 10 Quant-Pod Engines
     runs-on: ubuntu-latest
 
     steps:
@@ -21,10 +21,23 @@ jobs:
         with:
           python-version: '3.12'
 
-      - name: Install test dependencies
+      - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
           pip install pytest numpy pandas scipy
 
       - name: Run Quantitative Mechanics & Anti-Lookahead Unit Tests
         run: pytest tests/test_quantitative_mechanics.py -v
+
+      - name: Run Quant-Pod v3.0 10-Engine Built-In Self-Tests
+        run: |
+          python skills/quant-pod/scripts/research_integrity.py
+          python skills/quant-pod/scripts/crypto_defi_engine.py
+          python skills/quant-pod/scripts/event_backtester.py
+          python skills/quant-pod/scripts/null_models.py
+          python skills/quant-pod/scripts/quant_inference_engine.py
+          python skills/quant-pod/scripts/quant_validation_engine.py
+          python skills/quant-pod/scripts/quant_scientific_arsenal.py
+          python skills/quant-pod/scripts/prng_forensics.py
+          python skills/quant-pod/scripts/quant_discovery_engine.py
+          python skills/quant-pod/scripts/deriv_quant_engine.py
