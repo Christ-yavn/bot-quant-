@@ -1,7 +1,7 @@
 # MÉMOIRE MAÎTRE & PROTOCOLE DE REPRISE INTÉGRALE (QUANT BOT DERIV)
 ## Document de Continuité Cognitive pour Nouvelle Discussion / Nouvel Agent IA
 
-**Date de dernière mise à jour certifiée** : 10 Novembre 2026 (13:15 UTC — Version `v3.52 Direction Fix` déployée live)  
+**Date de dernière mise à jour certifiée** : 10 Novembre 2026 (14:15 UTC — Version `v3.53 Basket & Lot Optimization` déployée live)  
 **Dépôt GitHub Officiel** : `https://github.com/Christ-yavn/bot-quant-.git` (Branche `main`)  
 **Dossier Local du Projet (Workspace)** : `C:\Users\CHRIST\Desktop\IA\ANTIGRAVITY\projets\general project   quant bot deriv`
 
@@ -124,6 +124,13 @@ Dès le premier message d'une nouvelle discussion, tu dois **consulter physiquem
   - *Correctif v3.52 certifié* : Déclaration de `ExtLastRetBps` dans la télémétrie globale, affectation directe de `ExtLastRetBps = r_bps[0];` dans `UpdateMarketTelemetry()` (où `closes` est déjà strictement indexé en série), et utilisation directe de `ExtLastRetBps` dans `OnTick()`. Direction BUY/SELL 100% alignée avec le mouvement du marché.
   - *Clôture du trade inversé #8825110205* : Clôturé immédiatement et proprement via API FOK avec une variation négligeable (-1.52 USD).
   - *Compilation & Binaires* : 0 erreur, 0 avertissement (77 180 octets).
+* **Optimisation Panier v3.53 (Issu du Scan Quant-Pod L99 sur 94 Actifs Deriv)** :
+  - *Désactivation Volatility 10 Index* : Espérance nette négative observée sur 3 944 trades (-0.561 bps, t = -1.693, Kelly = 0.00%). Désactivé avec `ExtIsSymbolPaused = true` et rôle `"V10_STD_PAUSED"`.
+  - *Réduction Lot Cap Volatility 15 (1s)* : Réduit de 0.500 à 0.050 lot dans le code et les presets .set pour éviter l'écrasement des champions par un actif à faible gain moyen (+0.052 bps tombant à -0.543 bps sous friction 2x).
+  - *Support Bi-Timeframe Volatility 25 (1s)* : Prise en charge native de M30 (H=8 barres) et H1 (H=4 barres), offrant 63.86% de Win Rate et +3.424 bps/trade avec 2x plus d'opportunités.
+  - *Portefeuille Champions* : Ladder Volatility Up (H4, S2, 63.43%), DEX 1500 DOWN (M15/H1, S1, 56.50%), Crash 550 (H4, S1, 59.30%), Range Break 200 (H1, S3, 53.30%), V25 (1s) (M30/H1, S1) et V5 (1s) (M30, S1).
+  - *Compilation MetaEditor 64* : 0 erreur, 0 avertissement (76 808 octets).
+
 
 
 ---

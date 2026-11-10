@@ -580,3 +580,25 @@ Lors de l'audit forensique approfondi du code v3.51 par rapport au trade live `#
    - Sauvegarde de la v3.51 dans [`archive/mql5_legacy/Deriv_VolSqueeze_Breakout_EA_v3_51.mq5`](archive/mql5_legacy/Deriv_VolSqueeze_Breakout_EA_v3_51.mq5) (`55 670` octets).
    - Compilation MetaEditor 64 : **0 erreur, 0 avertissement** (`77 180` octets).
    - Suite de tests [`tests/verify_v352_direction_fix.py`](tests/verify_v352_direction_fix.py) validée à 100 % (7/7 tests).
+
+
+### 14.14 Version `v3.53` — Optimisation Quantitative du Panier Multi-Actifs & Calibrage des Lots (`10/11/2026`)
+
+Suite à la confrontation du code v3.52 avec le scan quantitatif institutionnel sur 94 actifs Deriv (1 607 essais chaînés SHA-256), 3 ajustements majeurs ont été implémentés dans `SyncEffectiveParameters()` :
+
+1. **Mise en Pause de `Volatility 10 Index`** :
+   - Sur 3 944 trades historiques H1, V10 présente un gain net négatif de **-0.561 bps / trade** ($t = -1.693$, Quarter-Kelly $= 0.00\%$).
+   - L'actif est mis en pause via `ExtIsSymbolPaused = true` et `ExtEffRole = "V10_STD_PAUSED"`, bloquant tout trade préjudiciable.
+
+2. **Réduction du Lot Cap sur `Volatility 15 (1s) Index`** :
+   - Gain net modeste de **+0.052 bps** ($t = +0.048$) devenant déficitaire (-0.543 bps) en cas de friction accrue.
+   - Son plafond passe de 0.500 lot à **0.050 lot** dans le code et dans le preset `QuantPod_v350_03_V15_1s_M30_Stabilizer.set`.
+
+3. **Prise en Charge Bi-Timeframe (M30 / H1) pour `Volatility 25 (1s) Index`** :
+   - En M30 avec Time-Stop à $H=8$ barres (équivalent à 4h), V25 produit **63.86 % de Win Rate** et **+3.424 bps / trade**.
+   - `ExtEffTimeframe = (_Period == PERIOD_M30 ? PERIOD_M30 : PERIOD_H1);` et `ExtEffMaxHoldBars = (ExtEffTimeframe == PERIOD_M30 ? 8 : 4);`.
+
+4. **Archivage & Compilation** :
+   - v3.52 sauvegardée dans `archive/mql5_legacy/Deriv_VolSqueeze_Breakout_EA_v3_52.mq5` (55 782 octets).
+   - Binaire v3.53 compilé avec `metaeditor64.exe` : **0 erreur, 0 avertissement** (76 808 octets).
+   - 9/9 tests automatisés validés (`tests/verify_v353_basket_optimization.py`).
