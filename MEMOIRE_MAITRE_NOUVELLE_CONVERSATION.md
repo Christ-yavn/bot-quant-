@@ -1,7 +1,7 @@
 # MÉMOIRE MAÎTRE & PROTOCOLE DE REPRISE INTÉGRALE (QUANT BOT DERIV)
 ## Document de Continuité Cognitive pour Nouvelle Discussion / Nouvel Agent IA
 
-**Date de dernière mise à jour certifiée** : 10 Novembre 2026 (09:20 UTC — Version `v3.50 Omni-Basket & Retractable UI` déployée live)  
+**Date de dernière mise à jour certifiée** : 10 Novembre 2026 (12:05 UTC — Version `v3.51 Surgical Patch` déployée live)  
 **Dépôt GitHub Officiel** : `https://github.com/Christ-yavn/bot-quant-.git` (Branche `main`)  
 **Dossier Local du Projet (Workspace)** : `C:\Users\CHRIST\Desktop\IA\ANTIGRAVITY\projets\general project   quant bot deriv`
 
@@ -106,6 +106,19 @@ Dès le premier message d'une nouvelle discussion, tu dois **consulter physiquem
     - **9 trades clôturés, 6 victoires (66.7 % Win Rate), Profit Net = `+$99.88 USD`**.
 * **Correction de l'Horloge Windows Certifiée** :
   - L'ancien décalage de `326 secondes` (5 min 26s) de l'horloge PC locale a été corrigé : les logs du `01/11/2026` montrent que l'évaluation horaire s'exécute désormais à **`19:00:00.189`** (synchronisation milliseconde parfaite avec le serveur Deriv UTC).
+
+---
+
+
+### 3.3. DÉPLOIEMENT & VALIDATION CHIRURGICALE v3.51 (`10/11/2026`)
+* **Archivage Immuable (Loi N°2)** : `archive/mql5_legacy/Deriv_VolSqueeze_Breakout_EA_v3_50.mq5` (53 583 octets) et `Deriv_VolSqueeze_Breakout_EA_v3_50.ex5` (76 248 octets).
+* **Résolution des 2 Bugs Subtils Signalés lors de l'Audit L99** :
+  1. *Bug Subtil A (Lookback Shift Contamination)* : `ExtLastStd20 = pre_breakout_std20;` (`rolling_std[1]`) et le quantile `squeeze_threshold` est calculé strictement sur les $M-1$ fenêtres passées (`rolling_std[1]` à `rolling_std[q_count]`), éliminant toute contamination par la bougie d'impulsion.
+  2. *Bug Subtil B (Faux Positif Profit Lock)* : `is_profit_locked = (cur_sl > open_px)` pour BUY et `(cur_sl > 0.0 && cur_sl < open_px)` pour SELL. Le dashboard affiche rigoureusement `"ARMÉ (Seuil +1.20 ATR)"` tant que le seuil n'est pas franchi, puis `"VERROUILLÉ (+0.20 ATR)"`.
+* **Cycle de Vie des Positions Live (10/11/2026)** :
+  - **Ticket #8824875983** (`Volatility 25 (1s) Index`, SELL `0.011 lot`, ouvert à 07:46:49) : Clôturé automatiquement par le Time-Stop après 4 barres H1 exactes (`Bars Held = 4/4`) à 11:42:39 (Deal `#8703508901`).
+  - **Ticket #8825110205** (`Volatility 5 (1s) Index, M30`, BUY `0.200 lot`) : Déclenché automatiquement à 12:00:00 sur impulsion post-compression ($Z=1.32 \ge 1.25$, $\sigma_{20} = 3.43	ext{ bps} \le Q_{30}$), avec Hard SL à `95765.26` et Hard TP à `96133.88` (actuellement en cours de gestion en direct).
+* **Compilation MetaEditor 64** : 0 erreur, 0 avertissement (76 286 octets).
 
 ---
 
