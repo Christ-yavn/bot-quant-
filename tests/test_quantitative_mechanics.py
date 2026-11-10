@@ -115,8 +115,13 @@ class TestQuantitativeMechanics(unittest.TestCase):
 
 
     def test_ea_version_and_normalized_order_price_invariants(self):
-        v8_path = os.path.join(os.path.dirname(__file__), '..', 'src', 'mql5', 'DerivBoomCrashHFT_v8.mq5')
-        self.assertTrue(os.path.exists(v8_path), 'DerivBoomCrashHFT_v8.mq5 must exist')
+        repo_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+        candidates = [
+            os.path.join(repo_root, 'archive', 'mql5_legacy', 'DerivBoomCrashHFT_v8.mq5'),
+            os.path.join(repo_root, 'src', 'mql5', 'DerivBoomCrashHFT_v8.mq5')
+        ]
+        v8_path = next((p for p in candidates if os.path.exists(p)), None)
+        self.assertIsNotNone(v8_path, 'DerivBoomCrashHFT_v8.mq5 must exist in archive/mql5_legacy or src/mql5')
         with open(v8_path, 'r', encoding='utf-8') as f:
             v8_content = f.read()
             
@@ -134,7 +139,12 @@ class TestQuantitativeMechanics(unittest.TestCase):
             sys.path.insert(0, py_dir)
         import deriv_fair_value_scanner as dfvs
 
-        v830_path = os.path.join(repo_root, 'src', 'mql5', 'DerivBoomCrashHFT_v830_Ultimate.mq5')
+        candidates_830 = [
+            os.path.join(repo_root, 'archive', 'mql5_legacy', 'DerivBoomCrashHFT_v830_Ultimate.mq5'),
+            os.path.join(repo_root, 'src', 'mql5', 'DerivBoomCrashHFT_v830_Ultimate.mq5')
+        ]
+        v830_path = next((p for p in candidates_830 if os.path.exists(p)), None)
+        self.assertIsNotNone(v830_path, 'DerivBoomCrashHFT_v830_Ultimate.mq5 must exist in archive/mql5_legacy or src/mql5')
         with open(v830_path, 'r', encoding='utf-8') as f:
             v830 = f.read()
         self.assertIn('GetLiveExecutableSpreadPts(', v830)

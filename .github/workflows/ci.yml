@@ -30,6 +30,8 @@ jobs:
         run: pytest tests/test_quantitative_mechanics.py -v
 
       - name: Run Quant-Pod v3.0 10-Engine Built-In Self-Tests
+        env:
+          PYTHONPATH: skills/quant-pod/scripts
         run: |
           python skills/quant-pod/scripts/research_integrity.py
           python skills/quant-pod/scripts/crypto_defi_engine.py
