@@ -2,17 +2,17 @@ import os
 
 def build_dossier():
     desktop_path = r"C:\Users\CHRIST\Desktop"
-    output_file = os.path.join(desktop_path, "DOSSIER_COMPLET_BOT_QUANT_v351.md")
+    output_file = os.path.join(desktop_path, "DOSSIER_COMPLET_BOT_QUANT_v352.md")
     
     mq5_path = os.path.abspath("src/mql5/Deriv_VolSqueeze_Breakout_EA_v3.mq5")
     with open(mq5_path, "r", encoding="utf-8") as f:
         mq5_code = f.read()
 
-    md_content = f"""# DOSSIER TECHNIQUE DE CONFORMITÉ & CODE SOURCE INTÉGRAL — QUANT POD DERIV v3.51
+    md_content = f"""# DOSSIER TECHNIQUE DE CONFORMITÉ & CODE SOURCE INTÉGRAL — QUANT POD DERIV v3.52
 ## Audit de Conformité, Preuves d'Exécution Live MT5 & Code Source MQL5 Prêt à l'Emploi
 
 **Date de certification** : 10 Novembre 2026  
-**Version déployée** : `v3.51 Surgical Patch (Omni-Basket 8-Actifs & Retractable UI)`  
+**Version déployée** : `v3.52 Surgical Patch (Omni-Basket 8-Actifs & Retractable UI)`  
 **Compte de validation** : Deriv-Demo `32449166` (Serveur Deriv-Demo)  
 **Dépôt officiel GitHub** : `https://github.com/Christ-yavn/bot-quant-` (Branche `main`)  
 **Fichier source compilé** : `Deriv_VolSqueeze_Breakout_EA_v3.mq5` (Taille : 55 670 octets | Binaire : 76 286 octets)
@@ -21,9 +21,9 @@ def build_dossier():
 
 ## 📋 1. MATRICE DE CONFORMITÉ STRICTE (DEMANDES vs RÉALISATIONS)
 
-Ce tableau compare point par point l'intégralité des exigences de la vision quant-pod-deriv v3.0 L99 avec leur implémentation certifiée dans la version `v3.51` :
+Ce tableau compare point par point l'intégralité des exigences de la vision quant-pod-deriv v3.0 L99 avec leur implémentation certifiée dans la version `v3.52` :
 
-| N° | Composant / Exigence Demandée | Statut | Preuve de Conformité Technique dans le Code v3.51 |
+| N° | Composant / Exigence Demandée | Statut | Preuve de Conformité Technique dans le Code v3.52 |
 | :--- | :--- | :---: | :--- |
 | **01** | **Règle d'Archivage Non-Destructif (Loi N°2)** | ✅ **100 % VALIDÉ** | Sauvegardes intactes dans `archive/mql5_legacy/` :<br>• `Deriv_VolSqueeze_Breakout_EA_v3_40.mq5` (`39 248` octets)<br>• `Deriv_VolSqueeze_Breakout_EA_v3_50.mq5` (`53 583` octets) et `.ex5` (`76 248` octets). |
 | **02** | **Bug N°1 : Réparation du Gel Dashboard (0.00 bps)** | ✅ **100 % VALIDÉ** | Isolation de la télémétrie dans `bool UpdateMarketTelemetry()`. Appelée à $t=0$ dans `OnInit()` (affichage instantané) et cadencée à 500 ms dans `OnTick()` *avant* les sorties anticipées (barre fermée ou trade en cours). |
@@ -43,8 +43,8 @@ Ce tableau compare point par point l'intégralité des exigences de la vision qu
 Tous les fichiers sont déjà installés et directement accessibles :
 
 1. **Dossier MetaTrader 5 Deriv (Opérationnel Immédiat)** :
-   * **Source MQL5 v3.51** : `C:\\Users\\CHRIST\\AppData\\Roaming\\MetaQuotes\\Terminal\\FB9A56D617EDDDFE29EE54EBEFFE96C1\\MQL5\\Experts\\Deriv_VolSqueeze_Breakout_EA_v3.mq5`
-   * **Binaire Compilé EX5 v3.51** : `C:\\Users\\CHRIST\\AppData\\Roaming\\MetaQuotes\\Terminal\\FB9A56D617EDDDFE29EE54EBEFFE96C1\\MQL5\\Experts\\Deriv_VolSqueeze_Breakout_EA_v3.ex5`
+   * **Source MQL5 v3.52** : `C:\\Users\\CHRIST\\AppData\\Roaming\\MetaQuotes\\Terminal\\FB9A56D617EDDDFE29EE54EBEFFE96C1\\MQL5\\Experts\\Deriv_VolSqueeze_Breakout_EA_v3.mq5`
+   * **Binaire Compilé EX5 v3.52** : `C:\\Users\\CHRIST\\AppData\\Roaming\\MetaQuotes\\Terminal\\FB9A56D617EDDDFE29EE54EBEFFE96C1\\MQL5\\Experts\\Deriv_VolSqueeze_Breakout_EA_v3.ex5`
    * **Dossier des Presets .set** : `C:\\Users\\CHRIST\\AppData\\Roaming\\MetaQuotes\\Terminal\\FB9A56D617EDDDFE29EE54EBEFFE96C1\\MQL5\\Presets\\`
 
 2. **Dossier du Projet Git (Workspace)** :
@@ -214,7 +214,7 @@ InpApplyV340TriActifsPreset=true
 
 ---
 
-## 💻 5. CODE SOURCE INTÉGRAL DU BOT MQL5 (`v3.51`)
+## 💻 5. CODE SOURCE INTÉGRAL DU BOT MQL5 (`v3.52`)
 
 Voici l'intégralité du code source certifié (1 255 lignes). Vous pouvez copier ce bloc complet directement dans MetaEditor :
 

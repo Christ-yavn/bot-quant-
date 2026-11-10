@@ -8,12 +8,12 @@
 //|                    Lookback Shift Bug Fix (rolling_std[1])       |
 //|                    OrderCalcMargin Protection & Direction Filter |
 //|                    Cold-Boot Freshness Guard + Hard Disaster SL  |
-//|   Release        : v3.51 (Omni-Basket & Retractable UI L99 Prod - Surgical Patch v3.51) |
+//|   Release        : v3.52 (Omni-Basket & Retractable UI L99 Prod - Direction Fix v3.52) |
 //+------------------------------------------------------------------+
 #property copyright "Quantitative Research & Algorithmic Systems (Audit-Hardened)"
 #property link      "https://github.com/Christ-yavn/bot-quant-"
-#property version   "3.51"
-#property description "QuantPod v3.51 - Omni-Basket 8-Assets (S1/S2/S3), Retractable UI, Cold-Boot Guard & Hard Disaster SL"
+#property version   "3.52"
+#property description "QuantPod v3.52 - Omni-Basket 8-Assets (S1/S2/S3), Retractable UI, Cold-Boot Guard & Hard Disaster SL"
 #property strict
 
 #include <Trade\Trade.mqh>
@@ -61,7 +61,7 @@ input bool              InpUseHardTPSL          = true;                         
 input int               InpATRPeriod            = 20;                            // ATR Period for Guardrails & Spread Ratio
 input double            InpHardSL_ATR           = 2.50;                          // Hard Disaster Stop-Loss (Multiples of ATR20)
 input double            InpHardTP_ATR           = 4.00;                          // Optional Hard Take-Profit Target (Multiples of ATR20)
-input bool              InpUseTrailingLock      = true;                          // Enable Dynamic Profit Excursion Lock (Hardened v3.31/v3.51)
+input bool              InpUseTrailingLock      = true;                          // Enable Dynamic Profit Excursion Lock (Hardened v3.31/v3.52)
 input double            InpLockTriggerATR       = 1.20;                          // Profit Lock Trigger (+1.20 ATR MFE)
 input double            InpLockOffsetATR        = 0.20;                          // Locked Profit Buffer (+0.20 ATR above Entry / BE+)
 input double            InpMaxSpreadToATR       = 0.050;                         // Max Allowed Spread / ATR Ratio (5.0% Ceiling)
@@ -105,6 +105,7 @@ bool           ExtIsSymbolPaused    = false;
 double         ExtEffMinProb        = 0.42;
 
 // Telemetry state (zero 0.00 bps values)
+double         ExtLastRetBps        = 0.0; // v3.52: Signed breakout bar return in bps (Close[shift=1] - Close[shift=2])
 double         ExtLastStd20         = 0.0;
 double         ExtLastSqueezeQ      = 0.0;
 double         ExtLastBreakoutZ     = 0.0;
@@ -452,6 +453,7 @@ bool UpdateMarketTelemetry()
    else if(mid_price > 0.0)
       atr_val = mid_price * 0.005;
 
+   ExtLastRetBps    = r_bps[0];           // v3.52: Vrai rendement signé de la bougie de cassure (Close[1] - Close[2])
    ExtLastStd20     = pre_breakout_std20; // v3.51 Surgical Patch: Evaluates true pre-breakout volatility!
    ExtLastSqueezeQ  = squeeze_threshold;
    ExtLastBreakoutZ = breakout_z;
@@ -463,7 +465,7 @@ bool UpdateMarketTelemetry()
 }
 
 //+------------------------------------------------------------------+
-//| Render Real-Time Graphical Dashboard on Chart (v3.51 Retractable)|
+//| Render Real-Time Graphical Dashboard on Chart (v3.52 Retractable)|
 //+------------------------------------------------------------------+
 void RenderVolSqueezeDashboard()
 {
@@ -519,7 +521,7 @@ void RenderVolSqueezeDashboard()
                    "[ + AGRANDIR ]", C'51,65,85', clrWhite, 8);
 
       bool sqz_now = (ExtLastStd20 > 0.0 && ExtLastStd20 <= ExtLastSqueezeQ);
-      string min_sum = StringFormat("⚡ QP v3.51 [%s] | Sqz:%s | Z:%.2f | PnL: %+.2f USD",
+      string min_sum = StringFormat("⚡ QP v3.52 [%s] | Sqz:%s | Z:%.2f | PnL: %+.2f USD",
                                     ExtEffRole, (sqz_now ? "OUI" : "NON"), ExtLastBreakoutZ, pos_pnl);
       CreateLabel(UI_PREFIX + "LBL_MIN_SUM", panel_x + 10, panel_y + 8, min_sum, clrSkyBlue, 8, "Consolas");
 
@@ -542,7 +544,7 @@ void RenderVolSqueezeDashboard()
    CreateRect(UI_PREFIX + "BG", panel_x, panel_y, panel_w, 285, C'15,23,42', C'56,189,248');
    CreateRect(UI_PREFIX + "HDR", panel_x, panel_y, panel_w, 28, C'30,41,59', clrNONE);
 
-   string hdr_text = StringFormat("⚡ QUANT-POD v3.51 ELITE — [%s]", ExtEffRole);
+   string hdr_text = StringFormat("⚡ QUANT-POD v3.52 ELITE — [%s]", ExtEffRole);
    CreateLabel(UI_PREFIX + "LBL_HDR", panel_x + 10, panel_y + 6, hdr_text, clrGold, 9, "Consolas");
 
    CreateButton(UI_PREFIX + "BTN_MINIMIZE", panel_x + panel_w - 102, panel_y + 3, 96, 22,
@@ -653,7 +655,7 @@ int OnInit()
 
    if(!ExtSymbol.Name(_Symbol))
    {
-      PrintFormat("[v3.51 ERROR] Symbol %s could not be initialized.", _Symbol);
+      PrintFormat("[v3.52 ERROR] Symbol %s could not be initialized.", _Symbol);
       return INIT_FAILED;
    }
    ExtSymbol.Refresh();
@@ -677,7 +679,7 @@ int OnInit()
    ExtATRHandle = iATR(_Symbol, ExtEffTimeframe, InpATRPeriod);
    if(ExtATRHandle == INVALID_HANDLE)
    {
-      PrintFormat("[v3.51 ERROR] Failed to create ATR(%d) handle on %s. Error = %d", InpATRPeriod, EnumToString(ExtEffTimeframe), GetLastError());
+      PrintFormat("[v3.52 ERROR] Failed to create ATR(%d) handle on %s. Error = %d", InpATRPeriod, EnumToString(ExtEffTimeframe), GetLastError());
       return INIT_FAILED;
    }
 
@@ -717,7 +719,7 @@ int OnInit()
          OnnxSetOutputShape(ExtOnnxHandle, 1, out_shape_1);
          ExtModelLoaded = true;
          ExtActiveModelFile = preferred_model;
-         PrintFormat("[v3.51 ONNX] Model '%s' loaded (P_min=%.1f%%).", ExtActiveModelFile, ExtEffMinProb * 100.0);
+         PrintFormat("[v3.52 ONNX] Model '%s' loaded (P_min=%.1f%%).", ExtActiveModelFile, ExtEffMinProb * 100.0);
       }
    }
 
@@ -730,7 +732,7 @@ int OnInit()
 
    bool term_ok = (bool)TerminalInfoInteger(TERMINAL_TRADE_ALLOWED);
    bool mql_ok  = (bool)MQLInfoInteger(MQL_TRADE_ALLOWED);
-   PrintFormat("[v3.51 INIT SUCCESS] %s | Role=%s | Status=%s | TF=%s | Strat=%s | Hold=%db | Magic=%I64u | SqueezeQ=%.2f | BreakoutZ=%.2f | HardSL=%s | LotCap=%.3f | ColdBootGuard=%ds | TradeAllowed=(Term:%s, MQL:%s)",
+   PrintFormat("[v3.52 INIT SUCCESS] %s | Role=%s | Status=%s | TF=%s | Strat=%s | Hold=%db | Magic=%I64u | SqueezeQ=%.2f | BreakoutZ=%.2f | HardSL=%s | LotCap=%.3f | ColdBootGuard=%ds | TradeAllowed=(Term:%s, MQL:%s)",
                _Symbol, ExtEffRole, ExtIsSymbolPaused ? "PAUSED_STANDBY" : "ACTIVE",
                EnumToString(ExtEffTimeframe), StrategyToString(ExtEffStrategyMode), ExtEffMaxHoldBars,
                ExtEffMagic, ExtEffSqueezeQ, ExtEffBreakoutZ,
@@ -762,7 +764,7 @@ void OnDeinit(const int reason)
    Comment("");
    ChartRedraw(0);
 
-   PrintFormat("[v3.51 DEINIT] Shutdown clean on %s. Reason = %d", _Symbol, reason);
+   PrintFormat("[v3.52 DEINIT] Shutdown clean on %s. Reason = %d", _Symbol, reason);
 }
 
 //+------------------------------------------------------------------+
@@ -840,7 +842,7 @@ bool EvaluateONNXFilter(double vol_ratio, double impulse_z, double direction,
    ResetLastError();
    if(!OnnxRun(ExtOnnxHandle, ONNX_NO_CONVERSION, in_features, out_label, out_probs))
    {
-      PrintFormat("[v3.51 ONNX RUN ERROR] Code = %d. Rejecting trade on inference failure.", GetLastError());
+      PrintFormat("[v3.52 ONNX RUN ERROR] Code = %d. Rejecting trade on inference failure.", GetLastError());
       out_prob = 0.0;
       return false;
    }
@@ -851,7 +853,7 @@ bool EvaluateONNXFilter(double vol_ratio, double impulse_z, double direction,
 }
 
 //+------------------------------------------------------------------+
-//| Position Management & Strict Time-Stop Engine (v3.51)            |
+//| Position Management & Strict Time-Stop Engine (v3.52)            |
 //| Preserves and manages current, basket & legacy tickets           |
 //+------------------------------------------------------------------+
 bool ManageOpenPositions()
@@ -912,7 +914,7 @@ bool ManageOpenPositions()
 
          if(!frozen && ExtTrade.PositionClose(ticket))
          {
-            PrintFormat("[v3.51 TIME-STOP EXIT] %s Ticket #%I64u | Bars Held = %d/%d (%s) | Open=%s | Exit=%s | PnL=%.2f USD",
+            PrintFormat("[v3.52 TIME-STOP EXIT] %s Ticket #%I64u | Bars Held = %d/%d (%s) | Open=%s | Exit=%s | PnL=%.2f USD",
                         _Symbol, ticket, bars_elapsed, ExtEffMaxHoldBars, EnumToString(ExtEffTimeframe),
                         DoubleToString(ExtPosition.PriceOpen(), _Digits),
                         DoubleToString(exit_price, _Digits),
@@ -948,7 +950,7 @@ bool ManageOpenPositions()
             {
                if(ExtTrade.PositionModify(ticket, target_sl, current_tp))
                {
-                  PrintFormat("[v3.51 PROFIT LOCK] %s Ticket #%I64u BUY | SL locked at %s (+%.2f ATR)",
+                  PrintFormat("[v3.52 PROFIT LOCK] %s Ticket #%I64u BUY | SL locked at %s (+%.2f ATR)",
                               _Symbol, ticket, DoubleToString(target_sl, _Digits), InpLockOffsetATR);
                }
                else
@@ -970,7 +972,7 @@ bool ManageOpenPositions()
             {
                if(ExtTrade.PositionModify(ticket, target_sl, current_tp))
                {
-                  PrintFormat("[v3.51 PROFIT LOCK] %s Ticket #%I64u SELL | SL locked at %s (+%.2f ATR)",
+                  PrintFormat("[v3.52 PROFIT LOCK] %s Ticket #%I64u SELL | SL locked at %s (+%.2f ATR)",
                               _Symbol, ticket, DoubleToString(target_sl, _Digits), InpLockOffsetATR);
                }
                else
@@ -1077,7 +1079,7 @@ void OnTick()
    // Cold-Boot Freshness Guard (300 sec max delay)
    if(TimeCurrent() - bar_time > InpMaxEntryDelaySec)
    {
-      PrintFormat("[v3.51 COLD-BOOT GUARD] %s bar_time=%s is %d sec old (> %d sec max delay). Waiting for next fresh bar close.",
+      PrintFormat("[v3.52 COLD-BOOT GUARD] %s bar_time=%s is %d sec old (> %d sec max delay). Waiting for next fresh bar close.",
                   _Symbol, TimeToString(bar_time, TIME_DATE|TIME_SECONDS),
                   (int)(TimeCurrent() - bar_time), InpMaxEntryDelaySec);
       ExtLastBarTime = bar_time;
@@ -1107,11 +1109,8 @@ void OnTick()
    bool is_signal = false;
    double direction = 0.0;
 
-   // Fetch latest returns for direction calculation
-   double r_bps_last = 0.0;
-   double last_closes[2];
-   if(CopyClose(_Symbol, ExtEffTimeframe, 1, 2, last_closes) == 2 && last_closes[1] > 0.0)
-      r_bps_last = (last_closes[0] - last_closes[1]) / last_closes[1] * 10000.0;
+   // v3.52 CRITICAL FIX: Use true signed breakout return from UpdateMarketTelemetry() (No inverted AsSeries bug)
+   double r_bps_last = ExtLastRetBps;
 
    if(ExtEffStrategyMode == STRAT_S1_VOL_SQUEEZE_BREAKOUT)
    {
@@ -1152,13 +1151,13 @@ void OnTick()
    //--- 6. BUG N°4 FIX: Direction Mode Filter (Asymmetric Swaps Protection)
    if(direction > 0.0 && InpDirectionMode == DIR_SHORT_ONLY)
    {
-      PrintFormat("[v3.51 DIRECTION BLOCKED] %s BUY signal rejected (InpDirectionMode == DIR_SHORT_ONLY).", _Symbol);
+      PrintFormat("[v3.52 DIRECTION BLOCKED] %s BUY signal rejected (InpDirectionMode == DIR_SHORT_ONLY).", _Symbol);
       ExtLastBarTime = bar_time;
       return;
    }
    if(direction < 0.0 && InpDirectionMode == DIR_LONG_ONLY)
    {
-      PrintFormat("[v3.51 DIRECTION BLOCKED] %s SELL signal rejected (InpDirectionMode == DIR_LONG_ONLY).", _Symbol);
+      PrintFormat("[v3.52 DIRECTION BLOCKED] %s SELL signal rejected (InpDirectionMode == DIR_LONG_ONLY).", _Symbol);
       ExtLastBarTime = bar_time;
       return;
    }
@@ -1180,7 +1179,7 @@ void OnTick()
 
    if(spread_to_atr > InpMaxSpreadToATR || ExtLastSpreadBps > InpMaxSpreadBps)
    {
-      PrintFormat("[v3.51 SPREAD REJECT] %s Spread=%.2f bps (%.1f%% of ATR) exceeds threshold (%.2f bps / %.1f%% ATR)",
+      PrintFormat("[v3.52 SPREAD REJECT] %s Spread=%.2f bps (%.1f%% of ATR) exceeds threshold (%.2f bps / %.1f%% ATR)",
                   _Symbol, ExtLastSpreadBps, spread_to_atr * 100.0, InpMaxSpreadBps, InpMaxSpreadToATR * 100.0);
       ExtLastBarTime = bar_time;
       return;
@@ -1195,7 +1194,7 @@ void OnTick()
                                           0.0, spread_to_atr, 0.0, 0.0, out_prob);
       if(!pass_onnx)
       {
-         PrintFormat("[v3.51 ONNX REJECT] %s Signal rejected by ML (P=%.1f%% < %.1f%%)",
+         PrintFormat("[v3.52 ONNX REJECT] %s Signal rejected by ML (P=%.1f%% < %.1f%%)",
                      _Symbol, out_prob * 100.0, ExtEffMinProb * 100.0);
          ExtLastBarTime = bar_time;
          return;
@@ -1239,7 +1238,7 @@ void OnTick()
    {
       ExtTotalTrades++;
       RenderVolSqueezeDashboard();
-      PrintFormat("[v3.51 ENTRY EXECUTED] %s %s %.3f lots (%s) | Strat=%s | std20=%.2f bps | Z=%.2f | MomZ=%+.2f | SL=%s | TP=%s | Ticket=#%I64u",
+      PrintFormat("[v3.52 ENTRY EXECUTED] %s %s %.3f lots (%s) | Strat=%s | std20=%.2f bps | Z=%.2f | MomZ=%+.2f | SL=%s | TP=%s | Ticket=#%I64u",
                   (direction > 0.0 ? "BUY" : "SELL"), _Symbol, lot, ExtEffRole,
                   StrategyToString(ExtEffStrategyMode), ExtLastStd20, ExtLastBreakoutZ, ExtLastMomZ,
                   DoubleToString(sl, _Digits), DoubleToString(tp, _Digits),
@@ -1247,7 +1246,7 @@ void OnTick()
    }
    else
    {
-      PrintFormat("[v3.51 EXECUTION FAILED] %s | Error = %d | Retcode = %u", _Symbol, GetLastError(), ExtTrade.ResultRetcode());
+      PrintFormat("[v3.52 EXECUTION FAILED] %s | Error = %d | Retcode = %u", _Symbol, GetLastError(), ExtTrade.ResultRetcode());
    }
 
    ExtLastBarTime = bar_time;

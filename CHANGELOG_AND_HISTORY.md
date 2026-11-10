@@ -546,3 +546,37 @@ En réponse à la mission d'ingénierie intégrale quant-pod-deriv v3.0 L99, la 
 5. **Compilation & Vérification 100% Validée** :
    - Compilateur `metaeditor64.exe` : **0 erreur, 0 avertissement** (`76 286` octets).
    - Suite de vérification [`tests/verify_v351_surgical_patch.py`](tests/verify_v351_surgical_patch.py) validée avec succès sur les 6 tests.
+
+
+### 14.13 Patch Critique `v3.52` — Correction de l'Inversion de Direction BUY/SELL sur le Moteur S1 (`10/11/2026`)
+
+Lors de l'audit forensique approfondi du code v3.51 par rapport au trade live `#8825110205` sur `Volatility 5 (1s) Index`, un bug critique d'indexation MQL5 a été identifié et corrigé :
+
+1. **Mécanisme du Bug Inversé (Lignes 707-710 / 1110-1115 de la v3.51)** :
+   - Dans `OnTick()`, la direction était évaluée par :
+     ```mql5
+     double r_bps_last = 0.0;
+     double last_closes[2];
+     if(CopyClose(_Symbol, ExtEffTimeframe, 1, 2, last_closes) == 2 && last_closes[1] > 0.0)
+        r_bps_last = (last_closes[0] - last_closes[1]) / last_closes[1] * 10000.0;
+     ```
+   - En MQL5 natif, un tableau non déclaré via `ArraySetAsSeries(arr, true)` stocke par défaut les barres dans l'ordre chronologique croissant : `last_closes[0]` contenait `Close[shift=2]` (la bougie précédente) et `last_closes[1]` contenait `Close[shift=1]` (la bougie de cassure).
+   - Par conséquent, `last_closes[0] - last_closes[1]` calculait `Close[2] - Close[1]`, soit l'exact opposé du rendement de la cassure ! Une cassure baissière devenait un signal BUY, et une cassure haussière devenait un signal SELL.
+
+2. **Résolution Chirurgicale v3.52** :
+   - Déclaration d'une variable globale de télémétrie : `double ExtLastRetBps = 0.0;`.
+   - Dans `UpdateMarketTelemetry()`, où `closes` est déjà configuré en série (`ArraySetAsSeries(closes, true)`), affectation directe :
+     `ExtLastRetBps = r_bps[0]; // (closes[0] - closes[1]) / closes[1] * 10000.0 (Close[1] - Close[2])`
+   - Dans `OnTick()`, suppression de l'appel redondant et buggy à `CopyClose()`, et utilisation directe :
+     `double r_bps_last = ExtLastRetBps;`
+   - Lorsque la bougie casse à la hausse (`Close[1] > Close[2]`), `r_bps_last > 0` $\implies$ BUY (`direction = 1.0`).
+   - Lorsque la bougie casse à la baisse (`Close[1] < Close[2]`), `r_bps_last < 0` $\implies$ SELL (`direction = -1.0`).
+
+3. **Mesures Immédiates sur les Trades Live** :
+   - Le ticket `#8825110205` ouvert à l'envers sur `Volatility 5 (1s)` a été clôturé proprement via l'API MT5 à `95900.94` (Deal `#8703597418`) avec un impact minime de seulement `-1.52 USD` (-0.016% du compte).
+   - Le capital de trading (`9 026.06 USD`) est totalement préservé et le bot est prêt pour les prochains signaux directionnels parfaits.
+
+4. **Archivage & Compilation** :
+   - Sauvegarde de la v3.51 dans [`archive/mql5_legacy/Deriv_VolSqueeze_Breakout_EA_v3_51.mq5`](archive/mql5_legacy/Deriv_VolSqueeze_Breakout_EA_v3_51.mq5) (`55 670` octets).
+   - Compilation MetaEditor 64 : **0 erreur, 0 avertissement** (`77 180` octets).
+   - Suite de tests [`tests/verify_v352_direction_fix.py`](tests/verify_v352_direction_fix.py) validée à 100 % (7/7 tests).

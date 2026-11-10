@@ -1,7 +1,7 @@
 # MÉMOIRE MAÎTRE & PROTOCOLE DE REPRISE INTÉGRALE (QUANT BOT DERIV)
 ## Document de Continuité Cognitive pour Nouvelle Discussion / Nouvel Agent IA
 
-**Date de dernière mise à jour certifiée** : 10 Novembre 2026 (12:05 UTC — Version `v3.51 Surgical Patch` déployée live)  
+**Date de dernière mise à jour certifiée** : 10 Novembre 2026 (13:15 UTC — Version `v3.52 Direction Fix` déployée live)  
 **Dépôt GitHub Officiel** : `https://github.com/Christ-yavn/bot-quant-.git` (Branche `main`)  
 **Dossier Local du Projet (Workspace)** : `C:\Users\CHRIST\Desktop\IA\ANTIGRAVITY\projets\general project   quant bot deriv`
 
@@ -119,6 +119,12 @@ Dès le premier message d'une nouvelle discussion, tu dois **consulter physiquem
   - **Ticket #8824875983** (`Volatility 25 (1s) Index`, SELL `0.011 lot`, ouvert à 07:46:49) : Clôturé automatiquement par le Time-Stop après 4 barres H1 exactes (`Bars Held = 4/4`) à 11:42:39 (Deal `#8703508901`).
   - **Ticket #8825110205** (`Volatility 5 (1s) Index, M30`, BUY `0.200 lot`) : Déclenché automatiquement à 12:00:00 sur impulsion post-compression ($Z=1.32 \ge 1.25$, $\sigma_{20} = 3.43	ext{ bps} \le Q_{30}$), avec Hard SL à `95765.26` et Hard TP à `96133.88` (actuellement en cours de gestion en direct).
 * **Compilation MetaEditor 64** : 0 erreur, 0 avertissement (76 286 octets).
+* **Patch Critique v3.52 (Correction Inversion BUY/SELL sur S1)** :
+  - *Cause du bug* : Un tableau local `double last_closes[2];` non indexé comme série (`AsSeries=false` par défaut en MQL5) recevait `last_closes[0] = Close[2]` et `last_closes[1] = Close[1]`, inversant le calcul du rendement (`Close[2] - Close[1]`) et déclenchant des BUY sur cassure baissière et SELL sur cassure haussière.
+  - *Correctif v3.52 certifié* : Déclaration de `ExtLastRetBps` dans la télémétrie globale, affectation directe de `ExtLastRetBps = r_bps[0];` dans `UpdateMarketTelemetry()` (où `closes` est déjà strictement indexé en série), et utilisation directe de `ExtLastRetBps` dans `OnTick()`. Direction BUY/SELL 100% alignée avec le mouvement du marché.
+  - *Clôture du trade inversé #8825110205* : Clôturé immédiatement et proprement via API FOK avec une variation négligeable (-1.52 USD).
+  - *Compilation & Binaires* : 0 erreur, 0 avertissement (77 180 octets).
+
 
 ---
 
