@@ -111,3 +111,18 @@ Conformément à la politique d'archivage immuable du projet, **aucun fichier hi
 3. **Résolution des Risques d'Exécution Boot & PC-Off** :
    - *Cold-Boot Guard* : `ExtLastBarTime = iTime(_Symbol, ExtEffTimeframe, 0)` dans `OnInit()` + rejet des bougies de plus de 300 s (`TimeCurrent() - bar_time > InpMaxEntryDelaySec`), empêchant toute entrée tardive sur barre ancienne au redémarrage de MT5.
    - *Hard Disaster Stop-Loss Serveur* : `InpUseHardTPSL = true` transmet un SL natif à $2.50\times\text{ATR20}$ et un TP à $4.00\times\text{ATR20}$, protégeant le compte contre tout crash PC ou coupure réseau.
+
+
+### 2.5 Architecture Omni-Basket v3.50, Validation des 3 Moteurs d'Alpha (S1/S2/S3) & 4 Correctifs Critiques (10/11/2026)
+
+1. **Validation Mathématique des 3 Architectures d'Alpha** :
+   - **Moteur S1 (Squeeze Breakout)** : Cassure d'impulsion post-compression ($|Z| \ge 1.25$) sur diffusions à compression stationnaire (`V25 (1s)`, `V5 (1s)`, `V15 (1s)`, `Volatility Crash 550`, `DEX 1500 DOWN`, `Volatility 10 Index`).
+   - **Moteur S2 (Momentum Continuation)** : Suivi d'impulsion ($|\text{mom\_z}| \ge 1.50$) sur processus à dérive persistante (`Ladder Volatility Up` H4 à $+75.58\text{ bps/trade}$, `Boom 300` D1 à $+310.18\text{ bps/trade}$).
+   - **Moteur S3 (OU Mean-Reversion)** : Exploitation contrarienne de barrières ($|\text{mom\_z}| \ge 2.00$, direction opposée) sur processus bornés à retour à la moyenne prouvé (`Range Break 200` avec 87.82 % de rebonds internes).
+2. **Les 4 Correctifs Techniques Validés dans la v3.50** :
+   - *Télémétrie Dédiée* : `UpdateMarketTelemetry()` exécuté dès la milliseconde 0 et à 500 ms dans `OnTick()`. Élimination du bug 0.00 bps.
+   - *Lookback Shift Bug* : Squeeze évalué sur `pre_breakout_std20 = rolling_std[1]`, éliminant le phénomène d'auto-invalidation des vrais breakouts.
+   - *Marge Libre* : Vérification avec `OrderCalcMargin()` et plafonnement automatique à 25 % de la marge libre disponible.
+   - *Filtre Direction* : Intégration de `InpDirectionMode` pour contrôle des risques de swaps asymétriques.
+3. **Dashboard Graphique MQL5 Rétractable** :
+   - Remplacement de `Comment()` par des objets natifs MQL5 (`QP350_*`) rétractables en 1 clic via `OnChartEvent` (`QP350_BTN_MINIMIZE`). Mode compact (32 px) et mode complet (285 px).

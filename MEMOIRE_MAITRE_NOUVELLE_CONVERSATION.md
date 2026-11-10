@@ -1,7 +1,7 @@
 # MÉMOIRE MAÎTRE & PROTOCOLE DE REPRISE INTÉGRALE (QUANT BOT DERIV)
 ## Document de Continuité Cognitive pour Nouvelle Discussion / Nouvel Agent IA
 
-**Date de dernière mise à jour certifiée** : 10 Novembre 2026 (08:50 UTC — Version `v3.40 Panier Tri-Actifs Élite` déployée live)  
+**Date de dernière mise à jour certifiée** : 10 Novembre 2026 (09:20 UTC — Version `v3.50 Omni-Basket & Retractable UI` déployée live)  
 **Dépôt GitHub Officiel** : `https://github.com/Christ-yavn/bot-quant-.git` (Branche `main`)  
 **Dossier Local du Projet (Workspace)** : `C:\Users\CHRIST\Desktop\IA\ANTIGRAVITY\projets\general project   quant bot deriv`
 
@@ -69,21 +69,31 @@ Dès le premier message d'une nouvelle discussion, tu dois **consulter physiquem
 
 ---
 
-### 3.2. BOT N°2 : PANIER TRI-ACTIFS ÉLITE (`Deriv_VolSqueeze_Breakout_EA_v3.mq5`) — VERSION `v3.40` ACTIVE SUR 3 GRAPHIQUES SIMULTANÉS
-* **Architecture Mathématique & Ingénierie (`v3.40 Panier Tri-Actifs Élite` — Signal Pur S1 Quant)** :
-  - **Hypothèse structurelle** : La diversification horizontale sur 3 actifs non corrélés ($|\rho| \le 0.026$) à spreads infimes permet de tripler le nombre d'opportunités de trading (~100 trades/mois) sans abaisser la timeframe en-deçà du seuil critique de frottement brownien ($\text{Friction} \propto \frac{2s}{\sigma\sqrt{\Delta t}}$).
-  - **La Matrice Tri-Actifs Déployée sur MT5** :
-    1. **Graphique 1 : `Volatility 25 (1s) Index` (PERIOD_H1, Role `ALPHA_KING`)** : $Q=0.30, Z=1.25, H=4\text{ barres}$ (4.0h), Magic `20261021`, Cap `0.05 lot`. $WR = 58.33\%$, $+6.38\text{ bps/trade}$. Gère également le ticket live `#8824875983` (Magic `20261022`).
-    2. **Graphique 2 : `Volatility 5 (1s) Index` (PERIOD_M30, Role `HIGH_FREQ`)** : $Q=0.30, Z=1.25, H=8\text{ barres}$ (4.0h), Magic `20261025`, Cap `0.20 lot`. $WR = 61.90\%$, $+0.12\text{ à }+0.41\text{ bps/trade}$.
-    3. **Graphique 3 : `Volatility 15 (1s) Index` (PERIOD_M30, Role `STABILIZER`)** : $Q=0.30, Z=1.25, H=8\text{ barres}$ (4.0h), Magic `20261015`, Cap `0.50 lot`. $WR = 59.29\%$, $+0.46\text{ bps/trade}$.
-  - **Sécurités Durcies Déployées en `v3.40`** :
-    - **Cold-Boot Freshness Guard** : Initialisation stricte `ExtLastBarTime = iTime(_Symbol, ExtEffTimeframe, 0)` dans `OnInit()` et rejet systématique si `TimeCurrent() - bar_time > InpMaxEntryDelaySec` (300 s). Empêche définitivement l'ouverture retardée d'une position sur une bougie ancienne au redémarrage du terminal si le PC était éteint.
-    - **Hard Disaster Stop-Loss Serveur (`InpUseHardTPSL = true`)** : Transmission obligatoire au serveur Deriv d'un Hard Stop-Loss natif à l'ouverture du trade à $2.50\times\text{ATR20}$ et d'un Take-Profit à $4.00\times\text{ATR20}$, protégeant le compte contre tout crash matériel ou coupure réseau.
-    - **Profit Lock Dynamique Anti-Spam** : Calculé sur l'ATR de la bougie clôturée (`shift=1`) avec normalisation `NormalizePrice()`, cooldown de 10 s et vérification `SYMBOL_TRADE_STOPS_LEVEL`.
-    - **Priorité Time-Stop** : Clôture temporelle stricte évaluée avant tout `PositionModify`.
-  - **Audit Forensique des Trades du 06/11 et 10/11/2026** :
-    - Les deux pertes du 06/11 étaient dues à l'arrêt du PC pendant 8h27 (retardant le time-stop de `#8821123131`) et à une sortie normale au time-stop (`#8821764050`).
-    - L'entrée immédiate du 10/11 (`#8824875983`) était causée par `ExtLastBarTime = 0` évaluant la barre de 07:00 avec 46 min de retard. Elle est désormais impossible grâce au Cold-Boot Guard. Le trade `#8824875983` est activement et sécuritairement géré par `v3.40` sur le Graphique 1.
+### 3.2. BOT N°2 : OMNI-BASKET & RETRACTABLE UI (`Deriv_VolSqueeze_Breakout_EA_v3.mq5`) — VERSION `v3.50` DÉPLOYÉE
+* **Architecture Mathématique & Ingénierie (`v3.50 Omni-Basket & Retractable UI`)** :
+  - **3 Moteurs d'Alpha Intégrés** :
+    - `STRAT_S1_VOL_SQUEEZE_BREAKOUT` (S1) : Cassure d'impulsion post-compression ($|Z| \ge 1.25$, direction = signe du rendement).
+    - `STRAT_S2_MOMENTUM_CONTINUATION` (S2) : Suivi de momentum sur 20 barres ($|\text{mom\_z}| \ge 1.50$, direction = signe de mom_z).
+    - `STRAT_S3_OU_MEAN_REVERSION` (S3) : Retour à la moyenne d'Ornstein-Uhlenbeck ($|\text{mom\_z}| \ge 2.00$, direction opposée / contrarienne).
+  - **Matrice Auto-Configurée à 8 Actifs Élite** :
+    1. `Volatility 25 (1s) Index` : H1, Mode S1, $Q=0.30, Z=1.25, H=4$, Magic `20261021`, Cap `0.05 lot` (`ALPHA_KING_V25`).
+    2. `Volatility 5 (1s) Index` : M30, Mode S1, $Q=0.30, Z=1.25, H=8$, Magic `20261025`, Cap `0.20 lot` (`HIGH_FREQ_V5`).
+    3. `Volatility 15 (1s) Index` : M30, Mode S1, $Q=0.30, Z=1.25, H=8$, Magic `20261015`, Cap `0.50 lot` (`STABILIZER_V15`).
+    4. `Volatility Crash 550 Index` : H4, Mode S1, $Q=0.30, Z=1.25, H=4$, Magic `20261550`, Cap `0.50 lot` (`CHAMPION_VC550`).
+    5. `DEX 1500 DOWN Index` : M15/H1, Mode S1, $Q=0.30, Z=1.25, H=4$, Magic `20261500`, Cap `0.20 lot` (`DEX1500_ELITE`).
+    6. `Range Break 200 Index` : M15/H1, Mode S3 Mean-Rev, $Z=2.00, H=4$, Magic `20261200`, Cap `0.20 lot` (`RANGE_MEANREV`).
+    7. `Ladder Volatility Up Index` : H4, Mode S2 Momentum, $Z=1.50, H=4$, Magic `20261400`, Cap `0.20 lot` (`LADDER_MOM`).
+    8. `Boom 300 Index` : D1, Mode S2 Swing Momentum, $Z=1.50, H=4$, Magic `20261300`, Cap `0.50 lot` (`BOOM300_SWING`).
+    9. `Volatility 10 Index` (Standard) : H1, Mode S1, $Q=0.30, Z=1.25, H=4$, Magic `20261010`, Cap `0.50 lot` (`V10_STD_ALPHA`).
+  - **Les 4 Correctifs Critiques v3.50** :
+    1. *Télémétrie Continue (Fix Bug 1)* : `UpdateMarketTelemetry()` calculée à $t=0$ dans `OnInit()` et cadencée à 500 ms dans `OnTick()` *avant* tout return. Zéro affichage 0.00 bps au démarrage ou pendant les trades ouverts.
+    2. *Lookback Shift Bug Fix (Fix Bug 2)* : La compression utilise `pre_breakout_std20 = rolling_std[1]` (les 20 barres précédant la barre de cassure), empêchant la bougie d'impulsion d'annuler son propre squeeze.
+    3. *Plafonnement Marge Libre (Fix Bug 3)* : `CalculateVolParityLot()` utilise `OrderCalcMargin()` et cap le lot si la marge requise dépasse 25 % de la marge libre.
+    4. *Filtre Direction (Fix Bug 4)* : `InpDirectionMode` (`DIR_BOTH`, `DIR_LONG_ONLY`, `DIR_SHORT_ONLY`).
+  - **Dashboard Graphique MQL5 Rétractable (`OnChartEvent`)** :
+    - Panneau natif MQL5 (`QP350_*`, $X=12, Y=26$, largeur 440 px) avec bouton interactif `QP350_BTN_MINIMIZE` pour replier en bandeau compact (32 px) ou déplier en mode complet (285 px).
+  - **Fichiers de Préréglages .set** :
+    - 6 fichiers `.set` prêts à l'emploi créés dans `presets_v3_50/` et `MQL5/Presets/`.
 * **Performance Réelle Certifiée sur le Compte MT5 `32449166` (au 1er Novembre 2026)** :
   - **Sur `Volatility 25 (1s) Index`** :
     - **4 trades clôturés : 4 victoires / 0 perte (100.0 % Win Rate)** !

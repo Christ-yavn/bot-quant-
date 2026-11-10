@@ -485,3 +485,32 @@ Suite à la requête de l'utilisateur demandant d'analyser le comportement au bo
    - **Compilation MetaEditor 64** : Compilé sans erreur ni avertissement (`67 980` octets).
    - **Déploiement Tri-Graphiques Live** : Déploiement simultané dans `MQL5/Profiles/Charts/Default/` de `chart01.chr` (V25 H1, `ALPHA_KING`, Magic `20261021`), `chart02.chr` (V5 M30, `HIGH_FREQ`, Magic `20261025`), `chart03.chr` (V15 M30, `STABILIZER`, Magic `20261015`) et `order.wnd`.
    - **Vérification en Direct** : Suite de tests `tests/verify_v340_tri_actifs.py` validée à 100 %. Terminal Deriv MT5 interactif actif avec les 3 robots opérationnels.
+
+
+### 14.11 Déploiement Majeur `v3.50 Omni-Basket & Retractable UI` — 3 Moteurs d'Alpha (S1/S2/S3), 8 Actifs Élite, 4 Correctifs Critiques, Fichiers .set et Dashboard MQL5 Rétractable (`10/11/2026`)
+
+En réponse à la mission d'ingénierie intégrale quant-pod-deriv v3.0 L99, la version **`v3.50`** de `Deriv_VolSqueeze_Breakout_EA_v3.mq5` a été conçue, compilée et déployée :
+
+1. **Archivage Immuable (Loi N°2)** :
+   - Sauvegarde préalable et intégrale de `v3.40` dans [`archive/mql5_legacy/Deriv_VolSqueeze_Breakout_EA_v3_40.mq5`](archive/mql5_legacy/Deriv_VolSqueeze_Breakout_EA_v3_40.mq5) (`39 248` octets) et [`archive/mql5_legacy/Deriv_VolSqueeze_Breakout_EA_v3_40.ex5`](archive/mql5_legacy/Deriv_VolSqueeze_Breakout_EA_v3_40.ex5) (`67 980` octets).
+
+2. **Résolution des 4 Bugs Critiques de la v3.40** :
+   - **Bug 1 (Gel du Dashboard à 0.00 bps au démarrage et en position)** : Isolation de tous les calculs d'indicateurs dans `bool UpdateMarketTelemetry()`. Exécution immédiate à la fin de `OnInit()` pour un affichage instantané dès la milliseconde 0, et rafraîchissement dans `OnTick()` cadencé à 500 ms *avant* les sorties de barre ou de position ouverte.
+   - **Bug 2 (Lookback Shift Bug sur la bougie de cassure)** : Utilisation conforme à l'équation Python de `pre_breakout_std20 = rolling_std[1]` (volatilité des 20 barres précédant la cassure). Une bougie explosive ($|Z| \ge 1.25$) n'auto-annule plus son propre Squeeze.
+   - **Bug 3 (Vérification Marge Libre `OrderCalcMargin`)** : Dans `CalculateVolParityLot()`, vérification de la marge requise et plafonnement automatique si $\text{MarginRequired} > 25\% \times \text{FreeMargin}$ (élimine toute erreur 10019 No Money en multi-graphiques).
+   - **Bug 4 (Filtre de Direction Asymétrique)** : Ajout de `InpDirectionMode` (`DIR_BOTH`, `DIR_LONG_ONLY`, `DIR_SHORT_ONLY`) pour bloquer les positions non souhaitées sur marchés à swaps asymétriques.
+
+3. **Intégration des 3 Moteurs d'Alpha et de la Matrice Omni-Basket à 8 Actifs Élite** :
+   - **S1 (Squeeze Breakout)** : Cassure d'impulsion post-compression ($|Z| \ge 1.25$).
+   - **S2 (Momentum Follow)** : Suivi de tendance directionnelle ($|\text{mom\_z}| \ge 1.50$).
+   - **S3 (OU Mean-Reversion)** : Retour à la moyenne contrarien ($|\text{mom\_z}| \ge 2.00$, direction opposée pour capturer les 87.82 % de rebonds internes).
+   - Matrice auto-configurée : V25 (1s) H1, V5 (1s) M30, V15 (1s) M30, Volatility Crash 550 H4, DEX 1500 DOWN M15/H1, Range Break 200 H1, Ladder Volatility Up H4, Boom 300 D1, Volatility 10 Index H1.
+
+4. **Nouveau Dashboard Graphique MQL5 Rétractable (`OnChartEvent`)** :
+   - Suppression définitive de `Comment(dash)` au profit d'objets MQL5 natifs opaques (`QP350_*`, `CORNER_LEFT_UPPER`, largeur 440 px).
+   - Bouton interactif `QP350_BTN_MINIMIZE` permettant de basculer en 1 clic entre le **Mode Compact Replié** (hauteur 32 px, bandeau sombre résumé en direct) et le **Mode Complet Déplié** (hauteur 285 px, 4 sections détaillées avec statut, radar temps réel, PnL et gardes serveur). Nettoyage propre dans `OnDeinit()`.
+
+5. **Génération des Préréglages .set & Compilation Validée** :
+   - Génération de 6 fichiers `.set` prêts à l'emploi dans [`presets_v3_50/`](presets_v3_50/) et dans `MQL5/Presets/`.
+   - Compilation avec `metaeditor64.exe` : **0 erreur, 0 avertissement** (`76 248` octets).
+   - Suite de vérification [`tests/verify_v350_omni_basket.py`](tests/verify_v350_omni_basket.py) validée à 100 %.
