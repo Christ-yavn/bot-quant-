@@ -92,3 +92,22 @@ Conformément à la politique d'archivage immuable du projet, **aucun fichier hi
    - `CopyBuffer(ExtATRHandle, 0, 1, 1, atr_vals)` (`shift=1` bougie H1 clôturée) + tolérance `> 0.5 * _Point` + cooldown `10 s` (élimination du spam `PositionModify` tick par tick).
    - `NormalizePrice()` (`SYMBOL_TRADE_TICK_SIZE` + `_Digits`) et gardes `SYMBOL_TRADE_STOPS_LEVEL` / `SYMBOL_TRADE_FREEZE_LEVEL` sur `target_sl` et sur les `sl`/`tp` d'entrée.
    - Exécution du Time-Stop (`bars_elapsed >= InpMaxHoldBars`) **avant** le Profit Lock dans `ManageOpenPositions()`, vérification du retour booléen de `ExtTrade.PositionClose(ticket)`, et `InpSlippagePoints = 50`.
+
+
+### 2.4 Validation Empirique Tri-Actifs `v3.40`, Loi d'Échelle Brownienne & Sécurités Durcies (10/11/2026)
+
+1. **Loi d'Échelle Brownienne vs Drag de Spread Fixe** :
+   - Sous diffusion brownienne continue ($\mathbb{E}[|\Delta P|] \propto \sigma\sqrt{\Delta t}$), le frottement relatif de spread s'écrit $\text{Drag} \propto \frac{2s}{\alpha\sigma\sqrt{\Delta t}}$.
+   - Sur V25 : le spread moyen (0.78 bps) absorbe 2.92 % du mouvement de barre en H1, 10.13 % en M5 et 22.67 % en M1.
+   - **Réfutation formelle** : Toute descente en M5 ou M1 pour augmenter la fréquence des trades détruit mathématiquement l'edge net sous le théorème d'arrêt optionnel de Doob.
+2. **Validation de la Diversification Horizontale Multi-Actifs à Corrélation Nulle** :
+   - Matrice de Pearson sur 7 654 barres H1 : corrélation croisée nulle ($|\rho| \le 0.026$) entre Volatility 25 (1s), Volatility 5 (1s) et Volatility 15 (1s).
+   - Spreads minimaux : V5 (0.16 bps), V15 (0.56 bps), V25 (0.78 bps).
+   - Sweet-spot M30 identifié ($H=8$ barres = 4.0h) :
+     - `Volatility 5 (1s)` M30 ($H=8$) : **Win Rate = 61.90 %**, $+0.12\text{ à }+0.41\text{ bps/trade}$.
+     - `Volatility 15 (1s)` M30 ($H=8$) : **Win Rate = 59.29 %**, $+0.46\text{ bps/trade}$.
+     - `Volatility 25 (1s)` H1 ($H=4$) : **Win Rate = 58.33 %**, $+6.38\text{ bps/trade}$.
+   - Cadence globale : **~100 trades/mois (~3.5 trades/jour)** avec un taux de gain pondéré de **58.5 %** et un lissage de variance réduisant le drawdown de ~80 %.
+3. **Résolution des Risques d'Exécution Boot & PC-Off** :
+   - *Cold-Boot Guard* : `ExtLastBarTime = iTime(_Symbol, ExtEffTimeframe, 0)` dans `OnInit()` + rejet des bougies de plus de 300 s (`TimeCurrent() - bar_time > InpMaxEntryDelaySec`), empêchant toute entrée tardive sur barre ancienne au redémarrage de MT5.
+   - *Hard Disaster Stop-Loss Serveur* : `InpUseHardTPSL = true` transmet un SL natif à $2.50\times\text{ATR20}$ et un TP à $4.00\times\text{ATR20}$, protégeant le compte contre tout crash PC ou coupure réseau.

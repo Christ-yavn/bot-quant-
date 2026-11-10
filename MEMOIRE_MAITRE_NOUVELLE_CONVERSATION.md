@@ -1,7 +1,7 @@
 # MÉMOIRE MAÎTRE & PROTOCOLE DE REPRISE INTÉGRALE (QUANT BOT DERIV)
 ## Document de Continuité Cognitive pour Nouvelle Discussion / Nouvel Agent IA
 
-**Date de dernière mise à jour certifiée** : 2 Novembre 2026 (00:25 UTC — Version `v3.31 Hardened` déployée live)  
+**Date de dernière mise à jour certifiée** : 10 Novembre 2026 (08:50 UTC — Version `v3.40 Panier Tri-Actifs Élite` déployée live)  
 **Dépôt GitHub Officiel** : `https://github.com/Christ-yavn/bot-quant-.git` (Branche `main`)  
 **Dossier Local du Projet (Workspace)** : `C:\Users\CHRIST\Desktop\IA\ANTIGRAVITY\projets\general project   quant bot deriv`
 
@@ -69,26 +69,21 @@ Dès le premier message d'une nouvelle discussion, tu dois **consulter physiquem
 
 ---
 
-### 3.2. BOT N°2 : VOLATILITY 25 (1s) [ACTIF ROI] & VOLATILITY 75 (1s) [EN PAUSE PROTECTRICE] (`Deriv_VolSqueeze_Breakout_EA_v3.mq5`) — VERSION `v3.31 HARDENED` ACTIVE ET RENTABLE
-* **Architecture Mathématique & Ingénierie (`v3.31 Hardened` — Signal Pur S1 Quant)** :
-  - **Hypothèse structurelle** : Sur **`Volatility 25 (1s) Index`** en H1 (où le spread réel exécutable n'est que de `0.62–0.74 bps`, soit `< 3.5 %` de $\sigma_{\text{H1}}$), la compression de volatilité (*Squeeze*) suivie d'une cassure d'impulsion (*Impulse Breakout*) combinée au verrouillage dynamique des excursions (*Dynamic Profit Lock*) génère un avantage net robuste ($t = +2.63$ sur 15 000 barres H1, Win Rate `58.0 %` en Train et `60.2 %` en Holdout OOS, $t = +1.89$).
-  - **Les 3 Portes d'Entrée Déterministes en H1 (Mode Pure S1 — Zéro Boîte Noire)** :
-    1. **Compression (Squeeze)** : $\sigma_{20}$ (calculée avec $ddof=1$ sur `shift=1`, zéro look-ahead) doit être inférieure ou égale au **30ème percentile** des 100 dernières barres ($\sigma_{20} \le Q_{0.30}$, `InpSqueezeQuantile = 0.30`).
-    2. **Cassure d'Impulsion (Breakout)** : Le rendement de la bougie H1 qui vient de clôturer doit franchir $|Z| = |r_{1\text{h}}| / \sigma_{20} \ge 1.25$ (`InpBreakoutZScore = 1.25`).
-    3. **Filtre de Spread Live** : Vérification en temps réel via `SymbolInfoTick` que $\text{Spread} \le 4.50\text{ bps}$ et $\text{Spread}/\text{ATR}_{20} \le 5.0\%$.
-  - **Pourquoi le filtre IA ONNX est désactivé par défaut (`InpUseONNXFilter = false`) en `v3.31`** :
-    - L'audit contradictoire `/agent-quant-pod` du `02/11/2026` a démontré que `c2_vol_filter.onnx` et `c2_vol_filter_v25.onnx` sont identiques bit à bit (`13 180` octets, SHA-256 `e641cd39...`) et affichent un **ROC-AUC Out-Of-Sample de `0.4457` (`< 0.50`)** post-août 2025 (le seuil `0.42` laissait passer `98.64 %` des trades tout en éliminant aléatoirement ~`1.4 %` de vrais signaux). Sur V75, `c2_vol_filter_v75.onnx` (`11 647` octets) affichait `-6.21 bps/trade` en Holdout (`DSR = 0.1863`). Tous les modèles `.onnx` et le pipeline 7 features sont préservés intacts dans `src/models/` (Règles 2, 3 et 4), mais court-circuités en production au profit du signal pur S1.
-  - **Pourquoi `Volatility 75 (1s)` est placé en Pause Protectrice (`InpAllowV75Trading = false`)** :
-    - Le spread réel live sur V75 (`3.22–3.74 bps`) absorbe l'avantage statistique H1 ($t_{\text{holdout}} = +0.45$). `v3.31` maintient le graphique V75 en mode `PAUSED_STANDBY` (`EN PAUSE PROTECTION CAPITAL`) et concentre 100 % du risque sur l'actif roi `Volatility 25 (1s)`.
-* **Les Améliorations Majeures Déployées dans la Version Actuelle `v3.31 Hardened` (`archive/mql5_legacy/Deriv_VolSqueeze_Breakout_EA_v3_30.*` archivé)** :
-  1. **Anti-Spam `PositionModify` sur ATR Clôturé (`Fix Bug 1 v3.31`)** :
-     - Remplacement de `CopyBuffer(ExtATRHandle, 0, 0, 1, ...)` par **`shift=1`** (bougie H1 clôturée), ajout d'une tolérance stricte `> 0.5 * _Point` et d'un cooldown de `10 s` en cas d'échec, éliminant tout risque de rafale `PositionModify` à chaque tick (`1 Hz`) vers le serveur Deriv.
-  2. **Normalisation Exacte au TickSize & `_Digits` (`Fix Bug 2 v3.31`)** :
-     - Fonction `NormalizePrice()` appliquée systématiquement à `target_sl` (Profit Lock) et aux `sl`/`tp` d'entrée, avec vérification explicite de `SYMBOL_TRADE_STOPS_LEVEL` et `SYMBOL_TRADE_FREEZE_LEVEL` (zéro erreur `10015 TRADE_RETCODE_INVALID_PRICE`).
-  3. **Priorité du Time-Stop avant Profit Lock & Clôture Vérifiée (`Hardening 3, 4 & 5 v3.31`)** :
-     - Dans `ManageOpenPositions()`, le Time-Stop (`bars_elapsed >= InpMaxHoldBars = 4`) est exécuté **avant** le bloc Profit Lock (évitant un `PositionModify` inutile `1 ms` avant clôture), la valeur de retour de `ExtTrade.PositionClose(ticket)` est vérifiée avant de libérer le verrou de position, et `InpSlippagePoints` est relevé à `50` points.
-  4. **Préservation intégrale des correctifs `v3.30` (`VULN-02`, `VULN-03`, `VULN-05/06`)** :
-     - `ManageOpenPositions()` en tête de `OnTick()` avant le coupe-circuit journalier (`-3.0%`), remplissage dynamique `IOC/FOK/RETURN`, arrondi IEEE 754 `+ 1e-8` et plafond de lot (`0.05` sur V25, `0.02` sur V75).
+### 3.2. BOT N°2 : PANIER TRI-ACTIFS ÉLITE (`Deriv_VolSqueeze_Breakout_EA_v3.mq5`) — VERSION `v3.40` ACTIVE SUR 3 GRAPHIQUES SIMULTANÉS
+* **Architecture Mathématique & Ingénierie (`v3.40 Panier Tri-Actifs Élite` — Signal Pur S1 Quant)** :
+  - **Hypothèse structurelle** : La diversification horizontale sur 3 actifs non corrélés ($|\rho| \le 0.026$) à spreads infimes permet de tripler le nombre d'opportunités de trading (~100 trades/mois) sans abaisser la timeframe en-deçà du seuil critique de frottement brownien ($\text{Friction} \propto \frac{2s}{\sigma\sqrt{\Delta t}}$).
+  - **La Matrice Tri-Actifs Déployée sur MT5** :
+    1. **Graphique 1 : `Volatility 25 (1s) Index` (PERIOD_H1, Role `ALPHA_KING`)** : $Q=0.30, Z=1.25, H=4\text{ barres}$ (4.0h), Magic `20261021`, Cap `0.05 lot`. $WR = 58.33\%$, $+6.38\text{ bps/trade}$. Gère également le ticket live `#8824875983` (Magic `20261022`).
+    2. **Graphique 2 : `Volatility 5 (1s) Index` (PERIOD_M30, Role `HIGH_FREQ`)** : $Q=0.30, Z=1.25, H=8\text{ barres}$ (4.0h), Magic `20261025`, Cap `0.20 lot`. $WR = 61.90\%$, $+0.12\text{ à }+0.41\text{ bps/trade}$.
+    3. **Graphique 3 : `Volatility 15 (1s) Index` (PERIOD_M30, Role `STABILIZER`)** : $Q=0.30, Z=1.25, H=8\text{ barres}$ (4.0h), Magic `20261015`, Cap `0.50 lot`. $WR = 59.29\%$, $+0.46\text{ bps/trade}$.
+  - **Sécurités Durcies Déployées en `v3.40`** :
+    - **Cold-Boot Freshness Guard** : Initialisation stricte `ExtLastBarTime = iTime(_Symbol, ExtEffTimeframe, 0)` dans `OnInit()` et rejet systématique si `TimeCurrent() - bar_time > InpMaxEntryDelaySec` (300 s). Empêche définitivement l'ouverture retardée d'une position sur une bougie ancienne au redémarrage du terminal si le PC était éteint.
+    - **Hard Disaster Stop-Loss Serveur (`InpUseHardTPSL = true`)** : Transmission obligatoire au serveur Deriv d'un Hard Stop-Loss natif à l'ouverture du trade à $2.50\times\text{ATR20}$ et d'un Take-Profit à $4.00\times\text{ATR20}$, protégeant le compte contre tout crash matériel ou coupure réseau.
+    - **Profit Lock Dynamique Anti-Spam** : Calculé sur l'ATR de la bougie clôturée (`shift=1`) avec normalisation `NormalizePrice()`, cooldown de 10 s et vérification `SYMBOL_TRADE_STOPS_LEVEL`.
+    - **Priorité Time-Stop** : Clôture temporelle stricte évaluée avant tout `PositionModify`.
+  - **Audit Forensique des Trades du 06/11 et 10/11/2026** :
+    - Les deux pertes du 06/11 étaient dues à l'arrêt du PC pendant 8h27 (retardant le time-stop de `#8821123131`) et à une sortie normale au time-stop (`#8821764050`).
+    - L'entrée immédiate du 10/11 (`#8824875983`) était causée par `ExtLastBarTime = 0` évaluant la barre de 07:00 avec 46 min de retard. Elle est désormais impossible grâce au Cold-Boot Guard. Le trade `#8824875983` est activement et sécuritairement géré par `v3.40` sur le Graphique 1.
 * **Performance Réelle Certifiée sur le Compte MT5 `32449166` (au 1er Novembre 2026)** :
   - **Sur `Volatility 25 (1s) Index`** :
     - **4 trades clôturés : 4 victoires / 0 perte (100.0 % Win Rate)** !

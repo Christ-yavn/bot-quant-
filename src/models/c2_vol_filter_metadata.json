@@ -1,66 +1,134 @@
 {
-  "symbol": "Volatility 25 (1s) Index",
-  "feature_names": [
-    "vol_ratio",
-    "impulse_z",
-    "direction",
-    "levy_area",
-    "spread_to_atr",
-    "skew20",
-    "kurt20"
-  ],
-  "total_non_overlapping_signals": 1473,
-  "split_ratios": {
-    "train": 0.6,
-    "validation": 0.2,
-    "out_of_sample": 0.2
-  },
-  "best_hyperparameters": {
-    "n_estimators": 30,
-    "max_depth": 3,
-    "learning_rate": 0.05,
-    "min_samples_leaf": 30
-  },
-  "metrics": {
-    "train": {
-      "n_total": 883,
-      "unfiltered_wr_pct": 49.94,
-      "unfiltered_net_bps": -0.367,
-      "unfiltered_t_stat": -0.203,
-      "roc_auc": 0.7334,
-      "accuracy_pct": 66.48,
-      "onnx_kept_trades": 393,
-      "onnx_wr_pct": 68.45,
-      "onnx_pf": 2.103,
-      "onnx_net_bps": 14.954,
-      "onnx_t_stat": 5.795
+  "Volatility 75 (1s) Index": {
+    "symbol": "Volatility 75 (1s) Index",
+    "feature_names": [
+      "vol_ratio",
+      "impulse_z",
+      "direction",
+      "levy_area",
+      "spread_to_atr",
+      "skew20",
+      "kurt20"
+    ],
+    "total_non_overlapping_signals": 1569,
+    "split_ratios": {
+      "train": 0.6,
+      "validation": 0.2,
+      "out_of_sample": 0.2
     },
-    "validation": {
-      "n_total": 295,
-      "unfiltered_wr_pct": 50.85,
-      "unfiltered_net_bps": 1.263,
-      "unfiltered_t_stat": 0.406,
-      "roc_auc": 0.5733,
-      "accuracy_pct": 54.24,
-      "onnx_kept_trades": 125,
-      "onnx_wr_pct": 56.0,
-      "onnx_pf": 1.218,
-      "onnx_net_bps": 4.745,
-      "onnx_t_stat": 0.922
+    "best_hyperparameters": {
+      "n_estimators": 30,
+      "max_depth": 3,
+      "learning_rate": 0.05,
+      "min_samples_leaf": 30
     },
-    "out_of_sample": {
-      "n_total": 295,
-      "unfiltered_wr_pct": 57.63,
-      "unfiltered_net_bps": 10.895,
-      "unfiltered_t_stat": 3.472,
-      "roc_auc": 0.4671,
-      "accuracy_pct": 47.46,
-      "onnx_kept_trades": 133,
-      "onnx_wr_pct": 55.64,
-      "onnx_pf": 1.306,
-      "onnx_net_bps": 5.471,
-      "onnx_t_stat": 1.235
-    }
+    "metrics": {
+      "train": {
+        "n_total": 941,
+        "unfiltered_wr_pct": 46.44,
+        "unfiltered_net_bps": -5.245,
+        "unfiltered_t_stat": -1.166,
+        "roc_auc": 0.7202,
+        "accuracy_pct": 63.97,
+        "onnx_kept_trades": 236,
+        "onnx_wr_pct": 70.76,
+        "onnx_pf": 2.896,
+        "onnx_net_bps": 54.264,
+        "onnx_t_stat": 6.507
+      },
+      "validation": {
+        "n_total": 314,
+        "unfiltered_wr_pct": 53.82,
+        "unfiltered_net_bps": 21.588,
+        "unfiltered_t_stat": 2.715,
+        "roc_auc": 0.5373,
+        "accuracy_pct": 47.45,
+        "onnx_kept_trades": 86,
+        "onnx_wr_pct": 52.33,
+        "onnx_pf": 1.555,
+        "onnx_net_bps": 24.431,
+        "onnx_t_stat": 1.615
+      },
+      "out_of_sample": {
+        "n_total": 314,
+        "unfiltered_wr_pct": 50.96,
+        "unfiltered_net_bps": 9.272,
+        "unfiltered_t_stat": 1.073,
+        "roc_auc": 0.5273,
+        "accuracy_pct": 50.64,
+        "onnx_kept_trades": 33,
+        "onnx_wr_pct": 57.58,
+        "onnx_pf": 1.377,
+        "onnx_net_bps": 20.525,
+        "onnx_t_stat": 0.696
+      }
+    },
+    "scientific_verdict": "Out-of-sample ROC-AUC is near 0.50 and net PnL t-stat is below significance threshold (|t| < 2.0), confirming that Volatility (1s) indices follow a constant-volatility Geometric Brownian Motion (GBM) where past compression does not predict future volatility expansion."
   },
-  "scientific_verdict": "Out-of-sample ROC-AUC is near 0.50 and net PnL t-stat is below significance threshold (|t| < 2.0), confirming that Volatility (1s) indices follow a constant-volatility Geometric Brownian Motion (GBM) where past compression does not predict future volatility expansion."
+  "Volatility 25 (1s) Index": {
+    "symbol": "Volatility 25 (1s) Index",
+    "feature_names": [
+      "vol_ratio",
+      "impulse_z",
+      "direction",
+      "levy_area",
+      "spread_to_atr",
+      "skew20",
+      "kurt20"
+    ],
+    "total_non_overlapping_signals": 1485,
+    "split_ratios": {
+      "train": 0.6,
+      "validation": 0.2,
+      "out_of_sample": 0.2
+    },
+    "best_hyperparameters": {
+      "n_estimators": 30,
+      "max_depth": 3,
+      "learning_rate": 0.05,
+      "min_samples_leaf": 30
+    },
+    "metrics": {
+      "train": {
+        "n_total": 891,
+        "unfiltered_wr_pct": 50.06,
+        "unfiltered_net_bps": -0.417,
+        "unfiltered_t_stat": -0.232,
+        "roc_auc": 0.7362,
+        "accuracy_pct": 67.0,
+        "onnx_kept_trades": 406,
+        "onnx_wr_pct": 68.72,
+        "onnx_pf": 2.13,
+        "onnx_net_bps": 15.349,
+        "onnx_t_stat": 6.066
+      },
+      "validation": {
+        "n_total": 297,
+        "unfiltered_wr_pct": 49.83,
+        "unfiltered_net_bps": 1.178,
+        "unfiltered_t_stat": 0.384,
+        "roc_auc": 0.5799,
+        "accuracy_pct": 55.56,
+        "onnx_kept_trades": 112,
+        "onnx_wr_pct": 57.14,
+        "onnx_pf": 1.263,
+        "onnx_net_bps": 5.553,
+        "onnx_t_stat": 1.044
+      },
+      "out_of_sample": {
+        "n_total": 297,
+        "unfiltered_wr_pct": 57.91,
+        "unfiltered_net_bps": 10.868,
+        "unfiltered_t_stat": 3.429,
+        "roc_auc": 0.4687,
+        "accuracy_pct": 44.44,
+        "onnx_kept_trades": 115,
+        "onnx_wr_pct": 53.04,
+        "onnx_pf": 1.218,
+        "onnx_net_bps": 4.139,
+        "onnx_t_stat": 0.85
+      }
+    },
+    "scientific_verdict": "Out-of-sample ROC-AUC is near 0.50 and net PnL t-stat is below significance threshold (|t| < 2.0), confirming that Volatility (1s) indices follow a constant-volatility Geometric Brownian Motion (GBM) where past compression does not predict future volatility expansion."
+  }
 }

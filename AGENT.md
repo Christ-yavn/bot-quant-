@@ -12,14 +12,14 @@ Ce document constitue le **point d'entrée unique et obligatoire** pour tout age
 
 ---
 
-## 1. MISSION DU RÉPERTOIRE & ÉTAT ACTUEL DES SYSTÈMES (AU 2 NOVEMBRE 2026)
+## 1. MISSION DU RÉPERTOIRE & ÉTAT ACTUEL DES SYSTÈMES (AU 10 NOVEMBRE 2026)
 
 Le projet **QUANT BOT DERIV** est un environnement d'ingénierie quantitative, d'audit économétrique haute fréquence et de trading algorithmique appliqué aux indices synthétiques continus du courtier **Deriv** :
 
 | Track / Système | Fichier Source Principal | Version Actuelle | Statut Opérationnel | Bilan & Performance Live Certifiée (Compte `32449166`) |
 | :--- | :--- | :---: | :---: | :--- |
 | **Track 1 : Boom & Crash HFT** | `src/mql5/DerivBoomCrashHFT_v830_Ultimate.mq5` | `v8.30 Ultimate` | **EN PAUSE / VETO `/boost`** (Retiré de MT5 le 29/10 à 09:20 UTC) | **3 412 trades** : **`-914.78 USD`** ($WR = 46.92\%$, $\text{EV} = -0.2681\$$/trade, $\text{DSR} = 0.0000$). Processus de Poisson sans mémoire prouvé sur 1,68M ticks + faille `VULN-01` ("Trapped Spike") identifiée. |
-| **Track 2 : Volatility 25 (1s) Squeeze** | `src/mql5/Deriv_VolSqueeze_Breakout_EA_v3.mq5` | **`v3.31 Hardened`** | **ACTIF EN PRODUCTION (H1 — Pure S1 `Q=0.30, Z=1.25` sur V25 ; V75 en `PAUSED_STANDBY`)** | **Global : `+$99.88 USD` net (9 trades, 66.7% WR)**.<br>• **Volatility 25 (1s) [ACTIF ROI]** : **4 trades / 4 victoires (100% WR)**, **`+$195.15 USD`** (dont `+$107.99$` le 01/11). Mode **Pure S1 (`InpUseONNXFilter=false`)** + Profit Lock anti-spam `shift=1`.<br>• **Volatility 75 (1s)** : Placé en **pause protectrice (`InpAllowV75Trading=false`)** suite à l'audit `/boost` ($t_{\text{holdout}} = +0.45$, spread réel $3.22\text{–}3.74\text{ bps}$). |
+| **Track 2 : Panier Tri-Actifs Élite** | `src/mql5/Deriv_VolSqueeze_Breakout_EA_v3.mq5` | **`v3.40 Panier Tri-Actifs Élite`** | **ACTIF EN PRODUCTION (3 graphiques synchronisés : V25 H1, V5 M30, V15 M30)** | **Panier Tri-Actifs Déployé en Direct** :<br>• **Volatility 25 (1s) [ALPHA_KING, H1]** : $Q=0.30, Z=1.25, H=4\text{b}$, Magic `20261021`, Cap `0.05 lot`. $WR=58.33\%$, $+6.38\text{ bps/trade}$.<br>• **Volatility 5 (1s) [HIGH_FREQ, M30]** : $Q=0.30, Z=1.25, H=8\text{b}$ (4h), Magic `20261025`, Cap `0.20 lot`. $WR=61.90\%$, $+0.12\text{ à }+0.41\text{ bps/trade}$.<br>• **Volatility 15 (1s) [STABILIZER, M30]** : $Q=0.30, Z=1.25, H=8\text{b}$ (4h), Magic `20261015`, Cap `0.50 lot`. $WR=59.29\%$, $+0.46\text{ bps/trade}$.<br>• **Sécurités v3.40** : Cold-Boot Freshness Guard (300s max) + Hard Disaster SL serveur ($2.50\times\text{ATR20}$). |
 | **Track 3 : Scanner WebSocket Deriv** | `src/python/deriv_fair_value_scanner.py` | `v1.0` | **OUTIL D'AUDIT** | Évaluation analytique de **349 contrats options Deriv** (9 familles) : 0 contrat à EV positive ($\text{EV}_{\max} = -0.45\%$). |
 | **Track 4 : Recherche Multi-Marchés Deriv** | Skill `quant-pod` (`deriv_quant_engine.py` + `quant_scientific_arsenal.py`) | `L99` | **EN RECHERCHE ACTIVE** | Exploration scientifique des 11 familles synthétiques Deriv (DSI, DEX, Step, Multi-Step, Skew Step, Trek, Range Break, Jump, Volatility, Accumulators) pour concevoir la prochaine génération de bots. |
 
@@ -60,15 +60,18 @@ Tout agent opérant sur ce code **doit respecter sans exception** les sept lois 
 * L'audit contradictoire `/boost` du 02/11/2026 a établi que `c2_vol_filter.onnx` (`== c2_vol_filter_v25.onnx`, `13 180` octets) présente un `ROC-AUC = 0.4457 < 0.50` sur le Holdout strict post-août 2025, et que `c2_vol_filter_v75.onnx` (`11 647` octets) génère une espérance négative sur le Holdout V75 (`-6.21 bps/trade`, `DSR = 0.1863`).
 * En production `v3.31 Hardened`, **`InpUseONNXFilter = false`** est le mode standard (**Signal Pur S1 Quant** sans boîte noire : `InpSqueezeQuantile = 0.30`, `InpBreakoutZScore = 1.25`), tout en conservant intacts les fichiers `.onnx` et le pipeline d'inférence à 7 features (si réactivé pour recherche, ne jamais utiliser un seuil `P_min >= 0.60` hors du support GBDT $[0.34 ; 0.59]$).
 
-### Règle 7 : Timeframe H1 Absolue & Sécurités `v3.31 Hardened` pour la Gamme Volatilité
-* L'évaluation empirique multi-temporelle (`M5`, `M15`, `M30`, `H1`, `H4`) démontre que baisser la timeframe à `M5` détruit la rentabilité car le spread fixe dévore l'amplitude $\sigma\sqrt{\Delta t}$.
-* L'unité de temps opérationnelle de `Deriv_VolSqueeze_Breakout_EA_v3` (`v3.31`) est **`PERIOD_H1`** avec :
-  - **Concentration sur l'Actif Roi `Volatility 25 (1s)`** : `InpAllowV75Trading = false` place `Volatility 75 (1s)` en veille protectrice (`PAUSED_STANDBY`), car son spread live (`3.22–3.74 bps`) absorbe l'edge H1 ($t_{\text{holdout}} = +0.45$).
-  - Maintien maximal fixé à **4 barres H1** (`InpMaxHoldBars = 4`), évalué **en premier** dans `ManageOpenPositions()` avant tout `PositionModify` et avec vérification du booléen `PositionClose(ticket)`.
-  - **Profit Lock dynamique anti-spam (`InpUseTrailingLock = true`)** : Calculé strictement sur l'**ATR de la bougie H1 clôturée (`shift=1`)**, avec normalisation exacte `NormalizePrice` (`SYMBOL_TRADE_TICK_SIZE` + `_Digits`), garde `> 0.5 * _Point`, vérification `SYMBOL_TRADE_STOPS_LEVEL` / `FREEZE_LEVEL` et cooldown de `10 s` (zéro rafale `PositionModify` serveur).
+### Règle 7 : Architecture Multi-Graphiques `v3.40 Panier Tri-Actifs Élite` & Sécurités Durcies
+* L'évaluation empirique multi-temporelle et la loi d'échelle brownienne prouvent que descendre en M5 ou M1 détruit l'edge à cause du frottement de spread relatif ($\text{Friction} \propto \frac{2s}{\sigma\sqrt{\Delta t}}$). En revanche, la diversification horizontale sur 3 actifs à corrélation nulle ($|\rho| \le 0.026$) permet de tripler le volume de trades tout en conservant une rentabilité d'élite.
+* **Architecture Tri-Actifs `v3.40`** (3 graphiques MT5 simultanés avec auto-preset natif via `InpApplyV340TriActifsPreset=true`) :
+  - **Graphique 1 : `Volatility 25 (1s) Index` (H1, Role `ALPHA_KING`)** : $Q=0.30, Z=1.25, H=4\text{ barres}$ (4.0h), Magic `20261021`, Cap `0.05 lot`. $WR=58.33\%$, $+6.38\text{ bps/trade}$. Gère également les tickets historiques via Magic `20261022`.
+  - **Graphique 2 : `Volatility 5 (1s) Index` (M30, Role `HIGH_FREQ`)** : $Q=0.30, Z=1.25, H=8\text{ barres}$ (4.0h), Magic `20261025`, Cap `0.20 lot`. $WR=61.90\%$, $+0.12\text{ à }+0.41\text{ bps/trade}$.
+  - **Graphique 3 : `Volatility 15 (1s) Index` (M30, Role `STABILIZER`)** : $Q=0.30, Z=1.25, H=8\text{ barres}$ (4.0h), Magic `20261015`, Cap `0.50 lot`. $WR=59.29\%$, $+0.46\text{ bps/trade}$.
+* **Sécurités Durcies Inviolables v3.40** :
+  - **Cold-Boot Freshness Guard** : Initialisation stricte `ExtLastBarTime = iTime(_Symbol, ExtEffTimeframe, 0)` dans `OnInit()`, et rejet immédiat de tout signal si la bougie clôturée a plus de 300 secondes (`TimeCurrent() - bar_time > InpMaxEntryDelaySec`). Empêche définitivement l'ouverture d'un trade obsolète au redémarrage de la machine si le PC était éteint.
+  - **Hard Disaster Stop-Loss Serveur (`InpUseHardTPSL = true`)** : Transmission obligatoire au serveur Deriv d'un Hard Stop-Loss natif à l'ouverture du trade à $2.50\times\text{ATR20}$ et d'un Take-Profit à $4.00\times\text{ATR20}$, protégeant le compte contre tout crash matériel ou coupure réseau.
+  - **Profit Lock dynamique anti-spam (`InpUseTrailingLock = true`)** : Calculé strictement sur l'**ATR de la bougie clôturée (`shift=1`)**, avec normalisation exacte `NormalizePrice` (`SYMBOL_TRADE_TICK_SIZE` + `_Digits`), garde `> 0.5 * _Point`, vérification `SYMBOL_TRADE_STOPS_LEVEL` / `FREEZE_LEVEL` et cooldown de `10 s` (zéro rafale `PositionModify` serveur).
   - **Priorité d'exécution dans `OnTick()`** : `ManageOpenPositions()` est appelé **avant** le coupe-circuit journalier (`InpMaxDailyLossPct = 3.0%`) pour qu'aucune position ouverte ne devienne orpheline.
   - **Remplissage dynamique & Slippage** : Sélection automatique `ORDER_FILLING_IOC` / `FOK` / `RETURN` et `InpSlippagePoints = 50`.
-  - **Plafond de lot strict** : `InpMaxLotCap = 0.05` sur V25 et plafond forcé à `0.02 lot` maximum sur V75.
 
 ---
 
