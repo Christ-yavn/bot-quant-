@@ -1,4 +1,4 @@
-# Playbook Multi-Actifs Institutionnel : Crypto CEX/DEX, Futures, Forex, CFDs & Options (`quant-pod` v2)
+# Playbook Multi-Actifs Institutionnel : Crypto CEX/DEX, Futures, Forex, CFDs & Options (`quant-pod` v3.0)
 
 Contrairement aux indices synthétiques générés par un CSPRNG, les marchés financiers réels (Crypto, Futures, Forex, Actions/Options) réunissent des **participants aux contraintes asymétriques** (hedgers commerciaux, fonds indiciels à rééquilibrage mécanique, spéculateurs retail en fort levier soumis aux appels de marge, fournisseurs de liquidité passifs). Ce sont ces contraintes qui créent la composante prévisible $A_t$ de la décomposition de Doob-Meyer.
 
@@ -10,7 +10,7 @@ Contrairement aux indices synthétiques générés par un CSPRNG, les marchés f
 - **Contrepartie perdante** : Traders particuliers utilisant un levier $10\times$ à $50\times$ qui paient le taux de financement (*Funding Rate*) toutes les 8 heures pour maintenir des positions directionnelles encombrées.
 - **Deux modes d'exploitation** :
   1. **Delta-Neutre (Pur Portage)** : Long Spot (ou actif de staking liquide) + Short Perpétuel 1x lorsque le funding annualisé dépasse un seuil $\theta_{\text{entry}}$ (ex: $> 15\%\text{/an}$), sortie lorsque le funding redevient neutre et que l'écart de base (*Basis*) amortit $3\times$ les frais aller-retour.
-  2. **Directionnel Contrarian Post-Exces de Funding + Chute d'Open Interest** : Lorsque le funding est dans son 95e percentile historique ET qu'un choc de prix provoque une baisse brutale de l'Open Interest (confirmant une cascade de liquidations forcées), entrer en rebond via `hawkes_shock_intensity` ([`quant_discovery_engine.py`](file:///C:/Users/CHRIST/.gemini/config/skills/quant-pod/scripts/quant_discovery_engine.py)).
+  2. **Directionnel Contrarian Post-Exces de Funding + Chute d'Open Interest** : Lorsque le funding est dans son 95e percentile historique ET qu'un choc de prix provoque une baisse brutale de l'Open Interest (confirmant une cascade de liquidations forcées), entrer en rebond via `hawkes_shock_intensity` ([`quant_discovery_engine.py`](../scripts/quant_discovery_engine.py)).
 
 ### Stratégie Famille C2 — Cascades Auto-Excitées de Hawkes (Post-Liquidation Bounce H1/M15)
 - **Mécanisme physique** : Les moteurs de liquidation des CEX et protocoles DeFi vendent/achètent au marché sans sensibilité au prix, créant une grappe de chocs ($\eta = \alpha / \beta \to 1$) suivie d'un vide d'offre et d'un retour élastique vers la juste valeur de Kalman.
@@ -31,7 +31,7 @@ Contrairement aux indices synthétiques générés par un CSPRNG, les marchés f
 
 ### Stratégie Famille F1 — Time-Series Momentum Adaptatif au Régime (TSMOM + Filtre d'Autocorrélation)
 - **Contrepartie perdante** : Hedgers commerciaux et rééquilibrages lents de fonds institutionnels (Moskowitz, Ooi & Pedersen, 2012).
-- **Formule Point-in-Time (`AlphaPrimitives` dans [`quant_discovery_engine.py`](file:///C:/Users/CHRIST/.gemini/config/skills/quant-pod/scripts/quant_discovery_engine.py))** :
+- **Formule Point-in-Time (`AlphaPrimitives` dans [`quant_discovery_engine.py`](../scripts/quant_discovery_engine.py))** :
   - Utiliser la série différenciée fractionnairement (`frac_diff_ffd` avec $d^* \approx 0.35$) ou le filtre de régime d'autocorrélation locale (`rolling_autocorr_regime`) pondéré par la volatilité cible (`compute_volatility_targeted_weights`).
 
 ### Stratégie Famille F2 — Décomposition du Roll Yield (Backwardation vs Contango)
@@ -60,4 +60,4 @@ Contrairement aux indices synthétiques générés par un CSPRNG, les marchés f
 1. **Prime de Risque de Variance (VRP : Implicite vs Réalisée)** :
    Les investisseurs paient structurellement une prime d'assurance ($\text{IV}_t > \mathbb{E}[\text{RV}_{t, t+H}]$). Vendre de la volatilité couverte uniquement lorsque le ratio $\text{IV}_t / \hat{\sigma}_{YZ, t}$ dépasse son 80e percentile historique et que `JumpRatio` est bas.
 2. **Statistical Arbitrage par Filtre de Kalman & Ornstein-Uhlenbeck** :
-   Sur des paires d'actifs économiquement liés (ex: valeurs minières vs Or, ou actions dual-class), estimer la demi-vie $HL = \ln(2)/\theta$ via `estimate_ou_half_life` ([`quant_scientific_arsenal.py`](file:///C:/Users/CHRIST/.gemini/config/skills/quant-pod/scripts/quant_scientific_arsenal.py)) et n'entrer que si $5 \le HL \le 30$ périodes.
+   Sur des paires d'actifs économiquement liés (ex: valeurs minières vs Or, ou actions dual-class), estimer la demi-vie $HL = \ln(2)/\theta$ via `estimate_ou_half_life` ([`quant_scientific_arsenal.py`](../scripts/quant_scientific_arsenal.py)) et n'entrer que si $5 \le HL \le 30$ périodes.

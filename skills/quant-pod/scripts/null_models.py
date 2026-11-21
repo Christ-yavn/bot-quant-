@@ -92,15 +92,15 @@ def sim_skew_step(n: int, rng: np.random.Generator, p_up: float = 0.2, size_up: 
 
 def sim_dsi(n: int, rng: np.random.Generator, drift_tick: float = 2e-5, sigma_tick: float = 1e-4,
             mean_duration: float = 1200.0, driftless: bool = False, s0: float = 10000.0) -> np.ndarray:
-    """3 régimes {+mu, 0, -mu}, durées géométriques de moyenne mean_duration ticks."""
+    """3 régimes {+mu, 0, -mu}, durées géométriques exactes de moyenne mean_duration ticks (transition vers l'un des 2 autres états)."""
     states = np.empty(n, dtype=np.int8)
-    s = rng.integers(-1, 2)
-    p_switch = 1.0 / mean_duration
+    s = int(rng.integers(-1, 2))
+    p_switch = 1.0 / max(1.0, float(mean_duration))
     sw = rng.random(n) < p_switch
-    nxt = rng.integers(-1, 2, n)
+    step_choice = rng.integers(1, 3, n)  # +1 ou +2 mod 3 garantit nouvel état != s
     for t in range(n):
         if sw[t]:
-            s = nxt[t]
+            s = ((s + 1 + int(step_choice[t])) % 3) - 1
         states[t] = s
     mu = 0.0 if driftless else drift_tick
     r = mu * states + sigma_tick * rng.standard_normal(n) - 0.5 * sigma_tick ** 2

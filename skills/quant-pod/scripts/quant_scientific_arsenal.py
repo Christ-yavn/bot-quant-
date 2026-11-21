@@ -48,6 +48,8 @@ def get_ffd_weights(d: float, threshold: float = 1e-4) -> np.ndarray:
     avec troncature à seuil fixe (Fixed-Window Fractional Differentiation).
     w_0 = 1, w_k = -w_{k-1} * (d - k + 1) / k
     """
+    if not (0.0 <= d <= 2.0):
+        raise ValueError(f"L'ordre fractionnaire d={d} doit être compris dans [0.0, 2.0].")
     weights = [1.0]
     k = 1
     while True:
@@ -296,8 +298,10 @@ def denoise_covariance_marchenko_pastur(returns_matrix: np.ndarray) -> Dict[str,
     R = np.asarray(returns_matrix, dtype=np.float64)
     T, N = R.shape
     if T <= N or N < 2:
-        cov = np.cov(R, rowvar=False)
-        return {"cov_denoised": cov, "lambda_plus": 0.0, "n_signal_factors": N}
+        cov = np.atleast_2d(np.cov(R, rowvar=False))
+        std_v = np.sqrt(np.maximum(np.diag(cov), 1e-18))
+        corr = cov / np.outer(std_v, std_v)
+        return {"cov_denoised": cov, "corr_denoised": corr, "lambda_plus": 0.0, "n_signal_factors": N}
 
     cov_emp = np.cov(R, rowvar=False)
     std_vec = np.sqrt(np.maximum(np.diag(cov_emp), 1e-18))
@@ -452,18 +456,25 @@ def triple_barrier_labels(
     sl_mult: float = 2.0,
     max_holding_bars: int = 12,
     primary_side: Optional[np.ndarray] = None,
+    high: Optional[np.ndarray] = None,
+    low: Optional[np.ndarray] = None,
 ) -> Dict[str, np.ndarray]:
     """
     Implémente la Triple Barrier Method (Advances in Financial Machine Learning) :
-    - Barrière supérieure : +pt_mult * sigma_t
-    - Barrière inférieure : -sl_mult * sigma_t
-    - Barrière verticale : t + max_holding_bars
+    - Adapte symétriquement les barrières au sens `primary_side` (+1 long ou -1 short) :
+      * Long (+1) : Take-Profit = +pt_mult * sigma_t, Stop-Loss = -sl_mult * sigma_t
+      * Short (-1) : Take-Profit = -pt_mult * sigma_t, Stop-Loss = +sl_mult * sigma_t
+    - Utilise `high` et `low` (si fournis) avec priorité pessimiste au Stop-Loss intra-barre.
+    - Barrière verticale : t + max_holding_bars.
     Si `primary_side` (+1 ou -1) est fourni, génère également les étiquettes binaires
     de Meta-Labeling (1 si le modèle primaire gagne sur la première barrière touchée, 0 sinon).
     """
     c = np.log(np.maximum(np.asarray(close, dtype=np.float64), 1e-12))
+    h_arr = np.log(np.maximum(np.asarray(high, dtype=np.float64), 1e-12)) if high is not None else c
+    l_arr = np.log(np.maximum(np.asarray(low, dtype=np.float64), 1e-12)) if low is not None else c
     sig = np.asarray(volatility, dtype=np.float64)
     n = len(c)
+    side_arr = np.asarray(primary_side, dtype=np.float64) if primary_side is not None else np.ones(n, dtype=np.float64)
 
     labels = np.zeros(n, dtype=np.int64)
     realized_ret = np.zeros(n, dtype=np.float64)
@@ -471,25 +482,36 @@ def triple_barrier_labels(
 
     for t in range(n - 1):
         s_t = sig[t] if (np.isfinite(sig[t]) and sig[t] > 1e-8) else 0.002
-        up_b = pt_mult * s_t
-        dn_b = -sl_mult * s_t
+        sd = -1.0 if side_arr[t] < 0 else 1.0
+        up_b = (pt_mult if sd > 0 else sl_mult) * s_t
+        dn_b = -(sl_mult if sd > 0 else pt_mult) * s_t
         end_t = min(n - 1, t + max_holding_bars)
 
         touched = 0
         hit_idx = end_t
+        ret_final = float(c[end_t] - c[t])
         for u in range(t + 1, end_t + 1):
-            path_r = c[u] - c[t]
-            if pt_mult > 0 and path_r >= up_b:
-                touched = 1
-                hit_idx = u
-                break
-            if sl_mult > 0 and path_r <= dn_b:
-                touched = -1
-                hit_idx = u
-                break
+            path_hi = float(h_arr[u] - c[t])
+            path_lo = float(l_arr[u] - c[t])
+            if sd > 0:
+                # Long : priorité pessimiste au Stop-Loss (dn_b) avant Take-Profit (up_b)
+                if sl_mult > 0 and path_lo <= dn_b:
+                    touched, hit_idx, ret_final = -1, u, float(dn_b if low is not None else (c[u] - c[t]))
+                    break
+                if pt_mult > 0 and path_hi >= up_b:
+                    touched, hit_idx, ret_final = 1, u, float(up_b if high is not None else (c[u] - c[t]))
+                    break
+            else:
+                # Short : priorité pessimiste au Stop-Loss haussier (up_b) avant Take-Profit baissier (dn_b)
+                if sl_mult > 0 and path_hi >= up_b:
+                    touched, hit_idx, ret_final = 1, u, float(up_b if high is not None else (c[u] - c[t]))
+                    break
+                if pt_mult > 0 and path_lo <= dn_b:
+                    touched, hit_idx, ret_final = -1, u, float(dn_b if low is not None else (c[u] - c[t]))
+                    break
 
-        ret_final = float(c[hit_idx] - c[t])
         if touched == 0:
+            ret_final = float(c[hit_idx] - c[t])
             touched = 1 if ret_final > 0 else (-1 if ret_final < 0 else 0)
         labels[t] = touched
         realized_ret[t] = ret_final
@@ -497,8 +519,7 @@ def triple_barrier_labels(
 
     out = {"barrier_label": labels, "realized_log_return": realized_ret, "exit_index": exit_bar}
     if primary_side is not None:
-        side = np.asarray(primary_side, dtype=np.float64)
-        meta_y = ((side * realized_ret) > 0).astype(np.int64)
+        meta_y = ((side_arr * realized_ret) > 0).astype(np.int64)
         out["meta_label"] = meta_y
     return out
 
@@ -702,8 +723,139 @@ def asof_join_point_in_time(
     return merged
 
 
+# ============================================================================
+# 13. SPANNING D'ALPHA ORTHOGONAL (NEWEY-WEST HAC) & ALLOCATEUR DE LIVRE MULTI-RÉGIMES
+# ============================================================================
+
+def orthogonal_alpha_spanning_test(
+    candidate_returns: np.ndarray,
+    benchmark_book_returns: np.ndarray,
+    nw_lags: int = 5,
+) -> Dict[str, Any]:
+    """
+    Test de Spanning d'Alpha Orthogonal (Gouvernance CIO / Portfolio Architect) :
+    Régresse les rendements nets de la stratégie candidate r_{cand, t} sur le livre de
+    stratégies/facteurs existants R_{book, t} :
+        r_{cand, t} = alpha_orth + sum_k beta_k R_{book, t, k} + eps_t
+    Calcule la statistique t robuste à l'hétéroscédasticité et l'autocorrélation (Newey-West HAC)
+    sur l'intercept `alpha_orth`, le R^2 d'explication par le livre existant, et l'Information Ratio
+    orthogonal `alpha_orth / std(eps_t)`.
+    """
+    y = np.asarray(candidate_returns, dtype=np.float64).reshape(-1)
+    B = np.asarray(benchmark_book_returns, dtype=np.float64)
+    if B.ndim == 1:
+        B = B[:, None]
+    T = min(len(y), B.shape[0])
+    y = y[:T]
+    B = B[:T, :]
+    valid_mask = np.isfinite(y) & np.all(np.isfinite(B), axis=1)
+    y = y[valid_mask]
+    B = B[valid_mask, :]
+    T = len(y)
+    if T < 30 or T <= (B.shape[1] + 5):
+        return {"valid": False, "reason": "Observations insuffisantes ou degrés de liberté insuffisants."}
+    X = np.column_stack([np.ones(T, dtype=np.float64), B])
+    theta, *_ = np.linalg.lstsq(X, y, rcond=None)
+    alpha_orth = float(theta[0])
+    betas = theta[1:]
+    resid = y - X @ theta
+
+    ss_tot = float(np.sum((y - np.mean(y)) ** 2))
+    ss_res = float(np.sum(resid ** 2))
+    r2_spanned = max(0.0, 1.0 - ss_res / max(1e-18, ss_tot))
+    resid_sd = float(np.std(resid, ddof=1))
+    y_sd = float(np.std(y, ddof=1))
+
+    # Si le résidu est numériquement nul (stratégie 100% colinéaire au livre existant), t_hac = 0
+    if resid_sd <= 1e-10 * max(1e-8, y_sd):
+        t_hac = 0.0
+        p_val = 1.0
+        ir_orth = 0.0
+    else:
+        # Matrice de covariance HAC de Newey-West (1987) avec correction de degrés de liberté T / (T - K)
+        scores = X * resid[:, None]
+        S = scores.T @ scores
+        max_l = min(int(nw_lags), max(1, T // 4))
+        for lag in range(1, max_l + 1):
+            w = 1.0 - lag / float(max_l + 1.0)
+            gamma_l = scores[lag:].T @ scores[:-lag]
+            S = S + w * (gamma_l + gamma_l.T)
+        dof_scale = float(T) / float(max(1, T - X.shape[1]))
+        xtx_inv = np.linalg.pinv(X.T @ X)
+        cov_hac = dof_scale * (xtx_inv @ S @ xtx_inv)
+        se_alpha = math.sqrt(max(1e-18, float(cov_hac[0, 0])))
+        t_hac = alpha_orth / se_alpha
+        p_val = float(2.0 * (1.0 - norm.cdf(abs(t_hac)))) if norm is not None else float(math.erfc(abs(t_hac) / math.sqrt(2.0)))
+        ir_orth = float(alpha_orth / resid_sd)
+
+    return {
+        "valid": True,
+        "alpha_orth": alpha_orth,
+        "t_stat_hac": round(t_hac, 4),
+        "p_value_hac": round(p_val, 6),
+        "r2_spanned": round(r2_spanned, 4),
+        "ir_orthogonal": round(ir_orth, 4),
+        "betas": [round(float(b), 4) for b in betas],
+        "orthogonal_returns": alpha_orth + resid,
+        "passes_spanning_gate": bool(alpha_orth > 0.0 and t_hac >= 1.96 and r2_spanned < 0.70),
+    }
+
+
+def regime_conditional_book_allocator(
+    returns_matrix: np.ndarray,
+    regime_scores: Optional[np.ndarray] = None,
+    prev_weights: Optional[np.ndarray] = None,
+    turnover_penalty_lambda: float = 0.20,
+    max_cvar_99: float = 0.035,
+) -> Dict[str, Any]:
+    """
+    Allocateur Institutionnel de Livre Multi-Stratégies (CIO / Risk Architect) :
+    1. Poids de base par Débruitage RMT Marchenko-Pastur + Hierarchical Risk Parity (HRP).
+    2. Sur-pondération conditionnelle au régime détecté (`regime_scores`).
+    3. Tampon dynamique de rotation (Gârleanu & Pedersen, 2013) : w_exec = (1 - lambda) * w_target + lambda * w_prev.
+    4. Plafonnement du levier global par la CVaR 99 % EVT-GPD (`compute_evt_cvar_gpd`).
+    """
+    R = np.asarray(returns_matrix, dtype=np.float64)
+    if R.ndim == 1:
+        R = R[:, None]
+    T, N = R.shape
+    w_hrp = hrp_portfolio_weights(R, denoise_rmt=True)
+
+    if regime_scores is not None:
+        tilts = np.clip(np.asarray(regime_scores, dtype=np.float64).reshape(-1)[:N], 0.10, 3.0)
+        w_raw = w_hrp * tilts
+        w_target = w_raw / max(1e-12, float(np.sum(w_raw)))
+    else:
+        w_target = w_hrp.copy()
+
+    if prev_weights is not None:
+        lam = float(np.clip(turnover_penalty_lambda, 0.0, 0.95))
+        w_prev = np.asarray(prev_weights, dtype=np.float64).reshape(-1)[:N]
+        w_exec = (1.0 - lam) * w_target + lam * w_prev
+        w_exec = w_exec / max(1e-12, float(np.sum(np.abs(w_exec))))
+    else:
+        w_exec = w_target.copy()
+
+    port_ret = R @ w_exec
+    evt = compute_evt_cvar_gpd(port_ret)
+    cvar_99 = float(evt.get("cvar_99_es", max_cvar_99)) if evt.get("valid") else max_cvar_99
+    cvar_scalar = min(1.0, float(max_cvar_99) / max(1e-8, cvar_99))
+    w_final = w_exec * cvar_scalar
+    ref_prev = np.asarray(prev_weights, dtype=np.float64).reshape(-1)[:N] if prev_weights is not None else w_target
+
+    return {
+        "hrp_base_weights": np.round(w_hrp, 6),
+        "target_regime_weights": np.round(w_target, 6),
+        "executed_weights": np.round(w_exec, 6),
+        "cvar_scaled_weights": np.round(w_final, 6),
+        "cvar_99_es": round(cvar_99, 6),
+        "cvar_leverage_scalar": round(cvar_scalar, 4),
+        "l1_turnover": round(float(np.sum(np.abs(w_exec - ref_prev))), 6),
+    }
+
+
 if __name__ == "__main__":
-    # Auto-test rapide des 12 modules
+    # Auto-test rapide des 14 modules
     rng = np.random.default_rng(7)
     R_mat = rng.normal(0.0, 0.01, size=(500, 6))
     w_hrp = hrp_portfolio_weights(R_mat)
@@ -711,4 +863,18 @@ if __name__ == "__main__":
     evt = compute_evt_cvar_gpd(R_mat[:, 0])
     assert evt["valid"] and evt["cvar_99_es"] >= evt["var_99"]
     ns = fit_nelson_siegel_curve(np.array([0.5, 1, 2, 5, 10, 30]), np.array([0.04, 0.042, 0.044, 0.046, 0.048, 0.05]))
-    print("[OK] quant_scientific_arsenal.py (12 modules) validé avec succès.", {"hrp_w0": round(w_hrp[0], 3), "cvar99": evt["cvar_99_es"], "ns": ns})
+
+    # Test Triple Barrier symétrique (short side < 0)
+    c_tb = np.array([100.0, 97.5, 100.0, 100.0])
+    vol_tb = np.full(4, 0.01)
+    tb_short = triple_barrier_labels(c_tb, vol_tb, pt_mult=2.0, sl_mult=1.0, max_holding_bars=2, primary_side=np.array([-1, -1, -1, -1]))
+    assert tb_short["barrier_label"][0] == -1 and tb_short["meta_label"][0] == 1, tb_short
+
+    # Test Spanning d'Alpha Orthogonal & Allocateur Multi-Régimes
+    orth_cand = 0.5 * R_mat[:, 0] + rng.normal(0.0025, 0.008, size=500)
+    span_res = orthogonal_alpha_spanning_test(orth_cand, R_mat[:, :3])
+    assert span_res["valid"] and span_res["passes_spanning_gate"], span_res
+    book_res = regime_conditional_book_allocator(R_mat, regime_scores=np.array([1.5, 1.2, 1.0, 0.8, 0.5, 1.0]), prev_weights=w_hrp)
+    assert abs(np.sum(book_res["executed_weights"]) - 1.0) < 1e-5, book_res
+
+    print("[OK] quant_scientific_arsenal.py (14 modules) validé avec succès.", {"hrp_w0": round(w_hrp[0], 3), "cvar99": evt["cvar_99_es"], "orth_t": span_res["t_stat_hac"], "ns": ns})

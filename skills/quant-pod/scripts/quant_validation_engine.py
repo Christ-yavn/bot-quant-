@@ -9,7 +9,7 @@ Principe : aucune métrique n'est acceptée si elle n'est pas
   (3) comparée à ce que la même procédure de recherche produit sur un MODÈLE NUL
       (marché sans edge, mêmes coûts, même grille de paramètres).
 
-Dépendances : numpy, scipy (aucune autre).
+Dépendances : numpy, scipy (et module standard `research_integrity` du même répertoire).
 
 Contenu :
   - ResearchLedger            : registre append-only des essais (K réel pour le DSR) + verrou du holdout
@@ -26,8 +26,6 @@ Contenu :
 
 from __future__ import annotations
 
-import hashlib
-import json
 import math
 import os
 import time
@@ -36,6 +34,34 @@ from typing import Callable, Dict, Iterable, List, Optional, Sequence, Tuple
 
 import numpy as np
 from scipy.stats import kurtosis, norm, skew
+
+try:
+    from research_integrity import (
+        GENESIS as GENESIS_HASH,
+        HashChainLedger,
+        canonical_json as _canonical_json_bytes,
+        sha256_file as _sha256,
+    )
+except ImportError:
+    try:
+        from .research_integrity import (
+            GENESIS as GENESIS_HASH,
+            HashChainLedger,
+            canonical_json as _canonical_json_bytes,
+            sha256_file as _sha256,
+        )
+    except ImportError:
+        import sys as _sys
+
+        _scripts_dir = os.path.dirname(os.path.abspath(__file__))
+        if _scripts_dir not in _sys.path:
+            _sys.path.insert(0, _scripts_dir)
+        from research_integrity import (
+            GENESIS as GENESIS_HASH,
+            HashChainLedger,
+            canonical_json as _canonical_json_bytes,
+            sha256_file as _sha256,
+        )
 
 EULER_GAMMA = 0.5772156649015329
 
@@ -55,47 +81,71 @@ GATES: Dict[str, float] = {
 
 
 # ============================================================================
-# 1. REGISTRE DES ESSAIS (ledger) + VERROU DU HOLDOUT
+# 1. REGISTRE DES ESSAIS (ledger) + VERROU DU HOLDOUT (Délégué à HashChainLedger)
 # ============================================================================
 class ResearchLedger:
     """
-    Registre append-only (JSONL). Chaque backtest lancé = 1 ligne, même s'il est mauvais.
-    C'est la seule façon honnête de connaître K (nombre d'essais) pour le DSR.
+    Registre append-only (JSONL) chaîné cryptographiquement par SHA-256.
+    Délègue l'intégralité du chaînage, de la sérialisation canonique et de la vérification
+    cryptographique à `research_integrity.HashChainLedger` (source unique de vérité).
+    Chaque backtest lancé = 1 ligne chaînée (prev_hash -> hash), même s'il est mauvais.
     """
 
     def __init__(self, path: str):
-        self.path = path
-        os.makedirs(os.path.dirname(os.path.abspath(path)), exist_ok=True)
-        if not os.path.exists(path):
-            open(path, "a", encoding="utf-8").close()
+        self._chain = HashChainLedger(path)
+        self.path = self._chain.path
+
+    def _raw_rows(self) -> List[dict]:
+        return self._chain._rows()
 
     def _rows(self) -> List[dict]:
-        rows = []
-        with open(self.path, "r", encoding="utf-8") as f:
-            for line in f:
-                line = line.strip()
-                if line:
-                    rows.append(json.loads(line))
-        return rows
+        out = []
+        for r in self._raw_rows():
+            out.append(r["payload"] if ("payload" in r and isinstance(r["payload"], dict)) else r)
+        return out
+
+    def head(self) -> str:
+        return self._chain.head()
+
+    def _append_chained(self, payload: dict) -> str:
+        return self._chain.append(payload)
+
+    def verify(self) -> Dict[str, object]:
+        return self._chain.verify()
+
+    def commit_hypothesis(
+        self,
+        card_text: str = "",
+        hypothesis_id: str = "",
+        formula: str = "",
+        params: Optional[dict] = None,
+        salt: Optional[str] = None,
+    ) -> Dict[str, str]:
+        return self._chain.commit_hypothesis(
+            card_text=card_text,
+            hypothesis_id=hypothesis_id,
+            formula=formula,
+            params=params,
+            salt=salt,
+        )
 
     def log_trial(self, hypothesis_id: str, params: dict, sr_per_period: float,
-                  n_obs: int, extra: Optional[dict] = None) -> None:
+                  n_obs: int, extra: Optional[dict] = None) -> str:
         row = {
             "ts": time.strftime("%Y-%m-%dT%H:%M:%S"),
             "type": "trial",
             "hypothesis_id": hypothesis_id,
             "params": params,
-            "sr_per_period": float(sr_per_period) if np.isfinite(sr_per_period) else None,
+            "sr_per_period": float(sr_per_period) if (sr_per_period is not None and np.isfinite(sr_per_period)) else None,
             "n_obs": int(n_obs),
             "extra": extra or {},
         }
-        with open(self.path, "a", encoding="utf-8") as f:
-            f.write(json.dumps(row, ensure_ascii=False) + "\n")
+        return self._append_chained(row)
 
     def trials(self, hypothesis_id: Optional[str] = None) -> List[dict]:
         rows = [r for r in self._rows() if r.get("type") == "trial"]
         if hypothesis_id is not None:
-            rows = [r for r in rows if r["hypothesis_id"] == hypothesis_id]
+            rows = [r for r in rows if r.get("hypothesis_id") == hypothesis_id]
         return rows
 
     def n_trials(self) -> int:
@@ -103,39 +153,47 @@ class ResearchLedger:
         return len(self.trials())
 
     def trial_sharpes(self) -> np.ndarray:
-        s = [r["sr_per_period"] for r in self.trials() if r["sr_per_period"] is not None]
+        s = [r["sr_per_period"] for r in self.trials() if r.get("sr_per_period") is not None]
         return np.asarray(s, dtype=float)
 
     # --- Verrou du holdout : on enregistre l'empreinte du fichier, on ne l'ouvre qu'une fois
     def register_holdout(self, file_path: str) -> str:
+        fp = os.path.abspath(file_path)
+        rows = self._rows()
+        if any(r.get("type") == "holdout_opened" and r.get("file") == fp for r in rows):
+            raise RuntimeError("Holdout déjà ouvert : ré-enregistrement interdit.")
         digest = _sha256(file_path)
-        with open(self.path, "a", encoding="utf-8") as f:
-            f.write(json.dumps({"ts": time.strftime("%Y-%m-%dT%H:%M:%S"), "type": "holdout_registered",
-                                "file": os.path.abspath(file_path), "sha256": digest}) + "\n")
+        reg = [r for r in rows if r.get("type") in ("holdout_registered", "holdout_sealed") and r.get("file") == fp]
+        if reg:
+            if any(r.get("sha256") != digest for r in reg):
+                raise RuntimeError("Violation d'intégrité : ce fichier holdout est déjà enregistré avec une autre empreinte.")
+            return reg[0]["sha256"]
+        self._append_chained({
+            "ts": time.strftime("%Y-%m-%dT%H:%M:%S"),
+            "type": "holdout_registered",
+            "file": fp,
+            "sha256": digest,
+        })
         return digest
 
     def open_holdout(self, file_path: str) -> None:
         """Lève une erreur si le holdout a déjà été ouvert ou si le fichier a été modifié."""
+        fp = os.path.abspath(file_path)
         rows = self._rows()
-        reg = [r for r in rows if r.get("type") == "holdout_registered"
-               and r["file"] == os.path.abspath(file_path)]
+        reg = [r for r in rows if r.get("type") in ("holdout_registered", "holdout_sealed")
+               and r.get("file") == fp]
         if not reg:
             raise RuntimeError("Holdout non enregistré : appeler register_holdout() AVANT toute recherche.")
-        if any(r.get("type") == "holdout_opened" and r["file"] == os.path.abspath(file_path) for r in rows):
+        if any(r.get("type") == "holdout_opened" and r.get("file") == fp for r in rows):
             raise RuntimeError("Holdout DÉJÀ ouvert une fois. Toute nouvelle évaluation est contaminée.")
-        if _sha256(file_path) != reg[-1]["sha256"]:
+        initial_hash = reg[0]["sha256"]
+        if any(r.get("sha256") != initial_hash for r in reg) or _sha256(file_path) != initial_hash:
             raise RuntimeError("Le fichier holdout a été modifié depuis son enregistrement.")
-        with open(self.path, "a", encoding="utf-8") as f:
-            f.write(json.dumps({"ts": time.strftime("%Y-%m-%dT%H:%M:%S"), "type": "holdout_opened",
-                                "file": os.path.abspath(file_path)}) + "\n")
-
-
-def _sha256(file_path: str) -> str:
-    h = hashlib.sha256()
-    with open(file_path, "rb") as f:
-        for chunk in iter(lambda: f.read(1 << 20), b""):
-            h.update(chunk)
-    return h.hexdigest()
+        self._append_chained({
+            "ts": time.strftime("%Y-%m-%dT%H:%M:%S"),
+            "type": "holdout_opened",
+            "file": fp,
+        })
 
 
 # ============================================================================
@@ -399,13 +457,33 @@ def evaluate_gates(n_trades: int, dsr_value: float, pbo_value: Optional[float],
 
 
 if __name__ == "__main__":
+    import tempfile
+
     # Auto-test : une stratégie sans edge doit être rejetée, un edge planté doit être détecté par le PSR.
     rng = np.random.default_rng(1)
     noise = rng.normal(0, 1, 2000)
     edge = rng.normal(0.12, 1, 2000)
-    print("PSR bruit  :", round(psr(noise), 3))
-    print("PSR edge   :", round(psr(edge), 3))
+    psr_n = psr(noise)
+    psr_e = psr(edge)
+    assert psr_e > 0.99 and psr_n < 0.90, (psr_n, psr_e)
     trial_srs = rng.normal(0, 0.05, 500)
-    print("DSR edge (K=500):", dsr(edge, trial_srs))
+    dsr_k20 = dsr(edge, trial_srs[:20])
+    dsr_res = dsr(edge, trial_srs)
+    assert dsr_k20["dsr"] > 0.95 and 0.50 < dsr_res["dsr"] < dsr_k20["dsr"], (dsr_k20, dsr_res)
     M = rng.normal(0, 1, (1600, 30))
-    print("PBO bruit pur (attendu ~0.5):", pbo_cscv(M, n_blocks=10)["pbo"])
+    pbo_val = pbo_cscv(M, n_blocks=10)["pbo"]
+    assert 0.25 <= pbo_val <= 0.75, pbo_val
+
+    tmp_dir = tempfile.mkdtemp()
+    led_file = os.path.join(tmp_dir, "test_ledger.jsonl")
+    rl = ResearchLedger(led_file)
+    rl.log_trial("H001", {"w": 20}, 0.08, 500)
+    rl.log_trial("H002", {"w": 40}, -0.02, 500)
+    assert rl.n_trials() == 2 and rl.verify()["valid"] is True
+    gate_res = evaluate_gates(250, dsr_k20["dsr"], 0.12, 0.01, 0.65, 0.002)
+    assert gate_res["verdict"].startswith("VALIDÉE"), gate_res
+    print("PSR bruit  :", round(psr_n, 3))
+    print("PSR edge   :", round(psr_e, 3))
+    print("DSR edge (K=500):", dsr_res)
+    print("PBO bruit pur (attendu ~0.5):", pbo_val)
+    print("quant_validation_engine : 5/5 auto-tests OK")

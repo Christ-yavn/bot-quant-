@@ -1,8 +1,8 @@
-# Encyclopédie Critique des 11 Familles Synthétiques Deriv : Modèles DGP, Cryptanalyse & Limites Réelles (`quant-pod` v2)
+# Encyclopédie Critique des 11 Familles Synthétiques Deriv : Modèles DGP, Cryptanalyse & Limites Réelles (`quant-pod` v3.0)
 
 Sur Deriv, les prix ne sont pas formés par un carnet d'ordres d'acheteurs et de vendeurs humains, mais par un **générateur de nombres pseudo-aléatoires cryptographique (CSPRNG)** exécuté côté serveur selon des équations différentielles stochastiques (EDS) programmées.
 
-> **Règle d'Honnêteté Scientifique (`quant-pod` v2)** :
+> **Règle d'Honnêteté Scientifique (`quant-pod` v3.0)** :
 > Ne jamais plaquer de concepts de psychologie humaine (Smart Money Concepts, Order Blocks, chasse aux stops retail) sur un générateur algorithmique. Sur un indice synthétique, seules **deux sources d'alpha** peuvent mathématiquement exister :
 > 1. **Une dépendance d'état programmée dans l'EDS du serveur** (ex: changement de dérive Markovien sur DSI, mémoire de durée Weibull $k \neq 1$ sur Trek, ou clustering de volatilité mal intégré dans le prix d'une barrière) **à condition que l'alpha brut par trade dépasse strictement le spread live**.
 > 2. **Un défaut d'implémentation statistique/cryptographique** dans la transformation uniforme $\to$ normale/exponentielle (ex: troncature des queues de Box-Muller ou erreur de tarification analytique d'un contrat d'option).
@@ -30,7 +30,7 @@ Sur Deriv, les prix ne sont pas formés par un carnet d'ordres d'acheteurs et de
 
 ### Famille 1 : Crash & Boom Indices (150, 300, 500, 600, 900, 1000)
 - **Équation DGP** : Processus de Poisson composé compensé à dérive déterministe par tick.
-- **Protocole d'Audit (`audit_boom_crash` dans [`deriv_quant_engine.py`](file:///C:/Users/CHRIST/.gemini/config/skills/quant-pod/scripts/deriv_quant_engine.py))** :
+- **Protocole d'Audit (`audit_boom_crash` dans [`deriv_quant_engine.py`](../scripts/deriv_quant_engine.py))** :
   - Vérifier si $|\mu_{\text{drift}} + \lambda \mathbb{E}[J_t]| > \text{Spread}_{\text{live}} / H$.
   - Sur les données empiriques mesurées des 6 indices standards, $\text{EV}_{\text{net}} < 0$ : **interdiction formelle d'abaisser `InpMinEvUsd` sous `+0.02$`** pour forcer des trades.
 
@@ -42,7 +42,7 @@ Sur Deriv, les prix ne sont pas formés par un carnet d'ordres d'acheteurs et de
 
 ### Famille 3 : DEX Indices (DEX 600, 900, 1500 UP/DOWN)
 - **Équation DGP** : Diffusion à sauts doubles asymétriques (modèle de Kou : petits sauts fréquents + grands sauts directionnels rares).
-- **Protocole d'Audit** : Décomposition Bi-Puissance (`barndorff_nielsen_jump_decomposition` dans [`quant_discovery_engine.py`](file:///C:/Users/CHRIST/.gemini/config/skills/quant-pod/scripts/quant_discovery_engine.py)) et test d'information mutuelle entre les grappes de petits sauts et les grands sauts.
+- **Protocole d'Audit** : Décomposition Bi-Puissance (`barndorff_nielsen_jump_decomposition` dans [`quant_discovery_engine.py`](../scripts/quant_discovery_engine.py)) et test d'information mutuelle entre les grappes de petits sauts et les grands sauts.
 
 ### Famille 4 : Classic Step Indices (Step 100 à 500)
 - **Équation DGP** : Marche aléatoire symétrique de Rademacher ($\Delta P_t \in \{-s, +s\}$ avec $p = 0.50$).

@@ -37,6 +37,7 @@ import numpy as np
 from scipy import stats
 
 from quant_validation_engine import (
+    GATES,
     ResearchLedger,
     dsr,
     pbo_cscv,
@@ -186,10 +187,11 @@ def diagnose_market_dgp(
     """
     Exécute le diagnostic complet du Processus Générateur de Données (Phase 1 de `quant-pod`) :
     1. Profil de Ratio de Variance VR(q) pour q in {2, 4, 8, 16}.
-    2. Autocorrélation des rendements signés ACF(r, 1..5) vs valeurs absolues ACF(|r|, 1..5).
-    3. Part de la variance due aux sauts (Barndorff-Nielsen Jump Ratio).
-    4. Spread implicite de Roll.
-    5. Plafond de prédictibilité conditionnelle face aux coûts réels.
+    2. Détection de bascule de régime d'autocorrélation (`REGIME_SWITCHING_CHAMELEON` vs persistance globale).
+    3. Autocorrélation des rendements signés ACF(r, 1..5) vs valeurs absolues ACF(|r|, 1..5).
+    4. Part de la variance due aux sauts (Barndorff-Nielsen Jump Ratio).
+    5. Spread implicite de Roll.
+    6. Plafond de prédictibilité conditionnelle face aux coûts réels.
     """
     c = np.asarray(close, dtype=np.float64)
     r = np.diff(np.log(np.maximum(c, 1e-12)))
@@ -210,10 +212,34 @@ def diagnose_market_dgp(
             if p_val < 0.05:
                 dominant_regime = "MOMENTUM_PERSISTENT" if vr > 1.0 else "MEAN_REVERTING"
 
-    # 2. ACF signée vs ACF de volatilité |r|
+    # 2. ACF signée vs ACF de volatilité |r| + détection de régime alternant (Chameleon : locale + parité spectrale)
     acf_signed_1 = float(np.corrcoef(r[:-1], r[1:])[0, 1]) if np.std(r) > 0 else 0.0
+    acf_signed_2 = float(np.corrcoef(r[:-2], r[2:])[0, 1]) if (n > 4 and np.std(r) > 0) else 0.0
     abs_r = np.abs(r)
     acf_abs_1 = float(np.corrcoef(abs_r[:-1], abs_r[1:])[0, 1]) if np.std(abs_r) > 0 else 0.0
+
+    local_rho = AlphaPrimitives.rolling_autocorr_regime(r, window=48)[48:] if n > 96 else np.zeros(1)
+    local_rho_std = float(np.std(local_rho, ddof=1)) if len(local_rho) > 2 else 0.0
+    frac_pos_regime = float(np.mean(local_rho > 0.12)) if len(local_rho) > 0 else 0.0
+    frac_neg_regime = float(np.mean(local_rho < -0.12)) if len(local_rho) > 0 else 0.0
+    vr2_val = float(vr_profile["VR_2"]["vr"])
+    vr4_val = float(vr_profile["VR_4"]["vr"])
+    vr4_p = float(vr_profile["VR_4"]["p"])
+    # Parité spectrale (bascule rapide de régime) : dans un processus AR(1) monochrome (rho > 0),
+    # ACF(1) > ACF(2) et VR(2)-1 > 0 significatif. Dans un processus Chameleon alternant (rho_t in {+rho, -rho}),
+    # le lag impair s'annule (ACF(2) > |ACF(1)|) tandis que les lags pairs s'additionnent (VR(4) > 1 significatif) :
+    spectral_parity_chameleon = bool(
+        vr4_p < 0.05
+        and (vr4_val - 1.0) > 0.06
+        and (vr4_val - 1.0) > 2.0 * max(0.0, vr2_val - 1.0)
+        and acf_signed_2 > max(0.05, abs(acf_signed_1))
+    )
+    regime_switching_detected = bool(
+        (frac_pos_regime >= 0.15 and frac_neg_regime >= 0.15 and local_rho_std > 0.18)
+        or spectral_parity_chameleon
+    )
+    if regime_switching_detected:
+        dominant_regime = "REGIME_SWITCHING_CHAMELEON"
 
     # 3. Décomposition Diffusion vs Sauts
     bn = barndorff_nielsen_jump_decomposition(r, window=24)
@@ -231,7 +257,7 @@ def diagnose_market_dgp(
     tail_audit = audit_gaussian_generator_tails(r)
 
     # Verdict structurel (seuil de Bonferroni sur 4 horizons VR : 0.05 / 4 = 0.0125)
-    if min_vr_p > 0.0125 and abs(acf_signed_1) < 2.5 / math.sqrt(n) and acf_abs_1 < 0.05:
+    if min_vr_p > 0.0125 and abs(acf_signed_1) < 2.5 / math.sqrt(n) and acf_abs_1 < 0.05 and not regime_switching_detected:
         verdict = "MARTINGALE_PURE_SANS_MEMOIRE (Attention : Plafond de Doob actif, EV <= -Spread)"
     elif friction_to_sigma_ratio > 0.50:
         verdict = "DOMINE_PAR_LES_FRICTIONS (Coût > 50% de la vol par barre : augmenter l'horizon H ou passer Maker)"
@@ -241,6 +267,11 @@ def diagnose_market_dgp(
     return {
         "valid": True,
         "n_bars": n,
+        "dominant_regime": dominant_regime,
+        "regime_switching_detected": regime_switching_detected,
+        "local_autocorr_std": round(local_rho_std, 4),
+        "frac_momentum_bars": round(frac_pos_regime, 4),
+        "frac_mean_rev_bars": round(frac_neg_regime, 4),
         "bar_volatility_bps": round(bar_sigma_bps, 2),
         "roundtrip_cost_bps": roundtrip_cost_bps,
         "friction_to_sigma_ratio": round(friction_to_sigma_ratio, 4),
@@ -255,7 +286,7 @@ def diagnose_market_dgp(
 
 
 # ============================================================================
-# 2. PRIMITIVES D'ALPHA ORTHOGONALES (STRICTEMENT CAUSALES POINT-IN-TIME)
+# 2. PRIMITIVES D'ALPHA ORTHOGONALES (STRICTEMENT CAUSALES POINT-IN-TIME, VECTORISÉES O(N))
 # ============================================================================
 
 class AlphaPrimitives:
@@ -266,10 +297,21 @@ class AlphaPrimitives:
 
     @staticmethod
     def causal_zscore(x: np.ndarray, window: int = 48) -> np.ndarray:
-        """Z-score glissant causal sur fenêtre `window`."""
+        """Z-score glissant causal sur fenêtre `window` (vectorisé O(N) sur données finies)."""
         arr = np.asarray(x, dtype=np.float64)
         n = len(arr)
         out = np.zeros(n, dtype=np.float64)
+        if n <= window or window < 2:
+            return out
+        if np.all(np.isfinite(arr)):
+            wins = np.lib.stride_tricks.sliding_window_view(arr, window)[1:]  # t = window .. n-1
+            means = np.mean(wins, axis=1)
+            stds = np.std(wins, axis=1, ddof=1)
+            valid = stds > 1e-12
+            out_slice = np.zeros(len(stds), dtype=np.float64)
+            out_slice[valid] = (arr[window:][valid] - means[valid]) / stds[valid]
+            out[window:] = out_slice
+            return np.clip(out, -5.0, 5.0)
         for t in range(window, n):
             seg = arr[t - window + 1 : t + 1]
             valid = seg[np.isfinite(seg)]
@@ -283,7 +325,7 @@ class AlphaPrimitives:
     def yang_zhang_volatility(
         open_: np.ndarray, high: np.ndarray, low: np.ndarray, close: np.ndarray, window: int = 20
     ) -> np.ndarray:
-        """Estimateur de volatilité OHLC de Yang-Zhang (2000) strictement causal."""
+        """Estimateur de volatilité OHLC de Yang-Zhang (2000) strictement causal (vectorisé O(N))."""
         o = np.log(np.maximum(open_, 1e-12))
         h = np.log(np.maximum(high, 1e-12))
         l = np.log(np.maximum(low, 1e-12))
@@ -297,43 +339,59 @@ class AlphaPrimitives:
 
         k = 0.34 / (1.34 + (window + 1.0) / max(1.0, window - 1.0))
         out = np.full(n, np.nan)
-        for t in range(window, n):
-            s_o = float(np.var(ro[t - window + 1 : t + 1], ddof=1))
-            s_c = float(np.var(rc[t - window + 1 : t + 1], ddof=1))
-            s_rs = float(np.mean(rs[t - window + 1 : t + 1]))
-            yz_var = max(0.0, s_o + k * s_c + (1.0 - k) * s_rs)
-            out[t] = math.sqrt(yz_var)
+        if n <= window or window < 2:
+            return out
+        ro_w = np.lib.stride_tricks.sliding_window_view(ro, window)[1:]
+        rc_w = np.lib.stride_tricks.sliding_window_view(rc, window)[1:]
+        rs_w = np.lib.stride_tricks.sliding_window_view(rs, window)[1:]
+        s_o = np.var(ro_w, axis=1, ddof=1)
+        s_c = np.var(rc_w, axis=1, ddof=1)
+        s_rs = np.mean(rs_w, axis=1)
+        yz_var = np.maximum(0.0, s_o + k * s_c + (1.0 - k) * s_rs)
+        out[window:] = np.sqrt(yz_var)
         return out
 
     @staticmethod
     def kalman_state_space_zscore(
-        close: np.ndarray, process_noise_q: float = 1e-5, obs_noise_r: float = 1e-3
+        close: np.ndarray, process_noise_q: float = 1e-5, obs_noise_r: Optional[float] = 1e-3
     ) -> np.ndarray:
         """
         Filtre de Kalman 1D en espace d'état sur log-prix :
         Estime l'état latent x_{t|t-1} (juste valeur dynamique sans retard de fenêtre fixe)
         et retourne l'innovation normalisée (écart entre le prix observé et la prédiction de Kalman).
+        Si `obs_noise_r` est None, estime causalement la variance d'observation par EWMA des
+        rendements passés [0..t-1] (invariance d'échelle sans look-ahead).
         """
         y = np.log(np.maximum(close, 1e-12))
         n = len(y)
         innov_z = np.zeros(n, dtype=np.float64)
+        if n < 2:
+            return innov_z
         x_hat = float(y[0])
         p_cov = 1.0
+        adaptive = obs_noise_r is None
+        ewma_var = max(1e-10, float((y[1] - y[0]) ** 2)) if adaptive else 0.0
 
         for t in range(1, n):
+            r_cur = max(1e-10, ewma_var) if adaptive else float(obs_noise_r)
+            q_cur = 2.0 * r_cur if adaptive else float(process_noise_q)
+
             # Prédiction a priori (en t-1 pour t)
             x_pred = x_hat
-            p_pred = p_cov + process_noise_q
+            p_pred = p_cov + q_cur
 
             # Innovation à l'arrivée de y[t]
             err = float(y[t] - x_pred)
-            s_var = p_pred + obs_noise_r
+            s_var = p_pred + r_cur
             innov_z[t] = err / math.sqrt(max(1e-18, s_var))
 
             # Mise à jour de l'état a posteriori
             k_gain = p_pred / max(1e-18, s_var)
             x_hat = x_pred + k_gain * err
             p_cov = (1.0 - k_gain) * p_pred
+            if adaptive:
+                dy = float(y[t] - y[t - 1])
+                ewma_var = 0.94 * ewma_var + 0.06 * (dy * dy)
 
         return np.clip(innov_z, -5.0, 5.0)
 
@@ -351,9 +409,12 @@ class AlphaPrimitives:
         n = len(r)
         intensity = np.zeros(n, dtype=np.float64)
         decay = math.exp(-decay_beta)
-
-        for t in range(vol_window, n):
-            sig = float(np.std(r[t - vol_window : t], ddof=1))
+        if n <= vol_window:
+            return intensity
+        wins = np.lib.stride_tricks.sliding_window_view(r, vol_window)[:-1]  # r[t-vol_window : t] pour t=vol_window..n-1
+        sigs = np.std(wins, axis=1, ddof=1)
+        for idx, t in enumerate(range(vol_window, n)):
+            sig = float(sigs[idx])
             shock = 0.0
             if sig > 1e-12 and abs(r[t]) > threshold_sigma * sig:
                 shock = float(np.sign(r[t]) * (abs(r[t]) / sig))
@@ -363,13 +424,28 @@ class AlphaPrimitives:
     @staticmethod
     def rolling_autocorr_regime(returns: np.ndarray, window: int = 48) -> np.ndarray:
         """
-        Estime le régime local d'autocorrélation sérielle sur [t-window+1 .. t] :
+        Estime le régime local d'autocorrélation sérielle sur [t-window+1 .. t] (vectorisé O(N)) :
         > 0 : régime local de persistance (momentum)
         < 0 : régime local d'anti-persistance (mean-reversion)
         """
         r = np.asarray(returns, dtype=np.float64)
         n = len(r)
         rho = np.zeros(n, dtype=np.float64)
+        if n <= window or window < 4:
+            return rho
+        if np.all(np.isfinite(r)):
+            wins = np.lib.stride_tricks.sliding_window_view(r, window)[1:]  # t = window .. n-1
+            x = wins[:, :-1]
+            y = wins[:, 1:]
+            xm = x - np.mean(x, axis=1, keepdims=True)
+            ym = y - np.mean(y, axis=1, keepdims=True)
+            num = np.sum(xm * ym, axis=1)
+            den = np.sqrt(np.sum(xm ** 2, axis=1) * np.sum(ym ** 2, axis=1))
+            valid = den > 1e-12
+            out_slice = np.zeros(len(den), dtype=np.float64)
+            out_slice[valid] = num[valid] / den[valid]
+            rho[window:] = np.nan_to_num(out_slice, nan=0.0)
+            return rho
         for t in range(window, n):
             seg = r[t - window + 1 : t + 1]
             s = float(np.std(seg))
@@ -378,6 +454,129 @@ class AlphaPrimitives:
                 if np.isfinite(c):
                     rho[t] = c
         return rho
+
+
+# ============================================================================
+# 2.bis PLANIFICATEUR DE STRATÉGIE ALGORITHMIQUE SELON LE MARCHÉ (`AlgorithmicStrategyPlanner`)
+# ============================================================================
+
+@dataclass
+class StrategyPlan:
+    dominant_regime: str
+    primary_playbook: str
+    doob_martingale_veto: bool
+    optimal_horizon_bars: int
+    entry_threshold_z: float
+    sl_sigma_mult: float
+    tp_sigma_mult: float
+    family_priors: Dict[str, float]
+    rationale: str
+
+
+class AlgorithmicStrategyPlanner:
+    """
+    Poste Senior : Chief Market Regime & Algorithmic Strategy Planner.
+    Analyse le diagnostic mathématique DGP (`diagnose_market_dgp`) et prescrit
+    algorithmiquement l'architecture de la stratégie AVANT le moindre backtest :
+      - Veto immédiat de Doob sur les martingales pures sans mémoire.
+      - Horizon optimal H* calibré pour amortir le ratio Coût / Volatilité.
+      - Sélection du Playbook (Momentum, Mean-Reversion, Chameleon Regime-Switch, Hawkes Jump-Reversion).
+      - Multiplicateurs de barrières SL*/TP* et priors bayésiens par famille d'alpha.
+    """
+
+    @staticmethod
+    def plan(dgp_report: Dict[str, Any]) -> StrategyPlan:
+        verdict = str(dgp_report.get("structural_verdict", ""))
+        dom = str(dgp_report.get("dominant_regime", "MARTINGALE_DRIFT_ZERO"))
+        fric_ratio = float(dgp_report.get("friction_to_sigma_ratio", 0.20))
+        jump_share = float(dgp_report.get("mean_jump_variance_share", 0.0))
+        vol_clust = float(dgp_report.get("acf_abs_vol_clustering_lag1", 0.0))
+
+        doob_veto = "MARTINGALE_PURE_SANS_MEMOIRE" in verdict
+        # Horizon H* : garantit que le coût aller-retour représente <= 25% de la volatilité sur H*
+        raw_h = int(math.ceil((fric_ratio / 0.25) ** 2)) if fric_ratio > 0.25 else 4
+        opt_h = int(np.clip(max(4, raw_h), 4, 48))
+
+        if doob_veto:
+            return StrategyPlan(
+                dominant_regime=dom,
+                primary_playbook="NO_GO_DOOB_MARTINGALE_PROTECTION",
+                doob_martingale_veto=True,
+                optimal_horizon_bars=opt_h,
+                entry_threshold_z=2.0,
+                sl_sigma_mult=2.0,
+                tp_sigma_mult=2.0,
+                family_priors={
+                    "H1_VolSqueeze_Breakout": 0.05,
+                    "H2_Kalman_MeanReversion": 0.05,
+                    "H3_Hawkes_Cascade_Reversion": 0.05,
+                    "H4_Autocorr_Regime_Adaptive": 0.05,
+                    "H5_Chameleon_Kalman_Regime": 0.05,
+                },
+                rationale="Plafond de Doob actif (martingale sans mémoire) : toute règle basée sur le seul prix a E[PnL] = -Coûts.",
+            )
+
+        if dom == "REGIME_SWITCHING_CHAMELEON":
+            playbook = "CHAMELEON_REGIME_ADAPTIVE_SWITCHING"
+            priors = {
+                "H4_Autocorr_Regime_Adaptive": 0.35,
+                "H5_Chameleon_Kalman_Regime": 0.35,
+                "H1_VolSqueeze_Breakout": 0.12,
+                "H2_Kalman_MeanReversion": 0.10,
+                "H3_Hawkes_Cascade_Reversion": 0.08,
+            }
+            sl_m, tp_m, thr_z = 2.0, 2.5, 1.25
+            rationale = "Alternance de régimes Momentum/Mean-Reversion détectée : activer le conditionnement de signe par l'ACF locale."
+        elif dom == "MOMENTUM_PERSISTENT":
+            playbook = "TREND_FOLLOWING_AND_VOL_SQUEEZE_BREAKOUT"
+            priors = {
+                "H1_VolSqueeze_Breakout": 0.35 if vol_clust > 0.05 else 0.25,
+                "H4_Autocorr_Regime_Adaptive": 0.30,
+                "H5_Chameleon_Kalman_Regime": 0.20,
+                "H2_Kalman_MeanReversion": 0.07,
+                "H3_Hawkes_Cascade_Reversion": 0.08,
+            }
+            sl_m, tp_m, thr_z = 1.8, 3.0, 1.25
+            rationale = "Persistance directionnelle VR(q) > 1 : privilégier les cassures de compression Yang-Zhang et le suivi de régime."
+        elif dom == "MEAN_REVERTING":
+            playbook = "STATE_SPACE_KALMAN_AND_HAWKES_REVERSION"
+            priors = {
+                "H2_Kalman_MeanReversion": 0.38,
+                "H3_Hawkes_Cascade_Reversion": 0.32 if jump_share > 0.15 else 0.22,
+                "H5_Chameleon_Kalman_Regime": 0.20,
+                "H4_Autocorr_Regime_Adaptive": 0.12,
+                "H1_VolSqueeze_Breakout": 0.08,
+            }
+            sl_m, tp_m, thr_z = 2.5, 1.8, 1.50
+            rationale = "Anti-persistance VR(q) < 1 : exploiter l'innovation du filtre de Kalman 1D et l'épuisement des cascades de Hawkes."
+        else:
+            playbook = "SELECTIVE_VOL_CLUSTERING_AND_JUMP_EXHAUSTION"
+            priors = {
+                "H3_Hawkes_Cascade_Reversion": 0.30,
+                "H1_VolSqueeze_Breakout": 0.25,
+                "H4_Autocorr_Regime_Adaptive": 0.20,
+                "H5_Chameleon_Kalman_Regime": 0.15,
+                "H2_Kalman_MeanReversion": 0.10,
+            }
+            sl_m, tp_m, thr_z = 2.2, 2.2, 1.50
+            rationale = "Dérive inconditionnelle faible mais clustering de volatilité/sauts présent : filtrer les queues extrêmes."
+
+        return StrategyPlan(
+            dominant_regime=dom,
+            primary_playbook=playbook,
+            doob_martingale_veto=False,
+            optimal_horizon_bars=opt_h,
+            entry_threshold_z=thr_z,
+            sl_sigma_mult=sl_m,
+            tp_sigma_mult=tp_m,
+            family_priors=priors,
+            rationale=rationale,
+        )
+
+
+def plan_strategy_from_market_regime(dgp_report: Dict[str, Any]) -> Dict[str, Any]:
+    """Enveloppe fonctionnelle retournant le plan stratégique algorithmique sous forme de dictionnaire."""
+    return asdict(AlgorithmicStrategyPlanner.plan(dgp_report))
 
 
 # ============================================================================
@@ -400,6 +599,9 @@ class CandidateEvaluation:
     failure_mode: str
     recommended_mutation: str
     trade_returns_net: np.ndarray
+    bull_bear_approved: bool = True
+    bull_bear_conviction: float = 0.5
+    bull_bear_objections: Tuple[str, ...] = ()
 
 
 def evaluate_signal_non_overlapping(
@@ -435,8 +637,8 @@ def evaluate_signal_non_overlapping(
             n_pnl = g_pnl - cost_dec
             gross_trades.append(g_pnl)
             net_trades.append(n_pnl)
-            # Répartition causale du PnL sur les barres de détention
-            bar_pnl_net[t + 1 : t + 1 + horizon] = n_pnl / horizon
+            # Marquage au marché (Mark-to-Market) causal barre par barre sur la fenêtre de détention
+            bar_pnl_net[t + 1 : t + 1 + horizon] = direction * r[t + 1 : t + 1 + horizon] - (cost_dec / float(horizon))
             t += horizon
         else:
             t += 1
@@ -522,7 +724,7 @@ def diagnose_failure_mode(metrics: Dict[str, Any], cost_bps: float) -> Tuple[str
         )
     if t_net >= 2.0 and sub_ratio >= 0.75:
         return (
-            "PASS_CANDIDATE_FOR_BOOST (Candidat solide prêt pour l'audit /boost 5 portes)",
+            "PASS_CANDIDATE_FOR_BOOST (Candidat solide prêt pour l'audit /boost)",
             "SUBMIT_TO_BOOST_VALIDATOR: Vérifier DSR(K), PBO, Modèle Nul, Stress Coûts 2x et Plateau.",
         )
     return (
@@ -545,32 +747,41 @@ def run_autonomous_discovery_loop(
     bars_per_year: float = 24.0 * 365.0,
 ) -> Dict[str, Any]:
     """
-    Exécute une campagne de recherche autonome complète en 3 générations :
-    - Phase 1 : Diagnostic DGP complet du marché.
-    - Phase 2 (Génération 1) : Évaluation de 4 familles d'hypothèses orthogonales :
-      H1: Compression de volatilité Yang-Zhang + Breakout directionnel
-      H2: Retour à la moyenne en espace d'état (Innovation du Filtre de Kalman 1D)
-      H3: Épuisement post-cascade auto-excitée de Hawkes (Mean-Reversion après choc extrême)
-      H4: Momentum adaptatif conditionné au régime d'autocorrélation locale
-    - Phase 3 (Génération 2 — Mutation Ciblée) : Applique automatiquement l'opérateur
-      de mutation prescrit par `diagnose_failure_mode` sur les candidats de Génération 1
-      (inversion de signe si `GROSS_NEGATIVE_INVERTIBLE`, allongement d'horizon si
-      `KILLED_BY_FRICTION`, conditionnement de régime si `REGIME_INSTABILITY`).
-    - Phase 4 : Journalise TOUS les essais dans `ResearchLedger` et calcule le vrai
-      DSR(K_total) et le PBO sur la matrice des trajectoires.
+    Exécute une campagne de recherche autonome complète en boucle fermée :
+    - Phase 1 : Diagnostic DGP complet (`diagnose_market_dgp`) + Planification Stratégique Algorithmique
+      (`AlgorithmicStrategyPlanner`) prescrivant le playbook, l'horizon H* et les priors de familles.
+    - Phase 2 (Génération 1) : Évaluation des familles d'hypothèses orthogonales (incluant la famille
+      Chameleon H5 sur les marchés à bascule de régime), filtrage AST (`ast_originality_penalty`),
+      débat contradictoire (`bull_bear_hypothesis_debate`) et ordonnancement UCB (`UCBFamilyBandit`).
+    - Phase 3 (Génération 2 — Mutation Ciblée Sans Fuite) : Diagnostic du mode de défaillance
+      (`diagnose_failure_mode`) calculé sur la tranche causale Train (70% initiaux) afin d'éviter le
+      biais de sélection in-sample, et vérification hors-échantillon sur la tranche Validation (30%).
+    - Phase 4 : Journalisation SHA-256 dans `ResearchLedger` et calcul du vrai DSR(K_total) et PBO.
     """
     c = np.asarray(close, dtype=np.float64)
     o = np.asarray(open_, dtype=np.float64)
     h = np.asarray(high, dtype=np.float64)
     l = np.asarray(low, dtype=np.float64)
     n = len(c)
+    if n < 100:
+        raise ValueError(f"Série trop courte (n={n} < 100 barres) pour run_autonomous_discovery_loop.")
 
     # Rendements logarithmiques alignés : r[t] = log(c[t] / c[t-1])
     log_r = np.zeros(n, dtype=np.float64)
     log_r[1:] = np.diff(np.log(np.maximum(c, 1e-12)))
 
-    # 1. Diagnostic DGP préalable
-    dgp_report = diagnose_market_dgp(c, h, l, roundtrip_cost_bps=roundtrip_cost_bps)
+    # 1. Découpage causal strict Train (70%) / Validation (30%) AVANT tout diagnostic DGP
+    if n >= 300:
+        split_idx = min(max(250, int(0.70 * n)), n - 50)
+    elif n >= 251:
+        split_idx = min(max(201, int(0.70 * n)), n - 50)
+    else:
+        split_idx = max(1, int(0.70 * n))
+    dgp_report = diagnose_market_dgp(
+        c[:split_idx], h[:split_idx], l[:split_idx], roundtrip_cost_bps=roundtrip_cost_bps
+    )
+    strategy_plan = AlgorithmicStrategyPlanner.plan(dgp_report)
+    opt_h = int(strategy_plan.optimal_horizon_bars)
 
     # 2. Calcul des primitives causales
     yz_short = AlphaPrimitives.yang_zhang_volatility(o, h, l, c, window=16)
@@ -581,8 +792,8 @@ def run_autonomous_discovery_loop(
     # H1: Vol Squeeze Breakout (compression vol_ratio < 0.85 + choc directionnel ret_z)
     sig_h1 = np.where(vol_ratio < 0.85, ret_z, 0.0)
 
-    # H2: Kalman Mean-Reversion (parier contre l'innovation excessive par rapport à l'état de Kalman)
-    kalman_z = AlphaPrimitives.kalman_state_space_zscore(c, process_noise_q=1e-4, obs_noise_r=2e-3)
+    # H2: Kalman Mean-Reversion (variance d'observation causale adaptative par EWMA)
+    kalman_z = AlphaPrimitives.kalman_state_space_zscore(c, obs_noise_r=None)
     sig_h2 = -kalman_z
 
     # H3: Hawkes Cascade Exhaustion (parier sur le rebond après une grappe de chocs extrêmes)
@@ -593,29 +804,65 @@ def run_autonomous_discovery_loop(
     local_rho = AlphaPrimitives.rolling_autocorr_regime(log_r, window=48)
     sig_h4 = np.where(local_rho >= 0.02, ret_z, np.where(local_rho <= -0.02, -ret_z, 0.0))
 
+    # H5: Chameleon Kalman-Momentum Hybrid (Momentum en régime persistant, Kalman en régime anti-persistant)
+    sig_h5 = np.where(local_rho >= 0.08, ret_z, np.where(local_rho <= -0.08, -kalman_z, 0.0))
+
     gen1_specs = [
-        ("H1_VolSqueeze_Breakout", "I(YZ_16/YZ_96 < 0.85) * Z(r_t, 24)", sig_h1, 4, 1.25),
-        ("H2_Kalman_MeanReversion", "-KalmanInnovationZ(close, q=1e-4, r=2e-3)", sig_h2, 4, 1.50),
-        ("H3_Hawkes_Cascade_Reversion", "-Z(HawkesIntensity(r_t, 2.0sigma), 72)", sig_h3, 6, 1.50),
-        ("H4_Autocorr_Regime_Adaptive", "sign(RollingACF_48) * Z(r_t, 24)", sig_h4, 4, 1.25),
+        ("H1_VolSqueeze_Breakout", "I(YZ_16/YZ_96 < 0.85) * Z(r_t, 24)", "vol_ratio * ret_z", sig_h1, opt_h, 1.25),
+        ("H2_Kalman_MeanReversion", "-KalmanInnovationZ(close, adaptive_ewma_r)", "-kalman_z", sig_h2, opt_h, 1.50),
+        ("H3_Hawkes_Cascade_Reversion", "-Z(HawkesIntensity(r_t, 2.0sigma), 72)", "-hawkes_int", sig_h3, max(6, opt_h), 1.50),
+        ("H4_Autocorr_Regime_Adaptive", "sign(RollingACF_48) * Z(r_t, 24)", "sign(local_rho) * ret_z", sig_h4, opt_h, 1.25),
+        ("H5_Chameleon_Kalman_Regime", "Chameleon(RollingACF_48, ret_z, -kalman_z)", "local_rho * (ret_z - kalman_z)", sig_h5, opt_h, 1.20),
     ]
 
+    bandit = UCBFamilyBandit([sp[0] for sp in gen1_specs], family_priors=strategy_plan.family_priors)
+    ast_archive: List[str] = []
     evaluations: List[CandidateEvaluation] = []
+    val_t_stats: List[float] = []
+    train_t_stats: List[float] = []
+    train_selection_scores: List[float] = []
+    debate_reports: List[Dict[str, Any]] = []
     bar_pnl_matrix: List[np.ndarray] = []
 
-    # Évaluation Génération 1 + Génération de Mutations Génération 2
-    mutated_specs: List[Tuple[str, str, np.ndarray, int, float]] = []
+    # Évaluation Génération 1 + Diagnostic de Mutation & Débat Bull/Bear sur Tranche Causale Train (70%)
+    mutated_by_family: Dict[str, List[Tuple[str, str, str, np.ndarray, int, float, str]]] = {}
 
-    for name, desc, sig_vec, horizon, thr in gen1_specs:
+    for name, desc, ast_expr, sig_vec, horizon, thr in gen1_specs:
+        nov = ast_originality_penalty(ast_expr, ast_archive)
+        ast_archive.append(ast_expr)
+
+        # Diagnostic causal sur les 70% d'entraînement uniquement (évite l'overfitting de mutation F4)
+        train_res = evaluate_signal_non_overlapping(
+            sig_vec[:split_idx], log_r[:split_idx], horizon=horizon, entry_threshold=thr,
+            roundtrip_cost_bps=roundtrip_cost_bps, bars_per_year=bars_per_year
+        )
+        debate = bull_bear_hypothesis_debate(
+            dgp_report=dgp_report,
+            expected_gross_bps=max(0.0, float(train_res["gross_bps"])),
+            roundtrip_cost_bps=roundtrip_cost_bps,
+            ast_novelty_report=nov,
+            targets_martingale_price_history=strategy_plan.doob_martingale_veto,
+        )
+        val_res = evaluate_signal_non_overlapping(
+            sig_vec[split_idx:], log_r[split_idx:], horizon=horizon, entry_threshold=thr,
+            roundtrip_cost_bps=roundtrip_cost_bps, bars_per_year=bars_per_year
+        )
+        f_mode_train, _ = diagnose_failure_mode(train_res, roundtrip_cost_bps)
+
+        # Évaluation complète hors-holdout pour le registre officiel
         res = evaluate_signal_non_overlapping(
-            sig_vec, log_r, horizon=horizon, entry_threshold=thr, roundtrip_cost_bps=roundtrip_cost_bps, bars_per_year=bars_per_year
+            sig_vec, log_r, horizon=horizon, entry_threshold=thr,
+            roundtrip_cost_bps=roundtrip_cost_bps, bars_per_year=bars_per_year
         )
         f_mode, f_mut = diagnose_failure_mode(res, roundtrip_cost_bps)
+        bandit_t = float(train_res["t_net"]) if debate["approved_for_backtest"] else min(0.0, float(train_res["t_net"]))
+        bandit.update(name, t_stat_net=bandit_t, ast_penalty=float(nov["regularization_penalty"]))
+
         evaluations.append(
             CandidateEvaluation(
                 name=name,
                 formula_desc=desc,
-                params={"horizon": horizon, "threshold": thr},
+                params={"horizon": horizon, "threshold": thr, "ast_nodes": nov["n_ast_nodes"]},
                 horizon_bars=horizon,
                 n_trades=res["n_trades"],
                 gross_bps_per_trade=round(res["gross_bps"], 3),
@@ -627,34 +874,93 @@ def run_autonomous_discovery_loop(
                 failure_mode=f_mode,
                 recommended_mutation=f_mut,
                 trade_returns_net=res["net_trades"],
+                bull_bear_approved=bool(debate["approved_for_backtest"]),
+                bull_bear_conviction=float(debate["conviction_score"]),
+                bull_bear_objections=tuple(debate["bear_objections"]),
             )
         )
-        bar_pnl_matrix.append(res["bar_pnl_net"])
-
-        # Génération automatique de la variante mutée (Génération 2) selon le diagnostic :
-        if "GROSS_NEGATIVE_INVERTIBLE" in f_mode:
-            mutated_specs.append((f"{name}_MUT_INVERT", f"-({desc})", -sig_vec, horizon, thr))
-        elif "KILLED_BY_FRICTION" in f_mode:
-            mutated_specs.append((f"{name}_MUT_LONG_HORIZON", f"{desc} [H*3, thr+0.35]", sig_vec, horizon * 3, thr + 0.35))
-        elif "REGIME_INSTABILITY" in f_mode or "WEAK_NET_EDGE" in f_mode:
-            gated_sig = np.where(np.abs(local_rho) > 0.04, sig_vec, 0.0)
-            mutated_specs.append((f"{name}_MUT_REGIME_GATED", f"I(|ACF_48|>0.04)*({desc})", gated_sig, horizon * 2, thr))
+        train_t_stats.append(float(train_res["t_net"]))
+        if train_res["n_trades"] >= 20 and debate["approved_for_backtest"]:
+            sel_score = 1e6 + float(train_res["t_net"])
+        elif train_res["n_trades"] >= 20:
+            sel_score = float(train_res["t_net"])
         else:
-            # Même si GROSS_EDGE_ZERO, on teste une mutation combinée avec compression extrême
-            combo_sig = np.where(vol_ratio < 0.75, -sig_vec, 0.0)
-            mutated_specs.append((f"{name}_MUT_SQUEEZE_FADE", f"I(YZ_ratio<0.75)*(-{desc})", combo_sig, horizon * 2, thr))
+            sel_score = -1e9 + float(train_res["n_trades"])
+        train_selection_scores.append(sel_score)
+        debate_reports.append(debate)
+        val_t_stats.append(float(val_res["t_net"]))
+        bar_pnl_matrix.append(res["bar_pnl_net"])
 
-    # Évaluation Génération 2 (Variantes Mutées)
-    for name, desc, sig_vec, horizon, thr in mutated_specs:
+        # Génération automatique des variantes mutées (Génération 2) prescrites par la tranche Train (70%) :
+        fam_muts: List[Tuple[str, str, str, np.ndarray, int, float, str]] = []
+        if "INSUFFICIENT_SAMPLE" in f_mode_train:
+            thr_rel = max(0.85, round(thr * 0.70, 2))
+            fam_muts.append((f"{name}_MUT_RELAX_THR", f"{desc} [thr={thr_rel}]", f"({ast_expr}) + 0.25 * ret_z", sig_vec, horizon, thr_rel, name))
+        elif "GROSS_NEGATIVE_INVERTIBLE" in f_mode_train:
+            fam_muts.append((f"{name}_MUT_INVERT", f"-({desc})", f"-({ast_expr})", -sig_vec, horizon, thr, name))
+        elif "KILLED_BY_FRICTION" in f_mode_train:
+            fam_muts.append((f"{name}_MUT_LONG_HORIZON", f"{desc} [H*3, thr+0.35]", f"({ast_expr}) / (1.0 + vol_ratio)", sig_vec, horizon * 3, thr + 0.35, name))
+        elif "REGIME_INSTABILITY" in f_mode_train or "WEAK_NET_EDGE" in f_mode_train:
+            gated_sig = np.where(np.abs(local_rho) > 0.04, sig_vec, 0.0)
+            fam_muts.append((f"{name}_MUT_REGIME_GATED", f"I(|ACF_48|>0.04)*({desc})", f"local_rho * ({ast_expr})", gated_sig, horizon * 2, thr, name))
+        elif "PASS_CANDIDATE_FOR_BOOST" in f_mode_train:
+            fam_muts.append((f"{name}_MUT_HORIZON_2X", f"{desc} [H*2]", f"({ast_expr}) / (1.0 + vol_ratio)", sig_vec, horizon * 2, round(thr + 0.15, 2), name))
+        else:
+            combo_sig = np.where(vol_ratio < 1.15, sig_vec, 0.0)
+            fam_muts.append((f"{name}_MUT_VOL_GATED", f"I(YZ_ratio<1.15)*({desc})", f"vol_ratio * ({ast_expr})", combo_sig, horizon * 2, thr, name))
+        # Raffinement sélectif additionnel (Génération 3) disponible si l'ordonnanceur UCB sélectionne cette famille :
+        refined_sig = np.where(np.abs(local_rho) > 0.06, sig_vec, 0.0)
+        fam_muts.append((f"{name}_UCB_REFINED", f"I(|ACF_48|>0.06)*({desc})", f"tanh({ast_expr}) * local_rho", refined_sig, max(4, horizon), max(1.0, thr - 0.10), name))
+        mutated_by_family[name] = fam_muts
+
+    # Évaluation Génération 2 & 3 ordonnancée dynamiquement par UCBFamilyBandit.select_next_family() (RD-Agent(Q))
+    n_ucb_pulls = 6
+    for _ in range(n_ucb_pulls):
+        chosen_fam = bandit.select_next_family()
+        queue = mutated_by_family.get(chosen_fam, [])
+        if not queue:
+            # Si la file de la famille favorite est épuisée, choisir la meilleure famille disponible selon l'indice UCB
+            avail = [f for f, q in mutated_by_family.items() if len(q) > 0]
+            if not avail:
+                break
+            total_pulls = max(2, sum(bandit.counts.values()))
+            chosen_fam = max(
+                avail,
+                key=lambda f: (bandit.rewards_sum[f] / max(1, bandit.counts[f]))
+                + bandit.c * math.sqrt(math.log(total_pulls) / max(1, bandit.counts[f]))
+                + 0.20 * bandit.priors.get(f, 0.0) / max(1, bandit.counts[f]),
+            )
+            queue = mutated_by_family[chosen_fam]
+        name, desc, ast_expr, sig_vec, horizon, thr, parent_fam = queue.pop(0)
+        nov = ast_originality_penalty(ast_expr, ast_archive)
+        ast_archive.append(ast_expr)
+        train_res = evaluate_signal_non_overlapping(
+            sig_vec[:split_idx], log_r[:split_idx], horizon=horizon, entry_threshold=thr,
+            roundtrip_cost_bps=roundtrip_cost_bps, bars_per_year=bars_per_year
+        )
+        debate = bull_bear_hypothesis_debate(
+            dgp_report=dgp_report,
+            expected_gross_bps=max(0.0, float(train_res["gross_bps"])),
+            roundtrip_cost_bps=roundtrip_cost_bps,
+            ast_novelty_report=nov,
+            targets_martingale_price_history=strategy_plan.doob_martingale_veto,
+        )
+        val_res = evaluate_signal_non_overlapping(
+            sig_vec[split_idx:], log_r[split_idx:], horizon=horizon, entry_threshold=thr,
+            roundtrip_cost_bps=roundtrip_cost_bps, bars_per_year=bars_per_year
+        )
         res = evaluate_signal_non_overlapping(
-            sig_vec, log_r, horizon=horizon, entry_threshold=thr, roundtrip_cost_bps=roundtrip_cost_bps, bars_per_year=bars_per_year
+            sig_vec, log_r, horizon=horizon, entry_threshold=thr,
+            roundtrip_cost_bps=roundtrip_cost_bps, bars_per_year=bars_per_year
         )
         f_mode, f_mut = diagnose_failure_mode(res, roundtrip_cost_bps)
+        bandit_t = float(train_res["t_net"]) if debate["approved_for_backtest"] else min(0.0, float(train_res["t_net"]))
+        bandit.update(parent_fam, t_stat_net=bandit_t, ast_penalty=float(nov["regularization_penalty"]))
         evaluations.append(
             CandidateEvaluation(
                 name=name,
                 formula_desc=desc,
-                params={"horizon": horizon, "threshold": thr},
+                params={"horizon": horizon, "threshold": thr, "ast_nodes": nov["n_ast_nodes"]},
                 horizon_bars=horizon,
                 n_trades=res["n_trades"],
                 gross_bps_per_trade=round(res["gross_bps"], 3),
@@ -666,67 +972,153 @@ def run_autonomous_discovery_loop(
                 failure_mode=f_mode,
                 recommended_mutation=f_mut,
                 trade_returns_net=res["net_trades"],
+                bull_bear_approved=bool(debate["approved_for_backtest"]),
+                bull_bear_conviction=float(debate["conviction_score"]),
+                bull_bear_objections=tuple(debate["bear_objections"]),
             )
         )
+        train_t_stats.append(float(train_res["t_net"]))
+        if train_res["n_trades"] >= 20 and debate["approved_for_backtest"]:
+            sel_score = 1e6 + float(train_res["t_net"])
+        elif train_res["n_trades"] >= 20:
+            sel_score = float(train_res["t_net"])
+        else:
+            sel_score = -1e9 + float(train_res["n_trades"])
+        train_selection_scores.append(sel_score)
+        debate_reports.append(debate)
+        val_t_stats.append(float(val_res["t_net"]))
         bar_pnl_matrix.append(res["bar_pnl_net"])
 
-    # Enregistrement obligatoire dans ResearchLedger
+    # Sélection du meilleur candidat STRICTEMENT sur la tranche causale Train (zéro fuite Validation)
     k_trials_run = len(evaluations)
-    best_eval = max(evaluations, key=lambda e: e.t_stat_net)
+    best_idx = int(np.argmax(train_selection_scores))
+    best_eval = evaluations[best_idx]
+    best_train_t = round(float(train_t_stats[best_idx]), 3)
+    best_val_t = round(float(val_t_stats[best_idx]), 3)
+    debate_best = debate_reports[best_idx]
 
-    trial_srs_per_trade = [
-        sharpe(ev.trade_returns_net) if len(ev.trade_returns_net) >= 2 else 0.0
+    # Calcul des Sharpe sur échelle STRICTEMENT commensurable :
+    # (1) Grille temporelle homogène 1-barre (`trial_srs_per_bar`)
+    # (2) Échelle trade-horizon homogène ramenée exactement à `best_eval.horizon_bars`
+    best_h = max(1.0, float(best_eval.horizon_bars))
+    trial_srs_per_bar = [
+        sharpe(bp) if np.std(bp) > 1e-18 else 0.0
+        for bp in bar_pnl_matrix
+    ]
+    trial_srs_per_trade_1bar = [
+        (sharpe(ev.trade_returns_net) / math.sqrt(max(1.0, float(ev.horizon_bars))))
+        if (len(ev.trade_returns_net) >= 2 and np.isfinite(sharpe(ev.trade_returns_net)))
+        else 0.0
         for ev in evaluations
     ]
 
     if ledger_path is not None:
         ledger = ResearchLedger(str(ledger_path))
-        for ev, sr_val in zip(evaluations, trial_srs_per_trade):
+        for ev, bp, sr_bar, sr_1b in zip(evaluations, bar_pnl_matrix, trial_srs_per_bar, trial_srs_per_trade_1bar):
+            sr_bar_clean = sr_bar if np.isfinite(sr_bar) else 0.0
+            sr_1b_clean = sr_1b if np.isfinite(sr_1b) else 0.0
             ledger.log_trial(
                 hypothesis_id=ev.name,
                 params=ev.params,
-                sr_per_period=sr_val if np.isfinite(sr_val) else 0.0,
-                n_obs=ev.n_trades,
-                extra={"formula": ev.formula_desc, "failure_mode": ev.failure_mode},
+                sr_per_period=sr_bar_clean,
+                n_obs=len(bp),
+                extra={
+                    "formula": ev.formula_desc,
+                    "failure_mode": ev.failure_mode,
+                    "horizon_bars": ev.horizon_bars,
+                    "n_trades": ev.n_trades,
+                    "sr_scale": "bar_grid",
+                    "sr_per_bar": sr_bar_clean,
+                    "sr_per_trade_1bar": sr_1b_clean,
+                    "bull_bear_approved": ev.bull_bear_approved,
+                    "bull_bear_conviction": ev.bull_bear_conviction,
+                },
             )
-        all_trial_srs = ledger.trial_sharpes()
+        all_bar_srs = np.asarray(
+            [
+                float(r["extra"]["sr_per_bar"])
+                if isinstance(r.get("extra"), dict) and "sr_per_bar" in r["extra"]
+                else (
+                    float(r["sr_per_period"])
+                    if not (isinstance(r.get("extra"), dict) and r["extra"].get("sr_scale") == "trade_horizon")
+                    else float(r["extra"].get("sr_per_trade_1bar", 0.0))
+                )
+                for r in ledger.trials()
+                if r.get("sr_per_period") is not None
+            ],
+            dtype=np.float64,
+        )
+        all_trade_srs_at_best_h = np.asarray(
+            [
+                (float(r["extra"]["sr_per_trade_1bar"]) * math.sqrt(best_h))
+                if isinstance(r.get("extra"), dict) and "sr_per_trade_1bar" in r["extra"]
+                else (float(r["sr_per_period"]) * math.sqrt(best_h))
+                for r in ledger.trials()
+                if r.get("sr_per_period") is not None
+            ],
+            dtype=np.float64,
+        )
         total_k = ledger.n_trials()
     else:
-        all_trial_srs = np.asarray(trial_srs_per_trade, dtype=np.float64)
+        all_bar_srs = np.asarray(trial_srs_per_bar, dtype=np.float64)
+        all_trade_srs_at_best_h = np.asarray(
+            [s * math.sqrt(best_h) for s in trial_srs_per_trade_1bar], dtype=np.float64
+        )
         total_k = k_trials_run
 
-    # Audit /boost sur le meilleur candidat trouvé en tenant compte de TOUS les essais
+    # Audit /boost sur le meilleur candidat trouvé en tenant compte de TOUS les essais (échelles commensurables)
     mat = np.column_stack(bar_pnl_matrix)
     pbo_res = pbo_cscv(mat, n_blocks=8)
     best_trades = best_eval.trade_returns_net
-    dsr_res = dsr(best_trades, all_trial_srs)
+    dsr_res = dsr(best_trades, all_trade_srs_at_best_h)
+    dsr_bar_res = dsr(bar_pnl_matrix[best_idx], all_bar_srs)
 
     summary_rows = []
     for ev in evaluations:
         d = asdict(ev)
         d.pop("trade_returns_net", None)
+        d["bull_bear_objections"] = list(ev.bull_bear_objections)
         summary_rows.append(d)
 
     return {
         "dgp_diagnosis": dgp_report,
+        "dgp_scope": "train_causal_slice",
+        "split_idx": split_idx,
+        "strategy_plan": asdict(strategy_plan),
+        "bandit_summary": bandit.summary(),
+        "bull_bear_debate_summary": {
+            "n_approved": sum(1 for r in debate_reports if r["approved_for_backtest"]),
+            "n_vetoed": sum(1 for r in debate_reports if not r["approved_for_backtest"]),
+        },
         "total_trials_logged_k": total_k,
         "candidates_evaluated": summary_rows,
         "best_candidate": {
             "name": best_eval.name,
             "formula": best_eval.formula_desc,
+            "horizon_bars": best_eval.horizon_bars,
             "n_trades": best_eval.n_trades,
             "gross_bps": best_eval.gross_bps_per_trade,
             "net_bps": best_eval.net_bps_per_trade,
             "t_stat_net": best_eval.t_stat_net,
+            "train_t_stat_net": best_train_t,
+            "val_t_stat_net": best_val_t,
             "sharpe_net_ann": best_eval.sharpe_net_ann,
             "failure_mode": best_eval.failure_mode,
             "dsr_at_total_k": round(float(dsr_res["dsr"]), 4) if np.isfinite(dsr_res["dsr"]) else 0.0,
+            "dsr_bar_grid": round(float(dsr_bar_res["dsr"]), 4) if np.isfinite(dsr_bar_res["dsr"]) else 0.0,
             "pbo_cscv": round(float(pbo_res["pbo"]), 4),
+            "bull_bear_approved": debate_best["approved_for_backtest"],
+            "bull_bear_conviction": debate_best["conviction_score"],
             "passes_boost": bool(
-                best_eval.n_trades >= 100
+                not strategy_plan.doob_martingale_veto
+                and debate_best["approved_for_backtest"]
+                and best_eval.n_trades >= GATES["min_trades"]
+                and best_val_t > 0.0
                 and np.isfinite(dsr_res["dsr"])
-                and dsr_res["dsr"] >= 0.95
-                and pbo_res["pbo"] <= 0.30
+                and dsr_res["dsr"] >= GATES["dsr_min"]
+                and np.isfinite(dsr_bar_res["dsr"])
+                and dsr_bar_res["dsr"] >= GATES["dsr_min"]
+                and pbo_res["pbo"] <= GATES["pbo_max"]
                 and best_eval.subperiod_positive_ratio >= 0.75
             ),
         },
@@ -783,16 +1175,26 @@ def symbolic_alpha_search_aicc(
             vec, log_returns, horizon=horizon, entry_threshold=1.0, roundtrip_cost_bps=roundtrip_cost_bps
         )
         sr_trade = sharpe(res["net_trades"]) if len(res["net_trades"]) >= 2 else 0.0
-        trial_srs.append(sr_trade if np.isfinite(sr_trade) else 0.0)
+        sr_trade_clean = sr_trade if np.isfinite(sr_trade) else 0.0
+        sr_bar = sharpe(res["bar_pnl_net"]) if np.std(res["bar_pnl_net"]) > 1e-18 else 0.0
+        sr_bar_clean = sr_bar if np.isfinite(sr_bar) else 0.0
+        trial_srs.append(sr_trade_clean)
         aicc_score = float(res["t_net"]) - 0.35 * float(k_nodes)
 
         if ledger is not None:
+            sr_1bar = sr_trade_clean / math.sqrt(max(1.0, float(horizon)))
             ledger.log_trial(
                 hypothesis_id=f"SYM_{expr}",
                 params={"horizon": horizon, "k_nodes": k_nodes},
-                sr_per_period=sr_trade if np.isfinite(sr_trade) else 0.0,
+                sr_per_period=sr_trade_clean,
                 n_obs=res["n_trades"],
-                extra={"aicc_score": round(aicc_score, 3)},
+                extra={
+                    "aicc_score": round(aicc_score, 3),
+                    "horizon_bars": horizon,
+                    "sr_scale": "trade_horizon",
+                    "sr_per_bar": sr_bar_clean,
+                    "sr_per_trade_1bar": sr_1bar,
+                },
             )
 
         results.append(
@@ -809,7 +1211,24 @@ def symbolic_alpha_search_aicc(
         )
 
     best = max(results, key=lambda d: d["aicc_penalized_score"])
-    all_srs = ledger.trial_sharpes() if ledger is not None else np.asarray(trial_srs, dtype=np.float64)
+    if ledger is not None:
+        h_target = max(1.0, float(horizon))
+        all_srs = np.asarray(
+            [
+                (float(r["extra"]["sr_per_trade_1bar"]) * math.sqrt(h_target))
+                if isinstance(r.get("extra"), dict) and "sr_per_trade_1bar" in r["extra"]
+                else (
+                    float(r["sr_per_period"]) * math.sqrt(h_target / max(1.0, float(r["extra"]["horizon_bars"])))
+                    if isinstance(r.get("extra"), dict) and "horizon_bars" in r["extra"]
+                    else float(r["sr_per_period"]) * math.sqrt(h_target)
+                )
+                for r in ledger.trials()
+                if r.get("sr_per_period") is not None
+            ],
+            dtype=np.float64,
+        )
+    else:
+        all_srs = np.asarray(trial_srs, dtype=np.float64)
     dsr_best = dsr(best["net_trades"], all_srs)
     best_clean = {k: v for k, v in best.items() if k != "net_trades"}
     best_clean["dsr_at_total_k"] = round(float(dsr_best["dsr"]), 4) if np.isfinite(dsr_best["dsr"]) else 0.0
@@ -998,27 +1417,37 @@ class UCBFamilyBandit:
         UCB_i(t) = mu_hat_i + exploration_c * sqrt(ln(N_total) / n_i)
     """
 
-    def __init__(self, family_names: List[str], exploration_c: float = 1.20) -> None:
+    def __init__(
+        self,
+        family_names: List[str],
+        exploration_c: float = 1.20,
+        family_priors: Optional[Dict[str, float]] = None,
+    ) -> None:
         if not family_names:
             raise ValueError("Au moins une famille d'alpha requise.")
         self.families = list(family_names)
         self.c = float(exploration_c)
+        self.priors: Dict[str, float] = {
+            f: float(family_priors.get(f, 1.0 / len(self.families))) if family_priors else (1.0 / len(self.families))
+            for f in self.families
+        }
         self.counts: Dict[str, int] = {f: 0 for f in self.families}
         self.rewards_sum: Dict[str, float] = {f: 0.0 for f in self.families}
         self.history: List[Dict[str, Any]] = []
 
     def select_next_family(self) -> str:
-        # Phase d'amorçage : tester au moins 1 fois chaque famille orthogonale
-        for f in self.families:
-            if self.counts[f] == 0:
-                return f
+        # Phase d'amorçage : tester au moins 1 fois chaque famille orthogonale (par ordre décroissant de prior)
+        unvisited = [f for f in self.families if self.counts[f] == 0]
+        if unvisited:
+            return max(unvisited, key=lambda f: self.priors.get(f, 0.0))
         total_n = sum(self.counts.values())
         best_f = self.families[0]
         best_ucb = -1e18
         for f in self.families:
             mu = self.rewards_sum[f] / self.counts[f]
             bonus = self.c * math.sqrt(math.log(max(2, total_n)) / self.counts[f])
-            ucb = mu + bonus
+            prior_boost = 0.20 * self.priors.get(f, 0.0) / max(1, self.counts[f])
+            ucb = mu + bonus + prior_boost
             if ucb > best_ucb:
                 best_ucb = ucb
                 best_f = f
@@ -1155,11 +1584,14 @@ if __name__ == "__main__":
     o_reg[0] = c_reg[0]
 
     rep_reg = run_autonomous_discovery_loop(o_reg, h_reg, l_reg, c_reg, roundtrip_cost_bps=1.5)
-    print("=== AUTO-TEST 2 : MARCHÉ À RÉGIME EXPLOITABLE ===")
+    print("=== AUTO-TEST 2 : MARCHÉ À RÉGIME EXPLOITABLE (CHAMELEON) ===")
     print("Verdict DGP :", rep_reg["dgp_diagnosis"]["structural_verdict"])
+    print("Plan Stratégique :", rep_reg["strategy_plan"]["primary_playbook"], "| H* =", rep_reg["strategy_plan"]["optimal_horizon_bars"])
     print("Meilleur candidat découvert :", rep_reg["best_candidate"])
+    assert rep_reg["dgp_diagnosis"]["dominant_regime"] == "REGIME_SWITCHING_CHAMELEON", rep_reg["dgp_diagnosis"]
+    assert rep_reg["strategy_plan"]["primary_playbook"] == "CHAMELEON_REGIME_ADAPTIVE_SWITCHING", rep_reg["strategy_plan"]
     assert rep_reg["best_candidate"]["passes_boost"], "Le vrai alpha de régime aurait dû être découvert !"
-    print("[OK] Vrai alpha structurel découvert et validé par /boost.\n")
+    print("[OK] Vrai alpha structurel Chameleon planifié, découvert et validé par /boost.\n")
 
     # Cas 3 : AlphaAgent AST Regularization (détection de clones algébriques commutatifs & tweaking de constantes)
     sim_clone = ast_similarity_score("(ret_z + vol_ratio) * tanh(kalman_z * 1.5)", "tanh(2.0 * kalman_z) * (vol_ratio + ret_z)")

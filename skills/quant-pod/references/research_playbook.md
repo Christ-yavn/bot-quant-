@@ -1,4 +1,4 @@
-# Playbook de Recherche Quantitative Autonome (`quant-pod` v2)
+# Playbook de Recherche Quantitative Autonome (`quant-pod` v3.0)
 
 Ce document définit la méthodologie scientifique permettant au desk `quant-pod` de **découvrir, formuler, tester et faire évoluer** de nouvelles stratégies sur n'importe quel marché, sans jamais tomber dans le *data snooping* ou l'illusion statistique.
 
@@ -36,10 +36,10 @@ Aucune ligne de code de backtest ne doit être écrite sans une fiche d'hypothè
 
 ## 4. Critère de Falsification Pré-Enregistré (Avant exécution)
 - **Condition de rejet immédiat** :
-  - $\text{PnL}_{\text{net}}(\text{coûts } 1\times) \le 0$ ou $t\text{-stat} < 2.0$
+  - $\text{PnL}_{\text{net}}(\text{coûts } 1\times) \le 0$ ou $t\text{-stat} < 3.0$ (seuil Harvey-Liu-Zhu)
   - $\text{DSR}(K_{\text{total}}) < 0.95$
   - $p_{\text{null}} > 0.05$ face au DGP nul calibré
-  - $\text{Plateau} < 0.60$ sur les voisins de paramètres
+  - $\text{Plateau} < 0.50$ sur les voisins de paramètres (`GATES["plateau_min"] = 0.50`)
 ```
 
 ---
@@ -106,4 +106,4 @@ L'`[ALPHA_RESEARCHER]` doit orienter l'effort de recherche là où des contrepar
 Pour éviter qu'une boucle autonome ne finisse par sur-optimiser le bruit à force d'itérer :
 1. Avant de lancer une campagne de recherche, fixer un budget maximal d'essais $K_{\text{max}}$ (typiquement $K_{\text{max}} \le 20$ variantes d'hypothèses sur un même jeu de données).
 2. À chaque itération $k \in \{1, \dots, K_{\text{max}}\}$, enregistrer l'essai dans `ResearchLedger` et recalculer $\text{DSR}(K_{\text{total}})$ où $K_{\text{total}}$ inclut **tous** les essais historiques sur ce dataset.
-3. Si $K_{\text{total}}$ atteint $K_{\text{max}}$ sans qu'aucune variante ne franchisse simultanément les 5 portes `/boost`, **arrêter la recherche sur cet actif/dataset** et conclure par un verdict `[FALSIFIÉ]` documenté dans `TRUTH.md`.
+3. Si $K_{\text{total}}$ atteint $K_{\text{max}}$ sans qu'aucune variante ne franchisse simultanément l'ensemble des portes `/boost` (`evaluate_gates`), **arrêter la recherche sur cet actif/dataset** et conclure par un verdict `[FALSIFIÉ]` documenté dans `TRUTH.md`.

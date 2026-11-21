@@ -638,10 +638,14 @@ def multifractal_dfa_spectrum(series: np.ndarray, q_orders: Tuple[float, ...] = 
                 if var_s > 1e-18:
                     rms.append(math.sqrt(var_s))
             rms_arr = np.asarray(rms, dtype=np.float64)
+            if len(rms_arr) == 0:
+                return {"valid": False}
             if abs(q) < 1e-4:
                 fq = math.exp(0.5 * float(np.mean(np.log(rms_arr ** 2))))
             else:
                 fq = float(np.mean(rms_arr ** q)) ** (1.0 / q)
+            if not np.isfinite(fq) or fq <= 0.0:
+                return {"valid": False}
             fq_vals.append(fq)
         slope = float(np.polyfit(np.log(scales), np.log(fq_vals), 1)[0])
         hq_dict[f"H_q_{q:+.1f}"] = round(slope, 4)
@@ -800,21 +804,21 @@ def audit_range_break_barriers(high: np.ndarray, low: np.ndarray, close: np.ndar
         u_t = float(np.max(h[t - window : t]))
         l_t = float(np.min(l[t - window : t]))
         rng = max(1e-8, u_t - l_t)
-        # Contact proche de la barrière haute ou basse (< 2% de la largeur du couloir)
-        if abs(h[t] - u_t) <= 0.02 * rng:
+        # Contact proche (< 2% de la largeur) ou franchissement direct de la barrière haute ou basse
+        if h[t] >= u_t - 0.02 * rng:
             touches += 1
             next_move = c[t + 1] - c[t]
-            if h[t + 1] > u_t + 0.05 * rng:
+            if h[t] > u_t + 0.02 * rng or h[t + 1] > u_t + 0.05 * rng:
                 breakouts += 1
-                breakout_moves.append(abs(next_move))
+                breakout_moves.append(max(abs(next_move), abs(h[t] - u_t)))
             else:
                 rebound_gains.append(-next_move)
-        elif abs(l[t] - l_t) <= 0.02 * rng:
+        elif l[t] <= l_t + 0.02 * rng:
             touches += 1
             next_move = c[t + 1] - c[t]
-            if l[t + 1] < l_t - 0.05 * rng:
+            if l[t] < l_t - 0.02 * rng or l[t + 1] < l_t - 0.05 * rng:
                 breakouts += 1
-                breakout_moves.append(abs(next_move))
+                breakout_moves.append(max(abs(next_move), abs(l_t - l[t])))
             else:
                 rebound_gains.append(next_move)
 
@@ -841,7 +845,10 @@ if __name__ == "__main__":
     te = schreiber_transfer_entropy(bits.astype(float), np.roll(bits, 1).astype(float), lag=1)
     dsi_res = wonham_bayesian_regime_filter_dsi(rng.normal(0.0003, 0.001, size=300))
     weib = weibull_hazard_mle_trek(rng.weibull(1.8, size=400) * 50.0)
+    rb_c = 100.0 + np.cumsum(rng.normal(0.0, 0.2, size=300))
+    rb_res = audit_range_break_barriers(rb_c + 0.1, rb_c - 0.1, rb_c, window=30)
+    assert rb_res["valid"] and rb_res["n_breakouts"] > 0, rb_res
     print(
         "[OK] deriv_quant_engine.py (10 modules complets) initialisé et testé :",
-        {"lz76": round(lz, 3), "te_bits": round(te, 3), "dsi_p_bull": round(float(dsi_res["prob_bull"][-1]), 3), "weibull_k": weib["weibull_shape_k"]},
+        {"lz76": round(lz, 3), "te_bits": round(te, 3), "dsi_p_bull": round(float(dsi_res["prob_bull"][-1]), 3), "weibull_k": weib["weibull_shape_k"], "rb_breakouts": rb_res["n_breakouts"]},
     )

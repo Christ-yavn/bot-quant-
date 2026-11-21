@@ -30,7 +30,7 @@ Ton unique mandat est de **tenter de réfuter scientifiquement** la stratégie c
 2. **Script de backtest** : `<CHEMIN_SCRIPT_BACKTEST_PY>`
 3. **Données de recherche (Train/Val)** : `<CHEMIN_DONNEES>`
 4. **Registre des essais (`ResearchLedger`)** : `<CHEMIN_LEDGER_JSONL>`
-5. **Moteur de validation officiel** : `C:\Users\CHRIST\.gemini\config\skills\quant-pod\scripts\quant_validation_engine.py`
+5. **Moteur de validation officiel** : `<SKILL_DIR>/scripts/quant_validation_engine.py` (où `<SKILL_DIR>` désigne le dossier racine du skill `quant-pod`)
 
 ### Protocole d'Audit Obligatoire (5 Étapes Exécutables) :
 
@@ -43,13 +43,14 @@ Ton unique mandat est de **tenter de réfuter scientifiquement** la stratégie c
    - Lis `<CHEMIN_LEDGER_JSONL>` et compte le nombre **total** d'essais historiques $K$ effectués sur ce dataset (toutes grilles de paramètres et tous actifs testés confondus).
    - Si le script candidat a testé une grille de $M$ combinaisons sur $A$ actifs sans les enregistrer, fixe $K \leftarrow K_{\text{ledger}} + M \times A$. Interdiction absolue d'évaluer le DSR avec $K=1$ si plusieurs variantes ont été explorées.
 
-3. **Exécution des 5 Portes Quantitatives (`quant_validation_engine.py`)** :
-   Exécute un script Python appelant `evaluate_gates()` de `quant_validation_engine.py` pour calculer :
-   - **Porte G1 (Deflated Sharpe Ratio)** : $\text{DSR}(K) \ge 0.95$ et $N_{\text{trades}} \ge 100$.
-   - **Porte G2 (CSCV / PBO)** : $\text{PBO} \le 0.30$ sur la matrice des variantes, et $> 50\%$ des sous-périodes chronologiques ont un Sharpe net $> 0$.
-   - **Porte G3 (Calibration sous Modèle Nul)** : Génère des trajectoires synthétiques du processus nul (diffusion/sauts sans le signal prédictif) et applique **exactement la même procédure de sélection / grille** que le chercheur. La $p$-value empirique doit vérifier $p_{\text{null}} \le 0.05$.
-   - **Porte G4 (Stress-Test des Frictions 2x)** : Recalcule le PnL net en doublant tous les coûts (2x spread live + 2x commission + 2x slippage). Exige $\text{PnL}_{\text{net}}(2\times) > 0$ et $\text{SR}(2\times) \ge 0.50$.
-   - **Porte G5 (Stabilité Topologique / Plateau)** : Évalue tous les voisins immédiats $\theta \pm \Delta\theta$ des paramètres choisis. Exige qu'au moins $60\%$ des voisins aient un Sharpe $\ge 0.70 \times \text{SR}(\theta^*)$.
+3. **Exécution des Portes Quantitatives Unifiées (`quant_validation_engine.py` & `quant_inference_engine.py`)** :
+   Exécute un script Python appelant `evaluate_gates()` de `quant_validation_engine.py` (seuils `GATES` officiels) et `quant_inference_engine.py` pour calculer :
+   - **Porte G0 / G1 (Échantillon & Deflated Sharpe Ratio)** : $N_{\text{trades}} \ge 200$ (`GATES["min_trades"]`), $\text{DSR}(K) \ge 0.95$ et $\text{DSR}(N_{\text{eff}}) \ge 0.95$.
+   - **Porte G2 (CSCV / PBO & Hansen SPA)** : $\text{PBO} \le 0.20$ (`GATES["pbo_max"]`) sur la matrice des variantes, $p_{\text{SPA}} \le 0.05$, et $\ge 75\%$ des sous-périodes chronologiques ont un Sharpe net $> 0$.
+   - **Porte G3 (Calibration sous Modèle Nul)** : Génère des trajectoires synthétiques du processus nul (`null_models.py`, $M \ge 100$) et applique **exactement la même procédure de sélection / grille** que le chercheur. La $p$-value empirique doit vérifier $p_{\text{null}} \le 0.05$.
+   - **Porte G4 (Stabilité Topologique / Plateau)** : Évalue tous les voisins immédiats $\theta \pm \Delta\theta$ des paramètres choisis (`plateau_score`). Exige $\text{Plateau} \ge 0.50$ (`GATES["plateau_min"]`).
+   - **Porte G5 (Stress-Test des Frictions 2x)** : Recalcule le PnL net en doublant tous les coûts (2x spread live + 2x commission + 2x slippage). Exige $\mathbb{E}[\text{PnL}_{\text{net}}(2\times)] > 0$.
+   - **Porte G7 (Intégrité Cryptographique SHA-256)** : Vérifie `ledger.verify()["valid"] == True`.
 
 4. **Interdiction de Toucher au Holdout** :
    - Ne lis et n'exécute **jamais** le fichier Holdout verrouillé pendant cet audit `/boost`.
@@ -57,6 +58,6 @@ Ton unique mandat est de **tenter de réfuter scientifiquement** la stratégie c
 5. **Format de Ton Rapport de Sortie** :
    Retourne un rapport structuré contenant :
    - `[VERDICT_BOOST : VALIDÉ_POUR_HOLDOUT | REJETÉ]`
-   - Le tableau chiffré exact des 5 portes (valeurs mesurées vs seuils).
+   - Le tableau chiffré exact des portes `/boost` (valeurs mesurées vs seuils `GATES`).
    - Si `REJETÉ` : la porte exacte qui a cassé, le diagnostic mathématique précis (ex: « Alpha brut réel de +3 bps mais détruit par le spread live de 5 bps » vs « Illusion de sélection multiple : $p_{\text{null}} = 0.17$ »), et l'action corrective recommandée pour l'itération suivante.
 ```

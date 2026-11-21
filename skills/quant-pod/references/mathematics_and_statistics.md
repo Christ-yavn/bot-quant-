@@ -1,10 +1,10 @@
-# Arsenal Mathématique, Algorithmique, Cryptographique & Microstructural Complet (`quant-pod` v2)
+# Arsenal Mathématique, Algorithmique, Cryptographique & Microstructural Complet (`quant-pod` v3.0)
 
-Ce document constitue le socle théorique de niveau recherche institutionnelle (PhD / Quantitative Desk) utilisé par `quant-pod` v2. Toutes les équations ci-dessous sont directement implémentées dans les 4 moteurs Python du skill :
-- [`quant_discovery_engine.py`](file:///C:/Users/CHRIST/.gemini/config/skills/quant-pod/scripts/quant_discovery_engine.py)
-- [`quant_validation_engine.py`](file:///C:/Users/CHRIST/.gemini/config/skills/quant-pod/scripts/quant_validation_engine.py)
-- [`quant_scientific_arsenal.py`](file:///C:/Users/CHRIST/.gemini/config/skills/quant-pod/scripts/quant_scientific_arsenal.py)
-- [`deriv_quant_engine.py`](file:///C:/Users/CHRIST/.gemini/config/skills/quant-pod/scripts/deriv_quant_engine.py)
+Ce document constitue le socle théorique de niveau recherche institutionnelle (PhD / Quantitative Desk) utilisé par `quant-pod` v3.0. Toutes les équations ci-dessous sont directement implémentées dans les 10 moteurs Python du skill (`../scripts/`) :
+- [`quant_discovery_engine.py`](../scripts/quant_discovery_engine.py)
+- [`quant_validation_engine.py`](../scripts/quant_validation_engine.py)
+- [`quant_scientific_arsenal.py`](../scripts/quant_scientific_arsenal.py)
+- [`deriv_quant_engine.py`](../scripts/deriv_quant_engine.py)
 
 ---
 
@@ -82,7 +82,7 @@ Lorsqu'un marché est généré algorithmiquement (indices synthétiques Deriv),
    $$Z_1 = \sqrt{-2 \ln U_1} \cos(2\pi U_2), \quad Z_2 = \sqrt{-2 \ln U_1} \sin(2\pi U_2)$$
    alors en inversant les paires consécutives de rendements normalisés $(z_{2k}, z_{2k+1})$ :
    $$\hat{U}_1 = \exp\left(-\frac{z_{2k}^2 + z_{2k+1}^2}{2}\right), \quad \hat{U}_2 = \frac{\text{atan2}(z_{2k+1}, z_{2k}) + \pi}{2\pi}$$
-   doivent suivre deux lois uniformes indépendantes sur $[0, 1]$. Si le PRNG sous-jacent est un LCG ou XORShift à faible période, $(z_{2k}, z_{2k+1})$ forme des spirales (effet Neave) et tronque les queues au-delà de $3.5\sigma$ (`audit_gaussian_generator_tails` dans [`quant_discovery_engine.py`](file:///C:/Users/CHRIST/.gemini/config/skills/quant-pod/scripts/quant_discovery_engine.py)).
+   doivent suivre deux lois uniformes indépendantes sur $[0, 1]$. Si le PRNG sous-jacent est un LCG ou XORShift à faible période, $(z_{2k}, z_{2k+1})$ forme des spirales (effet Neave) et tronque les queues au-delà de $3.5\sigma$ (`audit_gaussian_generator_tails` dans [`quant_discovery_engine.py`](../scripts/quant_discovery_engine.py)).
 2. **Complexité Linéaire sur $\mathbb{F}_2$ (Algorithme de Berlekamp-Massey)** :
    Détermine la taille minimale $L$ du registre à décalage à rétroaction linéaire (LFSR) reproduisant une suite binaire de signes de longueur $N$. Pour une vraie source aléatoire, $\mathbb{E}[L] = N/2 + O(1)$. Si $L \ll N/2$, la suite est algébriquement prédictible.
 3. **Entropie de Permutation de Bandt & Pompe (2002)** :

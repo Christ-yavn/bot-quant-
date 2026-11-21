@@ -108,40 +108,71 @@ class HashChainLedger:
         n_chained = 0
         for i, r in enumerate(rows):
             if "payload" not in r:          # ligne héritée (ancien format) : signalée
-                return {"ok": False, "n_rows": len(rows), "broken_at": i,
+                return {"ok": False, "valid": False, "n_rows": len(rows), "broken_at": i,
                         "reason": "ligne non chaînée (format hérité ou insertion manuelle)"}
             if r.get("prev_hash") != prev:
-                return {"ok": False, "n_rows": len(rows), "broken_at": i,
+                return {"ok": False, "valid": False, "n_rows": len(rows), "broken_at": i,
                         "reason": "prev_hash incohérent (ligne supprimée/insérée/réordonnée)"}
             expect = sha256_bytes(prev.encode() + canonical_json(r["payload"]))
             if expect != r.get("hash"):
-                return {"ok": False, "n_rows": len(rows), "broken_at": i,
+                return {"ok": False, "valid": False, "n_rows": len(rows), "broken_at": i,
                         "reason": "contenu modifié après écriture"}
             prev = r["hash"]
             n_chained += 1
-        return {"ok": True, "n_rows": len(rows), "n_chained": n_chained, "head": prev}
+        return {"ok": True, "valid": True, "n_rows": len(rows), "n_chained": n_chained, "head": prev}
+
+    def commit_hypothesis(self, card_text: str = "", hypothesis_id: str = "",
+                          formula: str = "", params: Optional[Dict[str, Any]] = None,
+                          salt: Optional[str] = None) -> Dict[str, str]:
+        """Méthode d'instance pour pré-engager une hypothèse directement dans ce HashChainLedger."""
+        return commit_hypothesis(
+            card_text=card_text,
+            ledger=self,
+            hypothesis_id=hypothesis_id,
+            formula=formula,
+            params=params,
+            salt=salt,
+        )
 
 
 # ============================================================================
 # 2. PRÉ-ENREGISTREMENT COMMIT / REVEAL
 # ============================================================================
-def commit_hypothesis(card_text: str, ledger: Optional[HashChainLedger] = None,
-                      hypothesis_id: str = "") -> Dict[str, str]:
+def _salt_bytes(salt: str) -> bytes:
+    try:
+        if len(salt) % 2 == 0 and all(c in "0123456789abcdefABCDEF" for c in salt):
+            return bytes.fromhex(salt)
+    except ValueError:
+        pass
+    return salt.encode("utf-8")
+
+
+def commit_hypothesis(card_text: str = "", ledger: Optional[HashChainLedger] = None,
+                      hypothesis_id: str = "", formula: str = "",
+                      params: Optional[Dict[str, Any]] = None,
+                      salt: Optional[str] = None) -> Dict[str, str]:
     """
     Engagement cryptographique : c = SHA256(salt || card). On publie c (dans le ledger),
     on garde (salt, card). Masquant (salt aléatoire 256 bits) et liant (résistance
     aux collisions de SHA-256) : impossible de changer la fiche après coup.
     """
-    salt = secrets.token_hex(32)
-    c = sha256_bytes(bytes.fromhex(salt) + card_text.encode("utf-8"))
+    salt_str = salt if salt is not None else secrets.token_hex(32)
+    if not card_text and (formula or params is not None):
+        card_text = canonical_json({"hypothesis_id": hypothesis_id, "formula": formula, "params": params or {}}).decode("utf-8")
+    c = sha256_bytes(_salt_bytes(salt_str) + card_text.encode("utf-8"))
     if ledger is not None:
-        ledger.append({"type": "hypothesis_commit", "hypothesis_id": hypothesis_id, "commitment": c})
-    return {"commitment": c, "salt": salt}
+        payload: Dict[str, Any] = {"type": "hypothesis_commit", "hypothesis_id": hypothesis_id, "commitment": c}
+        if formula:
+            payload["formula"] = formula
+        if params is not None:
+            payload["params"] = params
+        ledger.append(payload)
+    return {"commitment": c, "salt": salt_str, "card_text": card_text}
 
 
 def reveal_verify(card_text: str, salt: str, commitment: str) -> bool:
     return hmac.compare_digest(
-        sha256_bytes(bytes.fromhex(salt) + card_text.encode("utf-8")), commitment)
+        sha256_bytes(_salt_bytes(salt) + card_text.encode("utf-8")), commitment)
 
 
 # ============================================================================
@@ -190,8 +221,18 @@ def derive_seed(project_key: str, *labels: Any) -> int:
 # 5. SCELLEMENT DU HOLDOUT
 # ============================================================================
 def seal_holdout(ledger: HashChainLedger, file_path: str) -> str:
+    fp = os.path.abspath(file_path)
+    pl = ledger.payloads()
+    opened = [p for p in pl if p.get("type") == "holdout_opened" and p.get("file") == fp]
+    if opened:
+        raise RuntimeError("Holdout déjà ouvert : ré-scellement interdit.")
     h = sha256_file(file_path)
-    ledger.append({"type": "holdout_sealed", "file": os.path.abspath(file_path), "sha256": h})
+    sealed = [p for p in pl if p.get("type") in ("holdout_sealed", "holdout_registered") and p.get("file") == fp]
+    if sealed:
+        if any(p.get("sha256") != h for p in sealed):
+            raise RuntimeError("Violation d'intégrité : ce fichier holdout a déjà été scellé avec une empreinte différente.")
+        return sealed[0]["sha256"]
+    ledger.append({"type": "holdout_sealed", "file": fp, "sha256": h})
     return h
 
 

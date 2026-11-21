@@ -54,55 +54,96 @@ def backtest_events(open_: ArrayLike, high: ArrayLike, low: ArrayLike, close: Ar
     while t < n - lat:
         e = t + lat                                   # barre d'exécution
         want = int(np.sign(s[t]))
+        stopped_on_bar = False
+
+        # Étape 1 : Événements à l'OUVERTURE o[e] (SL_GAP, TP_GAP, TIME, SIGNAL)
         if pos != 0:
-            # 1) gestion intrabar de la barre e (stops), avant tout changement de signal
+            old_pos = pos
             exit_px, reason = None, None
             if sl_px is not None or tp_px is not None:
                 if pos > 0:
                     if sl_px is not None and o[e] <= sl_px:
                         exit_px, reason = o[e], "SL_GAP"
-                    elif sl_px is not None and l[e] <= sl_px:
-                        exit_px, reason = sl_px, "SL"
                     elif tp_px is not None and o[e] >= tp_px:
                         exit_px, reason = o[e], "TP_GAP"
-                    elif tp_px is not None and h[e] >= tp_px:
-                        exit_px, reason = tp_px, "TP"
                 else:
                     if sl_px is not None and o[e] >= sl_px:
                         exit_px, reason = o[e], "SL_GAP"
-                    elif sl_px is not None and h[e] >= sl_px:
-                        exit_px, reason = sl_px, "SL"
                     elif tp_px is not None and o[e] <= tp_px:
                         exit_px, reason = o[e], "TP_GAP"
-                    elif tp_px is not None and l[e] <= tp_px:
-                        exit_px, reason = tp_px, "TP"
             if exit_px is None and max_hold_bars is not None and (e - entry_i) >= max_hold_bars:
                 exit_px, reason = o[e], "TIME"
             if exit_px is None and (want == -pos or (exit_on_flat and want == 0)):
                 exit_px, reason = o[e], "SIGNAL"
             if exit_px is not None:
                 fill = exit_px - pos * spr[e] / 2.0
-                bars = e - entry_i
+                bars = max(1, e - entry_i)
+                gross = pos * (fill - entry_px) / entry_px
+                net = gross - 2 * commission_frac - carry_frac_per_bar * bars
+                trades.append({"entry_i": entry_i, "exit_i": e, "side": pos, "entry_px": entry_px,
+                               "exit_px": fill, "bars": bars, "gross": gross, "net": net, "reason": reason})
+                if reason in ("SL_GAP", "TP_GAP") or (reason == "TIME" and want == old_pos):
+                    stopped_on_bar = True
+                pos, sl_px, tp_px = 0, None, None
+
+        # Entrée à l'OUVERTURE o[e] (uniquement si pas stoppé sur ce même open)
+        if pos == 0 and not stopped_on_bar and want != 0 and e < n - 1:
+            entry_px = o[e] + want * spr[e] / 2.0
+            pos, entry_i = want, e
+            sl_px = entry_px * (1 - want * stop_loss_frac) if stop_loss_frac else None
+            tp_px = entry_px * (1 + want * take_profit_frac) if take_profit_frac else None
+
+        # Étape 2 : Excursion INTRABAR (o[e] -> h[e], l[e] -> c[e]) incluant la barre d'entrée
+        # Priorité pessimiste : SL testé avant TP. Aucune ré-entrée rétroactive à o[e] possible.
+        if pos != 0 and (sl_px is not None or tp_px is not None):
+            exit_px, reason = None, None
+            if pos > 0:
+                if sl_px is not None and l[e] <= sl_px:
+                    exit_px, reason = min(o[e], sl_px), "SL"
+                elif tp_px is not None and h[e] >= tp_px:
+                    exit_px, reason = max(o[e], tp_px), "TP"
+            else:
+                if sl_px is not None and h[e] >= sl_px:
+                    exit_px, reason = max(o[e], sl_px), "SL"
+                elif tp_px is not None and l[e] <= tp_px:
+                    exit_px, reason = min(o[e], tp_px), "TP"
+            if exit_px is not None:
+                fill = exit_px - pos * spr[e] / 2.0
+                bars = max(1, e - entry_i)
                 gross = pos * (fill - entry_px) / entry_px
                 net = gross - 2 * commission_frac - carry_frac_per_bar * bars
                 trades.append({"entry_i": entry_i, "exit_i": e, "side": pos, "entry_px": entry_px,
                                "exit_px": fill, "bars": bars, "gross": gross, "net": net, "reason": reason})
                 pos, sl_px, tp_px = 0, None, None
-        if pos == 0 and want != 0 and e < n - 1:
-            entry_px = o[e] + want * spr[e] / 2.0
-            pos, entry_i = want, e
-            sl_px = entry_px * (1 - want * stop_loss_frac) if stop_loss_frac else None
-            tp_px = entry_px * (1 + want * take_profit_frac) if take_profit_frac else None
+
         t += 1
     if pos != 0:
         fill = c[-1] - pos * spr[-1] / 2.0
-        bars = n - 1 - entry_i
+        bars = max(1, n - 1 - entry_i)
         gross = pos * (fill - entry_px) / entry_px
         trades.append({"entry_i": entry_i, "exit_i": n - 1, "side": pos, "entry_px": entry_px, "exit_px": fill,
                        "bars": bars, "gross": gross, "net": gross - 2 * commission_frac - carry_frac_per_bar * bars,
                        "reason": "END"})
-    return {"trades": trades, "summary": summarize_trades([tr["net"] for tr in trades],
-                                                          [tr["gross"] for tr in trades])}
+
+    # Marquage au marché (Mark-to-Market) causal barre par barre (somme télescopique exacte = sum(tr["net"]))
+    bar_returns = np.zeros(n, dtype=float)
+    for tr in trades:
+        ei, xi = int(tr["entry_i"]), int(tr["exit_i"])
+        side = float(tr["side"])
+        epx, xpx = float(tr["entry_px"]), float(tr["exit_px"])
+        if xi <= ei:
+            bar_returns[ei] += float(tr["net"])
+        else:
+            bar_returns[ei] += side * (c[ei] - epx) / epx - commission_frac
+            if xi > ei + 1:
+                bar_returns[ei + 1 : xi] += side * (c[ei + 1 : xi] - c[ei : xi - 1]) / epx - carry_frac_per_bar
+            bar_returns[xi] += side * (xpx - c[xi - 1]) / epx - commission_frac - carry_frac_per_bar
+
+    return {
+        "trades": trades,
+        "summary": summarize_trades([tr["net"] for tr in trades], [tr["gross"] for tr in trades]),
+        "bar_returns": bar_returns,
+    }
 
 
 def summarize_trades(net: Sequence[float], gross: Optional[Sequence[float]] = None) -> Dict[str, float]:
@@ -138,6 +179,12 @@ def lookahead_truncation_test(signal_fn: Callable[[Dict[str, np.ndarray]], np.nd
     """
     d = {k: np.asarray(v) for k, v in data.items()}
     n = len(next(iter(d.values())))
+    if tail_check < 1 or n_checkpoints < 1:
+        raise ValueError("tail_check et n_checkpoints doivent être >= 1.")
+    if n <= min_history + 1:
+        raise ValueError(f"Série trop courte (n={n}) pour min_history={min_history} dans lookahead_truncation_test.")
+    if min_history < tail_check:
+        raise ValueError(f"min_history={min_history} doit être >= tail_check={tail_check}.")
     full = np.asarray(signal_fn(d), dtype=float)
     rng = np.random.default_rng(seed)
     cps = np.sort(rng.choice(np.arange(min_history, n - 1), size=min(n_checkpoints, n - 1 - min_history), replace=False))
@@ -233,7 +280,31 @@ if __name__ == "__main__":
             out[i] = 0.05 * x[i] + 0.95 * out[i - 1]
         return out
     ws = warmup_stability_test(ema, data, startups=(30, 100, 400))
+
+    # 5. Chronologie intrabar : (1A) SL touché dès la barre d'entrée, (1B) sortie SIGNAL à l'open avant SL intrabar,
+    #    (1C) pas de ré-entrée rétroactive à o[e] après un SL intrabar sur la barre e.
+    o3 = np.array([100.0, 100.0, 100.0, 100.0])
+    h3 = np.array([100.5, 100.5, 100.5, 100.5])
+    l3 = np.array([99.5, 95.0, 99.5, 99.5])      # krach intrabar sur la barre d'entrée e=1
+    c3 = np.array([100.0, 96.0, 100.0, 100.0])
+    s3 = np.array([1, 0, 0, 0])                  # s3[0]=1 -> entrée e=1 et SL intrabar immédiat sur e=1
+    bt3 = backtest_events(o3, h3, l3, c3, s3, stop_loss_frac=0.02, exit_on_flat=False)
+    assert len(bt3["trades"]) == 1 and bt3["trades"][0]["entry_i"] == 1 and bt3["trades"][0]["exit_i"] == 1 and bt3["trades"][0]["reason"] == "SL", bt3["trades"]
+
+    # (1C) SL intrabar sur e=2 alors que s[1]=1 : interdiction de ré-entrer rétroactivement à o[2]
+    l_1c = np.array([99.5, 99.5, 95.0, 99.5])
+    s_1c = np.array([1, 1, 0, 0])
+    bt_1c = backtest_events(o3, h3, l_1c, c3, s_1c, stop_loss_frac=0.02, exit_on_flat=False)
+    assert len(bt_1c["trades"]) == 1 and bt_1c["trades"][0]["entry_i"] == 1 and bt_1c["trades"][0]["exit_i"] == 2 and bt_1c["trades"][0]["reason"] == "SL", bt_1c["trades"]
+
+    # (1B) Sortie SIGNAL à l'ouverture o[2] avant le creux intrabar l[2]
+    l4 = np.array([99.5, 99.5, 90.0, 99.5])
+    s4 = np.array([1, 0, 0, 0])                  # s4[0]=1 -> entrée e=1; s4[1]=0 -> sortie SIGNAL à o4[2]=100.0
+    bt4 = backtest_events(o3, h3, l4, c3, s4, stop_loss_frac=0.02, exit_on_flat=True)
+    assert bt4["trades"][0]["reason"] == "SIGNAL" and abs(bt4["trades"][0]["exit_px"] - 100.0) < 1e-12, bt4["trades"]
+    assert len(bt["bar_returns"]) == n and abs(bt["bar_returns"].sum() - sum(t["net"] for t in bt["trades"])) < 1e-9
+
     print(f"lookahead: fuite={lk['verdict']} | causal={ok['verdict']}")
     print(f"aléatoire+coûts: mean_net={bt['summary']['mean_net']:.5f} | gap-through: {tr['reason']} {tr['gross']:.3f} | "
           f"EMA warm-up stable dès {ws['min_stable_startup']} barres")
-    print("event_backtester : 4/4 auto-tests OK")
+    print("event_backtester : 6/6 auto-tests OK")

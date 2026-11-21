@@ -283,13 +283,16 @@ def effective_number_of_trials(trial_returns: np.ndarray, max_clusters: int = 20
     - n_clusters          : nombre de clusters (Ward sur distance sqrt(0.5(1-rho))), choisi par silhouette
     """
     X = np.asarray(trial_returns, dtype=float)
+    if X.ndim == 1 or X.shape[1] < 2:
+        K = 1 if X.ndim == 1 else X.shape[1]
+        return {"K": int(K), "participation_ratio": float(K), "rho_bar": 1.0, "rho_bar_formula": float(K), "n_clusters": int(K), "silhouette": 0.0}
     K = X.shape[1]
-    if K < 2:
-        return {"K": K, "participation_ratio": 1.0, "rho_bar_formula": 1.0, "n_clusters": 1}
     sd = X.std(axis=0)
     keep = sd > 0
     X = X[:, keep]
     K2 = X.shape[1]
+    if K2 < 2:
+        return {"K": int(K), "participation_ratio": float(K2), "rho_bar": 1.0, "rho_bar_formula": float(K2), "n_clusters": int(K2), "silhouette": 0.0}
     C = np.corrcoef(X, rowvar=False)
     C = np.nan_to_num(C, nan=0.0)
     lam = np.clip(np.linalg.eigvalsh(C), 0, None)
@@ -334,19 +337,27 @@ def _psr(sr: float, T: int, g3: float, g4: float, sr0: float) -> float:
 
 def deflated_sharpe_effective(best_returns: Sequence[float], trial_sharpes: Sequence[float],
                               n_effective: Optional[float] = None) -> Dict[str, float]:
-    """DSR avec N = n_effective (sinon K brut). Variance des SR = variance observée des essais."""
+    """
+    DSR avec N = n_effective (sinon K brut).
+    Sous H0 (SR_vrai = 0), la variance théorique d'un estimateur de Sharpe sur T observations
+    est bornée par (1.5 / sqrt(T - 1))^2 afin qu'une paire (+signal, -signal) n'explose pas sr0.
+    """
     r = np.asarray(best_returns, dtype=float)
     r = r[np.isfinite(r)]
     T = len(r)
     srs = np.asarray([s for s in trial_sharpes if s is not None and np.isfinite(s)], dtype=float)
     N = float(n_effective) if n_effective else float(max(1, len(srs)))
-    var = float(srs.var(ddof=1)) if len(srs) > 1 else 1.0 / max(1, T - 1)
+    null_var_cap = (1.5 / math.sqrt(max(2, T) - 1.0)) ** 2
+    sample_var = float(srs.var(ddof=1)) if len(srs) > 1 else 1.0 / max(1, T - 1)
+    var = min(sample_var, null_var_cap) if sample_var > 0 else 1.0 / max(1, T - 1)
     sd = math.sqrt(max(var, 1e-18))
     if N > 1:
         sr0 = sd * ((1 - EULER_GAMMA) * norm.ppf(1 - 1.0 / N) + EULER_GAMMA * norm.ppf(1 - 1.0 / (N * math.e)))
     else:
         sr0 = 0.0
     sr = float(r.mean() / r.std(ddof=1)) if T > 2 and r.std(ddof=1) > 0 else float("nan")
+    if T < 4 or not math.isfinite(sr):
+        return {"sr": sr, "sr0": float(sr0), "N_used": N, "T": T, "dsr": float("nan")}
     return {"sr": sr, "sr0": float(sr0), "N_used": N, "T": T,
             "dsr": _psr(sr, T, float(skew(r, bias=False)), float(kurtosis(r, fisher=False, bias=False)), sr0)}
 
@@ -358,6 +369,8 @@ def sharpe_ci(returns: Sequence[float], alpha: float = 0.05) -> Dict[str, float]
     r = np.asarray(returns, dtype=float)
     r = r[np.isfinite(r)]
     T = len(r)
+    if T < 4 or r.std(ddof=1) <= 0:
+        return {"sr": float("nan"), "se": float("nan"), "lo": float("nan"), "hi": float("nan")}
     sr = float(r.mean() / r.std(ddof=1))
     g3 = float(skew(r, bias=False))
     g4 = float(kurtosis(r, fisher=False, bias=False))
@@ -441,8 +454,12 @@ if __name__ == "__main__":
     n_eps = sample_size_bias_detection(0.001)
     assert 2_000_000 < n_eps < 10_000_000, n_eps
     assert abs(break_even_probability(payout_ratio=0.95) - 1 / 1.95) < 1e-12
+    # 8. DSR effectif robuste aux paires bimodales (+SR, -SR)
+    strong_sig = rng.normal(0.25, 1.0, 1200)
+    dsr_bimodal = deflated_sharpe_effective(strong_sig, [0.25, -0.25, 0.01, -0.01], n_effective=2.0)
+    assert dsr_bimodal["dsr"] > 0.99, dsr_bimodal
     print(f"bloc WN={b_wn:.2f} AR(0.8)={b_ar:.2f} | RC bruit p={rc0['p_value']:.3f} SPA bruit p={spa0['p_value']:.3f}")
     print(f"edge planté: RC p={rc1['p_value']:.4f} SPA p={spa1['p_value']:.4f} StepM={sm['superior']} MCS={mcs['included']}")
     print(f"N_eff(30 clones)={ne['participation_ratio']:.2f} clusters={ne['n_clusters']} | haircut Bonf={hc['haircut_bonferroni']:.2%}")
     print(f"n pour détecter eps=0.1% : {n_eps:,} tirages | MinTRL(SR=0.05/période)={min_track_record_length(0.05):.0f} obs")
-    print("quant_inference_engine : 7/7 auto-tests OK")
+    print("quant_inference_engine : 8/8 auto-tests OK")
