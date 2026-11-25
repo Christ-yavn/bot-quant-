@@ -29,7 +29,7 @@ jobs:
       - name: Run Quantitative Mechanics & Anti-Lookahead Unit Tests
         run: pytest tests/test_quantitative_mechanics.py -v
 
-      - name: Run Quant-Pod v3.0 10-Engine Built-In Self-Tests
+      - name: Run Quant-Pod v4.0 12-Engine Built-In Self-Tests
         env:
           PYTHONPATH: skills/quant-pod/scripts
         run: |
@@ -41,5 +41,7 @@ jobs:
           python skills/quant-pod/scripts/quant_validation_engine.py
           python skills/quant-pod/scripts/quant_scientific_arsenal.py
           python skills/quant-pod/scripts/prng_forensics.py
+          python skills/quant-pod/scripts/macro_causal_intelligence.py
           python skills/quant-pod/scripts/quant_discovery_engine.py
           python skills/quant-pod/scripts/deriv_quant_engine.py
+          python skills/quant-pod/scripts/live_deployment_governance.py

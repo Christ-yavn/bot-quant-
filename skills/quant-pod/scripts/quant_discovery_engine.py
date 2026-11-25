@@ -745,17 +745,21 @@ def run_autonomous_discovery_loop(
     roundtrip_cost_bps: float = 2.0,
     ledger_path: Optional[str | Path] = None,
     bars_per_year: float = 24.0 * 365.0,
+    exogenous_drivers: Optional[Dict[str, np.ndarray]] = None,
+    carry_or_funding_rate: Optional[np.ndarray] = None,
+    volume: Optional[np.ndarray] = None,
 ) -> Dict[str, Any]:
     """
-    Exécute une campagne de recherche autonome complète en boucle fermée :
-    - Phase 1 : Diagnostic DGP complet (`diagnose_market_dgp`) + Planification Stratégique Algorithmique
-      (`AlgorithmicStrategyPlanner`) prescrivant le playbook, l'horizon H* et les priors de familles.
-    - Phase 2 (Génération 1) : Évaluation des familles d'hypothèses orthogonales (incluant la famille
-      Chameleon H5 sur les marchés à bascule de régime), filtrage AST (`ast_originality_penalty`),
+    Exécute une campagne de recherche autonome complète en boucle fermée (v4.0) :
+    - Phase 1 : Diagnostic DGP (`diagnose_market_dgp`), Écologie de Marché & Découverte Causale
+      Inter-Actifs (`macro_causal_intelligence`) strictement sur Train (70%), puis Planification
+      Stratégique Algorithmique (`AlgorithmicStrategyPlanner`).
+    - Phase 2 (Génération 1) : Évaluation des familles endogènes (`H1..H5`) ET des familles
+      structurelles exogènes/macro/flux synthétisées (`H6` Spillover Causal Inter-Actifs, `H7`
+      Portage/Crowding, `H8` Volume Institutionnel), filtrage AST (`ast_originality_penalty`),
       débat contradictoire (`bull_bear_hypothesis_debate`) et ordonnancement UCB (`UCBFamilyBandit`).
-    - Phase 3 (Génération 2 — Mutation Ciblée Sans Fuite) : Diagnostic du mode de défaillance
-      (`diagnose_failure_mode`) calculé sur la tranche causale Train (70% initiaux) afin d'éviter le
-      biais de sélection in-sample, et vérification hors-échantillon sur la tranche Validation (30%).
+    - Phase 3 (Génération 2 & 3 — Mutation Ciblée Sans Fuite) : Diagnostic du mode de défaillance
+      (`diagnose_failure_mode`) calculé sur Train (70%) et vérification sur Validation (30%).
     - Phase 4 : Journalisation SHA-256 dans `ResearchLedger` et calcul du vrai DSR(K_total) et PBO.
     """
     c = np.asarray(close, dtype=np.float64)
@@ -770,7 +774,7 @@ def run_autonomous_discovery_loop(
     log_r = np.zeros(n, dtype=np.float64)
     log_r[1:] = np.diff(np.log(np.maximum(c, 1e-12)))
 
-    # 1. Découpage causal strict Train (70%) / Validation (30%) AVANT tout diagnostic DGP
+    # 1. Découpage causal strict Train (70%) / Validation (30%) AVANT tout diagnostic DGP ou Macro-Causal
     if n >= 300:
         split_idx = min(max(250, int(0.70 * n)), n - 50)
     elif n >= 251:
@@ -783,7 +787,45 @@ def run_autonomous_discovery_loop(
     strategy_plan = AlgorithmicStrategyPlanner.plan(dgp_report)
     opt_h = int(strategy_plan.optimal_horizon_bars)
 
-    # 2. Calcul des primitives causales
+    # 1.bis Intelligence Économique, Écologie de Marché & Réseau Causal Inter-Actifs (strictement sur Train !)
+    ecology_report: Optional[Dict[str, Any]] = None
+    train_causal_net: Optional[Dict[str, Any]] = None
+    exogenous_family_names: Set[str] = set()
+    priors_merged = dict(strategy_plan.family_priors)
+
+    if exogenous_drivers is not None or carry_or_funding_rate is not None or volume is not None:
+        from macro_causal_intelligence import (
+            build_causal_spillover_forecast,
+            cross_asset_causal_network,
+            diagnose_market_ecology,
+        )
+
+        exo_train = (
+            {k: np.asarray(v, dtype=np.float64).reshape(-1)[:split_idx] for k, v in exogenous_drivers.items()}
+            if exogenous_drivers
+            else None
+        )
+        carry_train = (
+            np.asarray(carry_or_funding_rate, dtype=np.float64).reshape(-1)[:split_idx]
+            if carry_or_funding_rate is not None
+            else None
+        )
+        vol_train = (
+            np.asarray(volume, dtype=np.float64).reshape(-1)[:split_idx]
+            if volume is not None
+            else None
+        )
+        ecology_report = diagnose_market_ecology(
+            c[:split_idx],
+            roundtrip_cost_bps=roundtrip_cost_bps,
+            volume=vol_train,
+            carry_or_funding_rate=carry_train,
+            exogenous_drivers=exo_train,
+        )
+        if exo_train:
+            train_causal_net = cross_asset_causal_network(log_r[:split_idx], exo_train, max_lag=6)
+
+    # 2. Calcul des primitives causales endogènes
     yz_short = AlphaPrimitives.yang_zhang_volatility(o, h, l, c, window=16)
     yz_long = AlphaPrimitives.yang_zhang_volatility(o, h, l, c, window=96)
     vol_ratio = np.where(yz_long > 1e-12, yz_short / yz_long, 1.0)
@@ -807,7 +849,7 @@ def run_autonomous_discovery_loop(
     # H5: Chameleon Kalman-Momentum Hybrid (Momentum en régime persistant, Kalman en régime anti-persistant)
     sig_h5 = np.where(local_rho >= 0.08, ret_z, np.where(local_rho <= -0.08, -kalman_z, 0.0))
 
-    gen1_specs = [
+    gen1_specs: List[Tuple[str, str, str, np.ndarray, int, float]] = [
         ("H1_VolSqueeze_Breakout", "I(YZ_16/YZ_96 < 0.85) * Z(r_t, 24)", "vol_ratio * ret_z", sig_h1, opt_h, 1.25),
         ("H2_Kalman_MeanReversion", "-KalmanInnovationZ(close, adaptive_ewma_r)", "-kalman_z", sig_h2, opt_h, 1.50),
         ("H3_Hawkes_Cascade_Reversion", "-Z(HawkesIntensity(r_t, 2.0sigma), 72)", "-hawkes_int", sig_h3, max(6, opt_h), 1.50),
@@ -815,7 +857,63 @@ def run_autonomous_discovery_loop(
         ("H5_Chameleon_Kalman_Regime", "Chameleon(RollingACF_48, ret_z, -kalman_z)", "local_rho * (ret_z - kalman_z)", sig_h5, opt_h, 1.20),
     ]
 
-    bandit = UCBFamilyBandit([sp[0] for sp in gen1_specs], family_priors=strategy_plan.family_priors)
+    # Synthèse Abductive d'Hypothèses Exogènes / Économiques (Filtration Élargie F_{t}^{X, Z})
+    if exogenous_drivers and train_causal_net and train_causal_net.get("verified_causal_leaders"):
+        from macro_causal_intelligence import build_causal_spillover_forecast
+
+        exo_full = {k: np.asarray(v, dtype=np.float64).reshape(-1)[:n] for k, v in exogenous_drivers.items()}
+        sig_h6 = build_causal_spillover_forecast(exo_full, train_causal_net, n_bars=n, ewma_norm_span=48)
+        top_leader = train_causal_net["verified_causal_leaders"][0]
+        h6_h = max(1, min(opt_h, int(top_leader["best_lag_bars"]) * 2))
+        gen1_specs.append(
+            (
+                "H6_CrossAsset_Causal_Spillover",
+                f"CausalSpillover({top_leader['driver_name']}, lag={top_leader['best_lag_bars']})",
+                "exo_spillover_z",
+                sig_h6,
+                h6_h,
+                1.10,
+            )
+        )
+        exogenous_family_names.add("H6_CrossAsset_Causal_Spillover")
+        priors_merged["H6_CrossAsset_Causal_Spillover"] = 0.45
+
+    if carry_or_funding_rate is not None:
+        cf_full = np.nan_to_num(np.asarray(carry_or_funding_rate, dtype=np.float64).reshape(-1)[:n], nan=0.0)
+        cf_z = AlphaPrimitives.causal_zscore(cf_full, window=48)
+        # Contrarian contre l'encombrement extrême du funding + ancre de Kalman
+        sig_h7 = np.where(np.abs(cf_z) > 1.25, -0.65 * cf_z - 0.35 * kalman_z, 0.0)
+        gen1_specs.append(
+            (
+                "H7_Carry_Crowding_Regime_Harvest",
+                "-I(|Z(Funding_48)|>1.25)*(0.65*Z_Funding + 0.35*KalmanZ)",
+                "-(funding_z + kalman_z)",
+                sig_h7,
+                max(4, opt_h),
+                1.15,
+            )
+        )
+        exogenous_family_names.add("H7_Carry_Crowding_Regime_Harvest")
+        priors_merged["H7_Carry_Crowding_Regime_Harvest"] = 0.30
+
+    if volume is not None:
+        vol_full = np.maximum(0.0, np.nan_to_num(np.asarray(volume, dtype=np.float64).reshape(-1)[:n], nan=0.0))
+        vol_z = AlphaPrimitives.causal_zscore(np.log1p(vol_full), window=48)
+        sig_h8 = np.where((vol_z > 1.0) & (vol_ratio < 1.15), ret_z * np.clip(vol_z / 2.0, 0.5, 2.0), 0.0)
+        gen1_specs.append(
+            (
+                "H8_Volume_Flow_Shock_Continuation",
+                "I(Z(logVol_48)>1.0 & YZ_ratio<1.15) * Z(r_t, 24) * VolZ",
+                "vol_shock_z * ret_z",
+                sig_h8,
+                opt_h,
+                1.20,
+            )
+        )
+        exogenous_family_names.add("H8_Volume_Flow_Shock_Continuation")
+        priors_merged["H8_Volume_Flow_Shock_Continuation"] = 0.25
+
+    bandit = UCBFamilyBandit([sp[0] for sp in gen1_specs], family_priors=priors_merged)
     ast_archive: List[str] = []
     evaluations: List[CandidateEvaluation] = []
     val_t_stats: List[float] = []
@@ -841,7 +939,9 @@ def run_autonomous_discovery_loop(
             expected_gross_bps=max(0.0, float(train_res["gross_bps"])),
             roundtrip_cost_bps=roundtrip_cost_bps,
             ast_novelty_report=nov,
-            targets_martingale_price_history=strategy_plan.doob_martingale_veto,
+            targets_martingale_price_history=bool(
+                strategy_plan.doob_martingale_veto and (name not in exogenous_family_names)
+            ),
         )
         val_res = evaluate_signal_non_overlapping(
             sig_vec[split_idx:], log_r[split_idx:], horizon=horizon, entry_threshold=thr,
@@ -943,7 +1043,9 @@ def run_autonomous_discovery_loop(
             expected_gross_bps=max(0.0, float(train_res["gross_bps"])),
             roundtrip_cost_bps=roundtrip_cost_bps,
             ast_novelty_report=nov,
-            targets_martingale_price_history=strategy_plan.doob_martingale_veto,
+            targets_martingale_price_history=bool(
+                strategy_plan.doob_martingale_veto and (parent_fam not in exogenous_family_names)
+            ),
         )
         val_res = evaluate_signal_non_overlapping(
             sig_vec[split_idx:], log_r[split_idx:], horizon=horizon, entry_threshold=thr,
@@ -1080,10 +1182,13 @@ def run_autonomous_discovery_loop(
         d["bull_bear_objections"] = list(ev.bull_bear_objections)
         summary_rows.append(d)
 
+    best_is_exogenous = any(best_eval.name.startswith(ef) for ef in exogenous_family_names)
     return {
         "dgp_diagnosis": dgp_report,
         "dgp_scope": "train_causal_slice",
         "split_idx": split_idx,
+        "market_ecology": ecology_report,
+        "train_causal_network": train_causal_net,
         "strategy_plan": asdict(strategy_plan),
         "bandit_summary": bandit.summary(),
         "bull_bear_debate_summary": {
@@ -1109,8 +1214,9 @@ def run_autonomous_discovery_loop(
             "pbo_cscv": round(float(pbo_res["pbo"]), 4),
             "bull_bear_approved": debate_best["approved_for_backtest"],
             "bull_bear_conviction": debate_best["conviction_score"],
+            "is_exogenous_enlarged_filtration": best_is_exogenous,
             "passes_boost": bool(
-                not strategy_plan.doob_martingale_veto
+                (not strategy_plan.doob_martingale_veto or best_is_exogenous)
                 and debate_best["approved_for_backtest"]
                 and best_eval.n_trades >= GATES["min_trades"]
                 and best_val_t > 0.0
@@ -1622,3 +1728,20 @@ if __name__ == "__main__":
     )
     assert pass_res["approved_for_backtest"], f"Approbation attendue sur régime structuré: {pass_res}"
     print("[OK] TradingAgents Bull/Bear Debate Gate validé.")
+
+    # Cas 6 : Synthèse v4.0 sur Filtration Élargie (Spillover Macro/Inter-Actifs sur série sans mémoire propre)
+    macro_leader = rng.normal(0.0, 0.004, size=n_bars)
+    r_exo = np.zeros(n_bars)
+    for t in range(1, n_bars):
+        r_exo[t] = 0.55 * macro_leader[t - 1] + rng.normal(0.0, 0.002)
+    c_exo = 100.0 * np.exp(np.cumsum(r_exo))
+    o_exo = np.roll(c_exo, 1)
+    o_exo[0] = c_exo[0]
+    h_exo = np.maximum(o_exo, c_exo) * 1.0008
+    l_exo = np.minimum(o_exo, c_exo) * 0.9992
+    rep_exo = run_autonomous_discovery_loop(
+        o_exo, h_exo, l_exo, c_exo, roundtrip_cost_bps=1.5, exogenous_drivers={"Rates_Macro_Impulse": macro_leader}
+    )
+    assert rep_exo["best_candidate"]["name"].startswith("H6_CrossAsset_Causal_Spillover"), rep_exo["best_candidate"]
+    assert rep_exo["best_candidate"]["passes_boost"], f"Le spillover macro causal aurait dû passer /boost: {rep_exo['best_candidate']}"
+    print("[OK] v4.0 Exogenous Macro/Cross-Asset Enlarged-Filtration Synthesis validé :", rep_exo["best_candidate"]["name"])

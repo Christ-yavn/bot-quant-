@@ -104,3 +104,29 @@ Exécute sans aucune complaisance les 6 contrôles d'audit suivants via sous-age
 5. **Calibration sur Modèle Nul Exact (`null_models.py`)** : Fais tourner exactement le même bot sur `M = 100` trajectoires synthétiques sans edge (`make_null_generator`) pour mesurer la p-value empirique $p_{\text{null}}$.
 6. **Verdict binaire `GO PAPER` / `NO-GO IMMÉDIAT`** avec preuves `[MESURÉ]` et plan chirurgical de remédiation (ou d'abandon définitif). /boost
 ```
+
+---
+
+## PROMPT MAÎTRE N°5 — Campagne Complète `v4.0` : Enquête Macro-Économique, Découverte de Stratégie Inédite & Déploiement Gouverné (`12/12 Moteurs`)
+
+```markdown
+Active immédiatement le skill `quant-pod` v4.0 (Cycle Complet Quant Researcher + Quant Dev, 12 moteurs Python) en mode `/goal`.
+
+### MISSION DE BOUT EN BOUT (DE L'ÉCONOMIE DU MARCHÉ AU DÉPLOIEMENT)
+- **Marché(s) cible(s)** : [EX: XAUUSD / BTCUSDT + ETHUSDT / EURUSD / NQ + ZN Futures]
+- **Séries exogènes / macro disponibles ou à collecter** : [EX: US2Y, DXY, VIX, Funding Rate, Open Interest, Calendrier CPI/FOMC]
+- **Données locales** : [CHEMIN_DES_DONNÉES]
+- **Frictions réelles LIVE** : [SPREAD_LIVE_BPS + COMMISSIONS + SLIPPAGE + LATENCE]
+
+### EXÉCUTION HIÉRARCHIQUE OBLIGATOIRE
+1. **Scellement Cryptographique (`research_integrity.py`)** : Scelle immédiatement le Holdout 20 % dans `HashChainLedger` + `data_manifest`.
+2. **Enquête Économique, Écologie de Marché & Causalité Inter-Actifs (`macro_causal_intelligence.py` + `search_web` + `CoVe`)** :
+   - Recherche et vérifie (sources primaires + calibration `[CONFIANCE: X%]`) ce qui fait tourner ce marché, ses horaires institutionnels/fixings et ses contreparties contraintes (`diagnose_market_ecology`).
+   - Aligne toute annonce macro en strict Point-in-Time (`pit_macro_release_aligner`), identifie le quadrant Croissance × Inflation × Liquidité (`classify_macro_liquidity_regime`), isole les vrais leaders causaux par Double-ML / Granger-HAC (`cross_asset_causal_network`) et mesure le PEAD des catalyseurs (`macro_event_study_analyzer`) **strictement sur Train**.
+3. **Synthèse Abductive de Stratégies Inédites (`quant_discovery_engine.py` + `event_backtester.py`)** :
+   - Génère 5 thèses structurelles divergentes (`VS-Extreme` + résolution de contradictions `TRIZ`), vérifie `ast_originality_penalty` et `bull_bear_hypothesis_debate`, scelle `commit_hypothesis`, et exécute `run_autonomous_discovery_loop(..., exogenous_drivers=..., carry_or_funding_rate=..., volume=...)` + `backtest_events` après passage à `0` fuite de `lookahead_truncation_test`.
+4. **Tribunal Aveugle `/boost` (`quant_inference_engine.py`, `quant_validation_engine.py`, `null_models.py`)** :
+   - Soumets l'intégralité des essais aux 10 portes (`DSR(N_eff) >= 0.95`, `Hansen SPA`, `Romano-Wolf StepM`, `PBO <= 0.20`, `Coûts Live × 2`, `M >= 100` modèles nuls).
+5. **Allocation Multi-Régimes & Gouvernance de Déploiement Quant Dev (`quant_scientific_arsenal.py` + `live_deployment_governance.py`)** :
+   - Si et seulement si le candidat survit au tribunal aveugle, ouvre une unique fois le Holdout, vérifie le spanning orthogonal (`orthogonal_alpha_spanning_test`), calibre `regime_conditional_book_allocator`, compile le contrat SHA-256 `build_deployment_manifest`, calcule la capacité maximale d'AUM (`estimate_strategy_capacity_usd`), et livre le module prêt au Paper-Trading piloté par `DeterministicExecutionRouter` et `LiveGovernanceMonitor` (KS slippage + Kill-Switch CUSUM). /goal
+```
