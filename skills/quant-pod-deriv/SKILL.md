@@ -1,13 +1,13 @@
 ---
 name: quant-pod-deriv
-description: Specialized Quantitative Research & Deployment Skill v4.0 for Synthetic Stochastic Processes & Jump-Diffusion Markets (94 symbols / 11 stochastic families, 12 scientific Python engines) — Market Ecology separation (Synthetic CSPRNG vs Real Orderflow), Doob's Optional Stopping Theorem enforcement, NIST SP 800-22/90B/PIT CSPRNG forensics, 10 exact martingale null models, Wonham 3-state continuous-time Bayesian filtering, 2-level multi-agent validation, and live deployment governance (KS slippage + CUSUM Kill-Switch).
+description: Specialized Quantitative Research Skill v3.0 for Synthetic Stochastic Processes & Jump-Diffusion Markets (94 symbols / 11 stochastic families) — Doob's Optional Stopping Theorem enforcement, NIST SP 800-22/90B/PIT CSPRNG forensics, 10 exact martingale null models, Wonham 3-state continuous-time Bayesian filtering, and 2-level multi-agent validation.
 ---
 
-# Quant Pod Deriv v4.0 — Synthetic Jump-Diffusion, Regime-Switching & Live Governance Specialization
+# Quant Pod Deriv v3.0 — Synthetic Jump-Diffusion & Regime-Switching Specialization
 
 ## English Overview
 
-This skill extends [`../quant-pod/SKILL.md`](../quant-pod/SKILL.md) (**v4.0**) for **synthetic stochastic processes, jump-diffusion indices, and barrier/accumulator contracts** (covering 11 mathematical families across 94 instruments). It inherits the full 2-level multi-agent architecture and all **12 pure-Python scientific engines** of `quant-pod` (including `diagnose_market_ecology(..., is_synthetic_csprng=True)` in `macro_causal_intelligence.py` to strictly forbid conflating macroeconomic/human-crowd narratives with server-side CSPRNG SDEs, and `live_deployment_governance.py` for idempotent routing, spread-spike circuit breakers, and live KS/CUSUM Kill-Switches), while adding strict domain laws for known-distribution stochastic processes:
+This skill extends [`../quant-pod/SKILL.md`](../quant-pod/SKILL.md) for **synthetic stochastic processes, jump-diffusion indices, and barrier/accumulator contracts** (covering 11 mathematical families across 94 instruments). It inherits the full 2-level multi-agent architecture and all 10 pure-Python scientific engines of `quant-pod`, while adding strict domain laws for known-distribution stochastic processes:
 
 1. **Doob's Optional Stopping Theorem Enforcement**: On pure memoryless CSPRNG martingales (constant-volatility diffusions, step random walks, or compensated Poisson jump processes), no entry rule, stop-loss, take-profit, or position-sizing scheme based solely on past price history can turn a negative net-of-spread expectation positive ($\mathbb{E}[\text{PnL}] = -\text{Live Spread} - \text{Financing}$).
 2. **Three Valid Sources of Mathematical Edge**:
@@ -68,12 +68,11 @@ Ce skill est l'extension spécialisée **Processus Stochastiques Synthétiques &
    Exécuter `nist_sp800_22_battery`, `sp800_90b_min_entropy`, `pit_battery`, `exploitability_verdict` (`../quant-pod/scripts/prng_forensics.py`), `diagnose_market_dgp` et `plan_strategy_from_market_regime` (`AlgorithmicStrategyPlanner` dans `../quant-pod/scripts/quant_discovery_engine.py`).
 4. **Recherche Ordonnancée par Bandit UCB, Régularisation AST & Backtest `SL_GAP`** :
    Exécuter `UCBFamilyBandit`, `ast_originality_penalty`, `bull_bear_hypothesis_debate`, `lookahead_truncation_test`, et `backtest_events` (chronologie intra-barre exacte + `bar_returns`) avec le `live_spread_bps` exact.
-5. **Tribunal Aveugle `/boost`, Modèles Nuls des 10 Familles, Spanning & Gouvernance Live** :
-   Exécuter `hansen_spa`, `romano_wolf_stepm`, `deflated_sharpe_effective`, `pbo_cscv`, `Coûts Live × 2`, `null_models.py`, `orthogonal_alpha_spanning_test` / `regime_conditional_book_allocator` (`quant_scientific_arsenal.py`), puis sceller le manifeste `build_deployment_manifest` et activer `DeterministicExecutionRouter` + `LiveGovernanceMonitor` (`live_deployment_governance.py`) avant toute ouverture unique du Holdout et mise en Paper-Trading.
+5. **Tribunal Aveugle `/boost`, Modèles Nuls des 10 Familles & Spanning de Portefeuille** :
+   Exécuter `hansen_spa`, `romano_wolf_stepm`, `deflated_sharpe_effective`, `pbo_cscv`, `Coûts Live × 2`, `null_models.py` et `orthogonal_alpha_spanning_test` / `regime_conditional_book_allocator` (`quant_scientific_arsenal.py`) avant toute ouverture unique du Holdout.
 
 ### Chemins Relatifs vers les Moteurs & Références Partagés :
-- Moteurs Python (`12/12`) : [`../quant-pod/scripts/`](../quant-pod/scripts/)
-- Guide Cerveau Quant Researcher & Macro-Causal : [`../quant-pod/references/macro_economic_and_researcher_thinking.md`](../quant-pod/references/macro_economic_and_researcher_thinking.md)
+- Moteurs Python (`10/10`) : [`../quant-pod/scripts/`](../quant-pod/scripts/)
 - Référence 11 Familles Synthétiques : [`../quant-pod/references/deriv_11_families.md`](../quant-pod/references/deriv_11_families.md)
 - Encyclopédie SOTA 2026 : [`../quant-pod/references/sota_github_quant_crypto_prng_2026.md`](../quant-pod/references/sota_github_quant_crypto_prng_2026.md)
 - Master Prompts prêts à copier : [`../quant-pod/references/master_prompts_arsenal.md`](../quant-pod/references/master_prompts_arsenal.md)
